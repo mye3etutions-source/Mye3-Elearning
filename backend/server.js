@@ -17,7 +17,6 @@ initializeExpiryCron();
 
 // Initialize Socket.io
 const io = new Server(server, {
-  path: process.env.NODE_ENV === 'production' ? '/api/socket.io' : '/socket.io',
   cors: {
     origin: process.env.NODE_ENV === 'production' 
       ? process.env.FRONTEND_URL 
