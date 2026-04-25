@@ -17,11 +17,8 @@ const StudentLayout = ({ children }) => {
 
   // Determine socket URL dynamically
   const getSocketUrl = () => {
-    if (import.meta.env.VITE_API_URL) {
-      return import.meta.env.VITE_API_URL.replace('/api', '').replace(/\/$/, '');
-    }
     const apiUrl = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin + '/api');
-    return apiUrl;
+    return apiUrl.replace('/api', '').replace(/\/$/, '');
   };
 
   const socketUrl = getSocketUrl();
@@ -38,6 +35,7 @@ const StudentLayout = ({ children }) => {
     fetchAlerts();
 
     const socket = io(socketUrl, {
+      path: window.location.hostname === 'localhost' ? '/socket.io' : '/api/socket.io',
       withCredentials: true,
       transports: ['polling', 'websocket'],
       reconnection: true,

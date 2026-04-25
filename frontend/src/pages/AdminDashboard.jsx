@@ -18,6 +18,7 @@ const getSocketUrl = () => {
 };
 
 const socket = io(getSocketUrl(), {
+  path: window.location.hostname === 'localhost' ? '/socket.io' : '/api/socket.io',
   transports: ['polling', 'websocket'],
   reconnection: true,
   reconnectionAttempts: 10,

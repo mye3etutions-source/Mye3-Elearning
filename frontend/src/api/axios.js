@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 // Set baseURL to the root of the server
-const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const instance = axios.create({
-  baseURL: base.endsWith('/') ? `${base}api` : `${base}/api`,
+  baseURL: base.includes('/api') ? base : (base.endsWith('/') ? `${base}api` : `${base}/api`),
   withCredentials: true,
 });
 
