@@ -25,7 +25,7 @@ const getSocketUrl = () => {
     if (import.meta.env.VITE_API_URL) {
         return import.meta.env.VITE_API_URL.replace('/api', '').replace(/\/$/, '');
     }
-    return import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
+    return import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin + '/api');
 };
 
 const socket = io(getSocketUrl(), {

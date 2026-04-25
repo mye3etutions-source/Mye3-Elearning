@@ -14,7 +14,7 @@ import {
 import io from 'socket.io-client';
 
 const getSocketUrl = () => {
-  return import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
+  return import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin + '/api');
 };
 
 const socket = io(getSocketUrl(), {
