@@ -38,5 +38,4 @@ jobs:
           server-dir: mye3etutions.com/backend/
           exclude: |
             **/node_modules/**
-            **/.env
             **/debug.log
