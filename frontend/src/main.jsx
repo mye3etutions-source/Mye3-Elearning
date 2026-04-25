@@ -13,7 +13,7 @@ const isLocal = backendUrl.includes('localhost') || backendUrl.includes('127.0.0
 
 axios.defaults.baseURL = (isLocal || !backendUrl) 
   ? '/api' 
-  : backendUrl.endsWith('/') ? `${backendUrl}api` : `${backendUrl}/api`;
+  : backendUrl.includes('/api') ? backendUrl : (backendUrl.endsWith('/') ? `${backendUrl}api` : `${backendUrl}/api`);
 
 axios.defaults.withCredentials = true;
 
