@@ -20,7 +20,7 @@ const StudentLayout = ({ children }) => {
     if (import.meta.env.VITE_API_URL) {
       return import.meta.env.VITE_API_URL.replace('/api', '').replace(/\/$/, '');
     }
-    return `${window.location.protocol}//${window.location.hostname}:5000`;
+    return import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5000`;
   };
 
   const socketUrl = getSocketUrl();
