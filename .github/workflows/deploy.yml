@@ -18,6 +18,8 @@ jobs:
           cd frontend
           npm install
           npm run build
+        env:
+          VITE_API_URL: https://mye3etutions.com/api
 
       - name: 🚀 Deploy Frontend to cPanel (mye3etutions.com/)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
