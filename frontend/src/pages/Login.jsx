@@ -52,16 +52,7 @@ const Login = () => {
               </Link>
             </header>
 
-            {/* Create Account Button Only */}
-            <div className="grid grid-cols-1 gap-2">
-              <Link 
-                to="/register" 
-                className="flex items-center justify-center w-full py-2.5 px-6 bg-slate-100 rounded-full font-bold text-slate-600 hover:bg-slate-200 transition-all text-sm"
-              >
-                Create Account
-              </Link>
-            </div>
-
+            {/* Social Login Separator */}
             <div className="relative flex items-center justify-center uppercase py-1">
               <div className="flex-grow border-t border-slate-100"></div>
               <span className="flex-shrink mx-3 text-[9px] font-black text-slate-300 tracking-widest whitespace-nowrap">
@@ -117,6 +108,14 @@ const Login = () => {
               <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all">
                 Login
               </button>
+
+              {/* Create Account - moved to bottom */}
+              <Link 
+                to="/register" 
+                className="flex items-center justify-center w-full py-2.5 px-6 bg-slate-100 rounded-full font-bold text-slate-600 hover:bg-slate-200 transition-all text-sm mt-2"
+              >
+                Create Account
+              </Link>
             </form>
           </div>
         </div>

@@ -589,26 +589,6 @@ const Navbar = () => {
         )}
       </nav>
 
-      {/* Floating WhatsApp Button - Draggable on Mobile */}
-      <motion.a
-        href="https://wa.me/919912671666"
-        target="_blank"
-        rel="noopener noreferrer"
-        drag={isMobileDrag}
-        dragConstraints={{ 
-          left: -window.innerWidth + 80, 
-          right: 0, 
-          top: -window.innerHeight + 80, 
-          bottom: 0 
-        }}
-        dragElastic={0.1}
-        dragMomentum={false}
-        className="fixed bottom-8 right-8 z-[1000] w-14 h-14 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform cursor-pointer touch-none"
-        style={{ background: '#25D366' }}
-      >
-        <FaWhatsapp className="text-3xl" />
-      </motion.a>
-
       {/* Floating Connect With Us Button */}
       <ConnectButton />
 
