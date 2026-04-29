@@ -6,7 +6,6 @@ const connectDB = require('./src/config/db');
 const { initializeCronJobs } = require('./src/cron/recurringScheduler');
 const { initializeExpiryCron } = require('./src/cron/expiryScheduler');
 
-const seedData = require('./src/config/seed');
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -37,8 +36,7 @@ io.on('connection', (socket) => {
   });
 });
 
-connectDB().then(async () => {
-  await seedData();
+connectDB().then(() => {
   server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
     console.log(`Socket.io is ready for real-time events`);

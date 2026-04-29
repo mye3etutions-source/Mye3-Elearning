@@ -150,10 +150,10 @@ const Footer = () => {
             <ul className="hidden md:block space-y-3">
               {[
                 { label: 'About Us', to: '/about' },
-                { label: 'Privacy Policy', to: '/' },
-                { label: 'Refund Policy', to: '/' },
-                { label: 'Terms & Conditions', to: '/' },
-                { label: 'Disclaimer', to: '/' },
+                { label: 'Privacy Policy', to: '/privacy-policy' },
+                { label: 'Refund Policy', to: '/refund-policy' },
+                { label: 'Terms & Conditions', to: '/terms-and-conditions' },
+                { label: 'Disclaimer', to: '/disclaimer' },
                 { label: 'Join As Teacher', to: '/register' }
               ].map((item, i) => (
                 <li key={i}>

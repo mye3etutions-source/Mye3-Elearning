@@ -94,7 +94,7 @@ const ManageSubjects = () => {
          <div className="space-y-2">
             <h1 className="text-4xl font-black text-slate-900 tracking-tight">Subject Management</h1>
             <p className="text-slate-500 font-bold flex items-center gap-2">
-               Inter 1st & 2nd Year Specialized Individual Subscriptions
+               Class 1 to 12 Specialized Individual Subscriptions
             </p>
          </div>
          <button 
@@ -113,7 +113,7 @@ const ManageSubjects = () => {
            </div>
            <div className="space-y-2">
               <h3 className="text-2xl font-black text-slate-800">No subjects found</h3>
-              <p className="text-slate-400 font-bold max-w-xs mx-auto">Start by adding your first specialized subject for Class 11 or 12.</p>
+              <p className="text-slate-400 font-bold max-w-xs mx-auto">Start by adding your first specialized subject for Class 1 to 12.</p>
            </div>
            <button 
              onClick={() => setIsModalOpen(true)}
@@ -147,8 +147,8 @@ const ManageSubjects = () => {
                       </td>
                       <td className="px-8 py-7">
                          <div className="space-y-1">
-                            <span className={`px-4 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${Number(sub.classLevel) === 11 ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                               {Number(sub.classLevel) === 11 ? 'Inter 1st Year' : 'Inter 2nd Year'}
+                            <span className={`px-4 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${Number(sub.classLevel) >= 11 ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                               {Number(sub.classLevel) === 11 ? 'Inter 1st Year' : Number(sub.classLevel) === 12 ? 'Inter 2nd Year' : `Class ${sub.classLevel}`}
                             </span>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-1 px-1">{sub.board || 'TS Board'}</p>
                          </div>
@@ -229,6 +229,9 @@ const ManageSubjects = () => {
                          onChange={(e) => setFormData({...formData, classLevel: e.target.value})}
                          className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-3xl outline-none font-bold text-slate-900 appearance-none cursor-pointer transition-all"
                        >
+                          {[...Array(10)].map((_, i) => (
+                             <option key={i + 1} value={i + 1}>Class {i + 1}</option>
+                          ))}
                           <option value="11">Inter 1st Year (11)</option>
                           <option value="12">Inter 2nd Year (12)</option>
                        </select>

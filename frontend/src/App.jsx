@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import About from './pages/About';
 import FAQs from './pages/FAQs';
 import ContactUs from './pages/ContactUs';
+import LegalPage from './pages/LegalPage';
 import Teachers from './pages/Teachers';
 import Store from './pages/student/StudentStore'; // Unified Store
 import Footer from './components/shared/Footer';
@@ -155,6 +156,10 @@ function AppContent() {
           <Route path="/faqs" element={<FAQs />} />
           <Route path="/contact-us" element={<ContactUs />} />
           <Route path="/teachers" element={<Teachers />} />
+          <Route path="/privacy-policy" element={<LegalPage />} />
+          <Route path="/refund-policy" element={<LegalPage />} />
+          <Route path="/terms-and-conditions" element={<LegalPage />} />
+          <Route path="/disclaimer" element={<LegalPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

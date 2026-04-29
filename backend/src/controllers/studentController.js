@@ -23,7 +23,12 @@ exports.getCatalog = async (req, res, next) => {
 
     const query = { isActive: true };
     if (boardFilter) {
-      query.board = boardFilter;
+      query.$or = [
+        { board: boardFilter },
+        { board: '' },
+        { board: null },
+        { board: { $exists: false } }
+      ];
     }
 
     const [classes, subjects] = await Promise.all([

@@ -161,8 +161,8 @@ const ManageClasses = () => {
 
          <div className="flex items-center justify-between">
             <div className="space-y-1">
-               <h1 className="text-3xl font-black text-slate-900">Class 6-10 Management</h1>
-               <p className="text-slate-500 font-bold">Configure bundle contents and study materials</p>
+               <h1 className="text-3xl font-black text-slate-900">Universal Class Management</h1>
+               <p className="text-slate-500 font-bold">Configure bundle contents for all classes (1st to 12th)</p>
             </div>
             <button
                onClick={() => setIsAddModalOpen(true)}

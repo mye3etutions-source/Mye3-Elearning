@@ -19,6 +19,11 @@ exports.getPaymentConfig = async (req, res, next) => {
     const isMock = !keyId || keyId === 'testmode' || keyId.includes('YOUR_');
     const enableReal = String(process.env.ENABLE_REAL_PAYMENT || '').toLowerCase().trim() === 'true';
     
+    console.log('--- Payment Config Debug ---');
+    console.log('RAZORPAY_KEY_ID:', keyId ? 'FOUND' : 'MISSING');
+    console.log('ENABLE_REAL_PAYMENT (Raw):', process.env.ENABLE_REAL_PAYMENT);
+    console.log('enableReal (Parsed):', enableReal);
+    
     res.status(200).json({
       mode: isMock ? 'test' : 'live',
       keyId: keyId,

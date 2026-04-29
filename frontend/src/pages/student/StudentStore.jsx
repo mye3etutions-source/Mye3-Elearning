@@ -234,13 +234,6 @@ const StudentStore = () => {
       const { data } = await axios.get(`/student/catalog${board ? `?board=${board}` : ''}`);
 
       let baseCourses = data || [];
-      if (baseCourses.length === 0) {
-        // Simple fallback defaults if DB is empty
-        baseCourses = [
-          { id: 'c6', name: 'Class 6 - All Subjects', classLevel: '6', type: 'bundle', price: 999, subjects: [{ name: 'Maths' }] },
-          { id: 'c10', name: 'Class 10 - All Subjects', classLevel: '10', type: 'bundle', price: 1499, subjects: [{ name: 'Maths' }] },
-        ];
-      }
 
       const sorted = baseCourses.sort((a, b) => parseInt(a.classLevel?.toString().replace(/\D/g, '') || '0') - parseInt(b.classLevel?.toString().replace(/\D/g, '') || '0'));
       setCourses(sorted);
@@ -343,7 +336,7 @@ const StudentStore = () => {
 
       // 2. Prepare Payload (consistent for both flows)
       const itemsPayload = selectedItems.map(item => {
-        const basePrice = item.pricing?.oneMonth || item.price || 500;
+        const basePrice = item.pricing?.oneMonth || item.price || 0;
         const discountMap = { oneMonth: 1, threeMonths: 0.95 * 3, sixMonths: 0.90 * 6, twelveMonths: 0.85 * 12 };
         const price = item.finalPrice || item.pricing?.[item.selectedDuration || 'oneMonth'] || Math.round(basePrice * (discountMap[item.selectedDuration || 'oneMonth'] || 1));
         

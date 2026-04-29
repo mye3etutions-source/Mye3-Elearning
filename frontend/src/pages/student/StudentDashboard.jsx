@@ -30,6 +30,7 @@ const StudentDashboard = () => {
   const { userInfo } = useSelector((state) => state.auth);
   const [learning, setLearning] = useState([]);
   const [liveAlerts, setLiveAlerts] = useState([]);
+  const [materialsCount, setMaterialsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [recapModal, setRecapModal] = useState({ open: false, session: null });
 
@@ -46,12 +47,14 @@ const StudentDashboard = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [lRes, aRes] = await Promise.all([
+      const [lRes, aRes, mRes] = await Promise.all([
         axios.get('/student/my-learning'),
-        axios.get('/student/live-alerts')
+        axios.get('/student/live-alerts'),
+        axios.get('/student/all-materials')
       ]);
       setLearning(lRes.data || []);
       setLiveAlerts(aRes.data || []);
+      setMaterialsCount(mRes.data?.length || 0);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching dashboard data');
@@ -109,6 +112,16 @@ const StudentDashboard = () => {
     return () => window.removeEventListener('refresh-student-data', fetchData);
   }, [fetchData, fetchCourses]);
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handlePayment = async () => {
     let itemsToProcess = [];
     if (isInter) {
@@ -117,7 +130,7 @@ const StudentDashboard = () => {
         const basePrice = item.pricing?.[selectedDuration] || item.pricing?.oneMonth || item.price || 0;
         let price = basePrice;
         if (!item.pricing?.[selectedDuration]) {
-          const base = item.pricing?.oneMonth || item.price || 500;
+          const base = item.pricing?.oneMonth || item.price || 0;
           if (selectedDuration === 'oneMonth') price = base;
           if (selectedDuration === 'threeMonths') price = Math.round(base * 3 * 0.95);
           if (selectedDuration === 'sixMonths') price = Math.round(base * 6 * 0.90);
@@ -147,31 +160,102 @@ const StudentDashboard = () => {
 
     setBuyLoading(true);
     try {
-      await axios.post('/student/mock-payment-success', { items: itemsToProcess });
-      toast.success('Successfully Purchased! 🎉');
+      const configRes = await axios.get('/payment/config');
+      const { enableRealPayment, keyId } = configRes.data;
 
-      const addedSubs = itemsToProcess.map(payload => ({
-        name: payload.courseName || payload.packageName.split(' - ')[0],
-        type: payload.type,
-        subscriptionType: payload.subscriptionType,
-        expiryDate: new Date(Date.now() + (payload.subscriptionType === 'oneMonth' ? 30 : (payload.subscriptionType === 'threeMonths' ? 90 : (payload.subscriptionType === 'sixMonths' ? 180 : 365))) * 86400000).toISOString(),
-        referenceId: payload.referenceId,
-        purchaseDate: new Date().toISOString()
-      }));
+      if (enableRealPayment && keyId) {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          toast.error('Failed to load payment gateway. Check your connection.');
+          setBuyLoading(false);
+          return;
+        }
 
-      const updatedUser = {
-        ...userInfo,
-        activeSubscriptions: [...(userInfo.activeSubscriptions || []), ...addedSubs]
-      };
+        const totalAmount = itemsToProcess.reduce((acc, i) => acc + i.amount, 0);
+        const orderRes = await axios.post('/payments/orders', {
+          amount: totalAmount,
+          type: itemsToProcess.length > 1 ? 'bundle' : (itemsToProcess[0].type || 'subject'),
+          referenceIds: itemsToProcess.map(i => i.referenceId),
+          selectedDuration: itemsToProcess[0]?.subscriptionType || 'oneMonth',
+          names: itemsToProcess.map(i => i.courseName)
+        });
 
-      dispatch(setCredentials(updatedUser));
+        const order = orderRes.data;
 
-      setTimeout(() => {
-        setBuyLoading(false);
-        setShowCheckout(false);
-        setSelectedItems([]);
-        fetchData();
-      }, 1500);
+        const options = {
+          key: keyId,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'Mye3 Academy',
+          description: itemsToProcess.map(i => i.courseName).join(', '),
+          order_id: order.id,
+          handler: async function (response) {
+            try {
+              toast.success('Payment Received! Verifying Access...');
+              
+              const verifyRes = await axios.post('/payments/verify', {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              });
+
+              if (verifyRes.data.status === 'ok') {
+                dispatch(setCredentials(verifyRes.data.user));
+                toast.success('Tuition Activated Successfully! 🎉');
+                setTimeout(() => {
+                  setBuyLoading(false);
+                  setShowCheckout(false);
+                  setSelectedItems([]);
+                  fetchData();
+                }, 1500);
+              }
+            } catch (err) {
+              console.error('Verification Error:', err);
+              toast.error('Verification failed. Please contact support if amount was deducted.');
+              setBuyLoading(false);
+            }
+          },
+          prefill: {
+            name: userInfo?.name || '',
+            email: userInfo?.email || '',
+          },
+          theme: { color: '#002147' },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+        rzp.on('payment.failed', (err) => {
+          toast.error('Payment failed: ' + err.error.description);
+          setBuyLoading(false);
+        });
+
+      } else {
+        await axios.post('/student/mock-payment-success', { items: itemsToProcess });
+        toast.success('Mock Payment Successful! 🎉');
+
+        const addedSubs = itemsToProcess.map(payload => ({
+          name: payload.courseName || payload.packageName.split(' - ')[0],
+          type: payload.type,
+          subscriptionType: payload.subscriptionType,
+          expiryDate: new Date(Date.now() + (payload.subscriptionType === 'oneMonth' ? 30 : (payload.subscriptionType === 'threeMonths' ? 90 : (payload.subscriptionType === 'sixMonths' ? 180 : 365))) * 86400000).toISOString(),
+          referenceId: payload.referenceId,
+          purchaseDate: new Date().toISOString()
+        }));
+
+        const updatedUser = {
+          ...userInfo,
+          activeSubscriptions: [...(userInfo.activeSubscriptions || []), ...addedSubs]
+        };
+
+        dispatch(setCredentials(updatedUser));
+
+        setTimeout(() => {
+          setBuyLoading(false);
+          setShowCheckout(false);
+          setSelectedItems([]);
+          fetchData();
+        }, 1500);
+      }
     } catch (error) {
       toast.error('Payment Failed. Try again.');
       setBuyLoading(false);
@@ -241,10 +325,10 @@ const StudentDashboard = () => {
       {/* 1. STAT CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { icon: BookOpen, label: 'Enrolled Subjects', val: learning.length || '0', color: 'bg-indigo-50 text-[#002147]', borderColor: 'border-[#002147]/20' },
-          { icon: Users, label: 'Attended Classes', val: '12', color: 'bg-emerald-50 text-emerald-600', borderColor: 'border-emerald-200' },
-          { icon: FileText, label: 'Notes Available', val: '45', color: 'bg-[#fff7f0] text-[#f16126]', borderColor: 'border-[#f16126]/25' },
-          { icon: LayoutGrid, label: 'All Subjects', val: learning[0]?.subjects?.length || '5', color: 'bg-slate-50 text-slate-500', borderColor: 'border-[#002147]/15' },
+          { icon: BookOpen, label: 'Enrolled Subjects', val: learning.length || userInfo?.activeSubscriptions?.length || '0', color: 'bg-indigo-50 text-[#002147]', borderColor: 'border-[#002147]/20' },
+          { icon: Users, label: 'Attended Classes', val: liveAlerts.filter(s => s.status === 'ended').length || '0', color: 'bg-emerald-50 text-emerald-600', borderColor: 'border-emerald-200' },
+          { icon: FileText, label: 'Notes Available', val: materialsCount || '0', color: 'bg-[#fff7f0] text-[#f16126]', borderColor: 'border-[#f16126]/25' },
+          { icon: LayoutGrid, label: 'All Subjects', val: learning.reduce((sum, item) => sum + (item.subjects?.length || 1), 0) || '0', color: 'bg-slate-50 text-slate-500', borderColor: 'border-[#002147]/15' },
         ].map((stat, i) => (
           <div key={i} className={`bg-white p-4 rounded-xl border-2 ${stat.borderColor} flex items-center gap-4 group transition-all shadow-sm hover:shadow-md`}>
             <div className={`w-10 h-10 ${stat.color} rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 duration-300`}>
