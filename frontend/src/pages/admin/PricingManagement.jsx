@@ -25,7 +25,7 @@ const PricingManagement = () => {
   const [juniorClasses, setJuniorClasses] = useState([]);
   const [seniorSubjects, setSeniorSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState('Class 6');
   
   const [activeBoard, setActiveBoard] = useState('AP Board');
   
