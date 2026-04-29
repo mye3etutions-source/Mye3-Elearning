@@ -660,8 +660,8 @@ const StudentStore = () => {
                 <button
                   onClick={() => setSelectedMobileClass('11')}
                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${selectedMobileClass === '11'
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg'
-                      : 'bg-[#002147] text-white border-[#002147]'
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg scale-105'
+                      : 'bg-white text-slate-400 border-slate-100'
                     }`}
                 >
                   First Year
@@ -671,8 +671,8 @@ const StudentStore = () => {
                 <button
                   onClick={() => setSelectedMobileClass('12')}
                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${selectedMobileClass === '12'
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg'
-                      : 'bg-[#002147] text-white border-[#002147]'
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-lg scale-105'
+                      : 'bg-white text-slate-400 border-slate-100'
                     }`}
                 >
                   Second Year
