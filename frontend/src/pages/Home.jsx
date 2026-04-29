@@ -18,12 +18,13 @@ import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 // Import local assets
-import slider1 from '../assets/slider1.jpeg';
-import slider2 from '../assets/slider2.jpeg';
+import slider1 from '../assets/slider1.png';
+import slider2 from '../assets/slider2.png';
 import slider3 from '../assets/slider3.jpeg';
-import mobileSlider1 from '../assets/mobile slider1.jpeg';
-import mobileSlider2 from '../assets/mobile slider2.jpeg';
-import mobileSlider3 from '../assets/mobile slider3.jpeg';
+import mobileSlider1 from '../assets/mobile-slider1.png';
+import mobileSlider2 from '../assets/mobile-slider2.png';
+import mobileSlider3 from '../assets/mobile-slider3.png';
+import mobileSlider4 from '../assets/mobile-slider4.png';
 import aboutImg from '../assets/about-img-1.jpg';
 import playBtn from '../assets/play-btn.gif';
 import course1 from '../assets/course-item-1.webp';
@@ -79,6 +80,20 @@ const SLIDES = [
       'Personal Mentor Assigned',
       'Flexible Scheduling',
       '100% Student Satisfaction',
+    ],
+  },
+  {
+    image: slider3,
+    mobileImage: mobileSlider4,
+    headline1: 'Achieve Your',
+    headline2: 'Academic Goals',
+    highlight: 'With Expert Mentors',
+    bullets: [
+      'Board Exam Preparation',
+      'Doubt Clearing Sessions',
+      'Weekly Progress Reports',
+      'Affordable Pricing',
+      'Join 5000+ Students',
     ],
   },
 ];

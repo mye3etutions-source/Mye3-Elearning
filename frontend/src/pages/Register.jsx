@@ -21,13 +21,13 @@ const Register = () => {
   const navigate  = useNavigate();
 
   useEffect(() => {
-    const fetchCatalog = async () => {
+    const fetchClasses = async () => {
       try {
+        // Fetch all catalog without board filter — board is not selected yet at registration
         const { data } = await axios.get('/student/catalog');
-        // Extract unique class names/levels from both bundles and subjects
-        // We want to show "Class 6", "Class 11", etc.
-        const classes = data.map(item => item.className);
-        const uniqueClasses = [...new Set(classes)].filter(Boolean).sort((a, b) => {
+        // Extract unique classNames from the returned items and sort them
+        const classNames = data.map(item => item.className);
+        const uniqueClasses = [...new Set(classNames)].filter(Boolean).sort((a, b) => {
           const numA = parseInt(a.replace(/\D/g, '')) || 0;
           const numB = parseInt(b.replace(/\D/g, '')) || 0;
           return numA - numB;
@@ -37,7 +37,7 @@ const Register = () => {
         console.error('Failed to fetch classes for registration', err);
       }
     };
-    fetchCatalog();
+    fetchClasses();
   }, []);
 
   const submitHandler = async (e) => {
