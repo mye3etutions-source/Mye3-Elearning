@@ -183,53 +183,7 @@ exports.updateSessionStatus = async (req, res, next) => {
     session.status = status;
     await session.save();
 
-    // Auto-calculate Payout if marking as ended
-    if (previousStatus !== 'ended' && status === 'ended') {
-      try {
-        const teacher = await User.findById(session.teacherId);
-        if (teacher) {
-          const { rateA = 0, rateB = 0 } = teacher.payRates || {};
-          const activeRateA = rateA > 0 ? rateA : 500; 
-          const activeRateB = rateB > 0 ? rateB : 600; 
-          
-          let rate = activeRateA;
-          const level = session.classLevel ? session.classLevel.toLowerCase() : '';
-          if (level.includes('11') || level.includes('12') || level.includes('inter')) {
-             rate = activeRateB;
-          }
-
-          const start = new Date(session.startTime);
-          const end = new Date(session.endTime);
-          const durationMs = end - start;
-          const hours = durationMs > 0 ? (durationMs / (1000 * 60 * 60)) : 1;
-
-          const monthNum = start.getMonth() + 1;
-          const yearNum = start.getFullYear();
-
-          const Payout = require('../models/Payout');
-          let payout = await Payout.findOne({ teacherId: session.teacherId, month: monthNum, year: yearNum });
-          
-          if (!payout) {
-             await Payout.create({
-                teacherId: session.teacherId,
-                month: monthNum,
-                year: yearNum,
-                totalSessions: 1,
-                totalHours: hours,
-                totalAmount: rate,
-                status: 'Pending'
-             });
-          } else if (payout.status === 'Pending') {
-             payout.totalSessions += 1;
-             payout.totalHours += hours;
-             payout.totalAmount += rate;
-             await payout.save();
-          }
-        }
-      } catch (err) {
-        console.error('Failed to auto-update payout:', err);
-      }
-    }
+    // Payout generation is now handled manually by Admin via the Settlement UI.
 
     // Emit socket event for real-time status update
     const io = req.app.get('io');
@@ -414,92 +368,46 @@ exports.toggleMaterialVisibility = async (req, res, next) => {
 exports.getEarnings = async (req, res, next) => {
   try {
     const teacherId = req.user._id;
-    const teacher = await User.findById(teacherId);
+    const teacher = await User.findById(teacherId).lean();
 
     if (!teacher) {
       return res.status(404).json({ message: 'Teacher not found' });
     }
 
-    const { rateA = 0, rateB = 0 } = teacher.payRates || {};
-    
-    // Default rate mapping if rates are totally 0 (fallback)
-    const activeRateA = rateA > 0 ? rateA : 500; // Let's use 500 per hr as fallback if admin has not set
-    const activeRateB = rateB > 0 ? rateB : 600; // Let's use 600 per hr for Inter as fallback
-
     const LiveSession = require('../models/LiveSession');
-    const sessions = await LiveSession.find({ teacherId, status: 'ended' });
-
-    const earningsMap = {};
-
-    sessions.forEach(session => {
-       const start = new Date(session.startTime);
-       const end = new Date(session.endTime);
-       const month = start.getMonth() + 1; // 1-12
-       const year = start.getFullYear();
-       
-       const key = `${year}-${month}`;
-       if (!earningsMap[key]) {
-          earningsMap[key] = {
-             _id: key, 
-             month,
-             year,
-             totalSessions: 0,
-             totalHours: 0,
-             totalAmount: 0,
-             status: 'Pending', 
-             transactionId: null
-          };
-       }
-
-       // Duration in hours
-       const durationMs = end - start;
-       let hours = durationMs > 0 ? (durationMs / (1000 * 60 * 60)) : 1;
-
-       // Determine rate based on classLevel
-       let rate = activeRateA;
-       const level = session.classLevel ? session.classLevel.toLowerCase() : '';
-       if (level.includes('11') || level.includes('12') || level.includes('inter')) {
-          rate = activeRateB;
-       }
-
-       let amount = rate; // Fixed amount per session, regardless of duration
-       
-       earningsMap[key].totalSessions += 1;
-       earningsMap[key].totalHours += hours;
-       earningsMap[key].totalAmount += amount;
-    });
-
-    let generatedPayouts = Object.values(earningsMap);
-    
-    // Merge actual payouts from Payout model
     const Payout = require('../models/Payout');
-    const actualPayouts = await Payout.find({ teacherId }).lean();
-    
-    actualPayouts.forEach(actual => {
-       const key = `${actual.year}-${actual.month}`;
-       const generated = earningsMap[key];
-       if (generated) {
-           generated.status = actual.status;
-           generated.transactionId = actual.transactionId;
-           // Override totals with actual payout totals to ensure exact match with Admin DB
-           generated.totalAmount = actual.totalAmount;
-           generated.totalSessions = actual.totalSessions;
-           generated.totalHours = actual.totalHours;
-       } else {
-           generatedPayouts.push(actual);
-       }
+
+    // Get unpaid ended sessions
+    const unpaidSessions = await LiveSession.find({
+      teacherId,
+      status: 'ended',
+      payoutStatus: 'unpaid'
+    }).lean();
+
+    let pendingAmount = 0;
+    const sessionDetails = unpaidSessions.map(session => {
+      const assignment = teacher.assignedSubjects.find(a => 
+        a.subjectName === session.subjectName && 
+        (a.board === session.board || (!a.board && !session.board)) &&
+        (a.classLevel === session.classLevel)
+      );
+      
+      const price = assignment ? assignment.pricePerClass : 0;
+      pendingAmount += price;
+      return {
+        ...session,
+        priceApplied: price
+      };
     });
 
-    generatedPayouts = generatedPayouts.map(p => ({
-        ...p,
-        totalHours: parseFloat(Number(p.totalHours).toFixed(2)),
-        totalAmount: Math.round(p.totalAmount)
-    })).sort((a, b) => {
-        if (a.year !== b.year) return b.year - a.year;
-        return b.month - a.month;
-    });
+    const history = await Payout.find({ teacherId }).sort({ createdAt: -1 }).lean();
 
-    res.status(200).json(generatedPayouts);
+    res.status(200).json({
+      pendingAmount,
+      unpaidSessionsCount: sessionDetails.length,
+      unpaidSessions: sessionDetails,
+      history
+    });
   } catch (error) {
     next(error);
   }

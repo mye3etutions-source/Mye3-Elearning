@@ -14,7 +14,7 @@ const ScheduleLiveModal = ({ isOpen, onClose, selectedClass }) => {
   const [formData, setFormData] = useState({
     courseString: '', 
     title: '',
-    platform: 'Zoom',
+    platform: 'Google Meet',
     link: '',
     startTime: ''
   });
@@ -77,7 +77,7 @@ const ScheduleLiveModal = ({ isOpen, onClose, selectedClass }) => {
         setFormData({
           courseString: '',
           title: '',
-          platform: 'Zoom',
+          platform: 'Google Meet',
           link: '',
           startTime: ''
         });
@@ -144,10 +144,10 @@ const ScheduleLiveModal = ({ isOpen, onClose, selectedClass }) => {
                    <CustomSelect 
                      label="Class Link Platform"
                      icon={Video}
-                     placeholder="Zoom or Google Meet?"
+                     placeholder="Google Meet or Zoom?"
                      options={[
-                       { label: 'Zoom Meeting', value: 'Zoom' },
                        { label: 'Google Meet', value: 'Google Meet' },
+                       { label: 'Zoom Meeting', value: 'Zoom' },
                        { label: 'YouTube Live', value: 'YouTube Live' },
                        { label: 'Other', value: 'Other' }
                      ]}

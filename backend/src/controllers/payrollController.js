@@ -2,14 +2,17 @@ const User = require('../models/User');
 const LiveSession = require('../models/LiveSession');
 const Payout = require('../models/Payout');
 
-// Utility to decide which rate applies based on class level
-const getRateForClassLevel = (classLevel, payRates) => {
-  if (!payRates) return 0;
-  const cl = (classLevel || '').toLowerCase();
-  if (cl.includes('11') || cl.includes('12') || cl.includes('inter')) {
-    return payRates.rateB || 0;
-  }
-  return payRates.rateA || 0;
+// Utility to get the specific rate for a session based on teacher's assignments
+const getSessionRate = (session, teacher) => {
+  if (!teacher.assignedSubjects) return 0;
+
+  const assignment = teacher.assignedSubjects.find(a =>
+    a.classLevel === session.classLevel &&
+    a.subjectName === session.subjectName &&
+    (a.board === session.board || (!a.board && !session.board))
+  );
+
+  return assignment ? (assignment.pricePerClass || 0) : 0;
 };
 
 // @desc    Calculate or Refresh Payouts for a specific month
@@ -50,7 +53,7 @@ exports.calculatePayouts = async (req, res, next) => {
       let totalHours = 0;
 
       sessions.forEach(session => {
-        const rate = getRateForClassLevel(session.classLevel, teacher.payRates);
+        const rate = getSessionRate(session, teacher);
         // Per-session fixed rate (not hourly)
         totalAmount += rate;
         // Calculate hours for reference only

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Video, BookOpen, Clock, Loader2, Calendar, List, Radio } from 'lucide-react';
+import { Video, BookOpen, Clock, Loader2, Calendar, List, Radio, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const isSameDay = (a, b) =>
@@ -36,9 +37,37 @@ const LiveSchedule = () => {
   const [assignments, setAssignments] = useState([]); // teacher's assigned subjects
   const [loading, setLoading]         = useState(true);
   const [viewType, setViewType]       = useState('timetable');
+  const [expandedClasses, setExpandedClasses] = useState({}); // { classLevel: boolean }
   const [selectedBoard, setSelectedBoard] = useState('All');
 
   const BOARDS = ['All', 'AP Board', 'TS Board', 'CBSE', 'ICSE'];
+
+  // Color palette for different classes
+  const CLASS_COLORS = {
+    'Class 1': 'bg-rose-500',
+    'Class 2': 'bg-pink-500',
+    'Class 3': 'bg-purple-500',
+    'Class 4': 'bg-indigo-500',
+    'Class 5': 'bg-blue-500',
+    'Class 6': 'bg-cyan-500',
+    'Class 7': 'bg-teal-500',
+    'Class 8': 'bg-emerald-500',
+    'Class 9': 'bg-green-500',
+    'Class 10': 'bg-amber-500',
+    'Class 11': 'bg-orange-500',
+    'Class 12': 'bg-red-500',
+    'default': 'bg-slate-500'
+  };
+
+  const getClassColor = (cl) => {
+    const match = cl.match(/\d+/);
+    if (!match) return CLASS_COLORS['default'];
+    return CLASS_COLORS[`Class ${match[0]}`] || CLASS_COLORS['default'];
+  };
+
+  const toggleClass = (cl) => {
+    setExpandedClasses(prev => ({ ...prev, [cl]: !prev[cl] }));
+  };
 
   const weekDates = useMemo(getWeekDates, []);
   const today     = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
@@ -51,6 +80,12 @@ const LiveSchedule = () => {
       ]);
       setSessions(sessRes.data || []);
       setAssignments(assignRes.data || []);
+      
+      // Initialize all classes as expanded
+      const initialExpanded = {};
+      (sessRes.data || []).forEach(s => initialExpanded[s.classLevel] = true);
+      (assignRes.data || []).forEach(a => initialExpanded[a.classLevel] = true);
+      setExpandedClasses(initialExpanded);
     } catch (_) {}
     finally { setLoading(false); }
   };
@@ -125,16 +160,26 @@ const LiveSchedule = () => {
 
   // ── Session Card (reused inside timetable cells) ──────────────────────────
   const SessionCard = ({ s }) => {
-    const isLive  = s.status === 'live';
-    const isEnded = s.status === 'ended';
+    const isLive    = s.status === 'live';
+    const isEnded   = s.status === 'ended';
+    const now       = new Date();
+    const startTime = new Date(s.startTime);
+    const endTime   = new Date(s.endTime);
+    const isPast    = !isLive && !isEnded && endTime < now;
+    const isLate    = !isLive && !isEnded && startTime < now && endTime > now;
+
     return (
       <div className={`relative p-2 rounded-xl border text-left transition-all ${
         isLive   ? 'bg-red-50 border-red-200 shadow-sm'
-        : isEnded ? 'bg-slate-50 border-slate-200 opacity-60'
+        : isEnded ? 'bg-emerald-50 border-emerald-200 shadow-sm'
+        : isPast  ? 'bg-slate-100/80 border-slate-200 grayscale-[0.5]'
+        : isLate  ? 'bg-amber-50 border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.2)]'
         : 'bg-white border-teal-100 hover:border-teal-300 hover:shadow-sm'
       }`}>
         {/* Accent bar */}
-        <div className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${isLive ? 'bg-red-500' : isEnded ? 'bg-slate-300' : 'bg-teal-500'}`} />
+        <div className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${
+          isLive ? 'bg-red-500' : isEnded ? 'bg-emerald-500' : isPast ? 'bg-slate-400' : isLate ? 'bg-amber-500' : 'bg-teal-500'
+        }`} />
         <div className="pl-2">
           {/* Time + Status */}
           <div className="flex items-center justify-between mb-1">
@@ -143,7 +188,17 @@ const LiveSchedule = () => {
                 <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse"></span>LIVE
               </span>
             ) : isEnded ? (
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Done</span>
+              <span className="text-[9px] font-black text-emerald-600 uppercase flex items-center gap-1">
+                 <CheckCircle2 className="w-2.5 h-2.5" /> COMPLETED
+              </span>
+            ) : isPast ? (
+              <span className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                 <Clock className="w-2 h-2" /> Expired
+              </span>
+            ) : isLate ? (
+              <span className="text-[9px] font-black text-amber-600 uppercase animate-pulse flex items-center gap-1">
+                 <Radio className="w-2 h-2" /> Late
+              </span>
             ) : (
               <span className="text-[9px] font-bold text-teal-600 uppercase">Soon</span>
             )}
@@ -151,7 +206,7 @@ const LiveSchedule = () => {
           </div>
 
           {/* Title */}
-          <p className={`text-[11px] font-bold leading-tight truncate mb-0.5 ${isLive ? 'text-red-900' : isEnded ? 'text-slate-400' : 'text-slate-800'}`}>
+          <p className={`text-[11px] font-bold leading-tight truncate mb-0.5 ${isLive ? 'text-red-900' : isEnded ? 'text-emerald-900' : isPast ? 'text-slate-400' : 'text-slate-800'}`}>
             {s.title}
           </p>
 
@@ -159,13 +214,13 @@ const LiveSchedule = () => {
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-[9px] font-medium text-slate-400">{s.platform}</span>
             <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-            <span className="text-[9px] font-bold text-slate-500 px-1 py-0.5 bg-slate-100 rounded uppercase">
+            <span className={`text-[9px] font-bold px-1 py-0.5 rounded uppercase ${isEnded ? 'bg-emerald-100 text-emerald-600' : isPast ? 'bg-slate-200 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
               {s.board || 'TS'}
             </span>
           </div>
 
           {/* Actions */}
-          {!isEnded && (
+          {!isEnded && !isPast && (
             <div className="mt-2">
               {isLive ? (
                 <div className="flex gap-1">
@@ -180,8 +235,8 @@ const LiveSchedule = () => {
                 </div>
               ) : (
                 <button onClick={() => handleUpdateStatus(s._id, 'live')}
-                  className="w-full py-1 bg-slate-800 hover:bg-teal-600 text-white rounded-lg text-[9px] font-bold transition-colors flex items-center justify-center gap-1">
-                  <Radio className="w-2.5 h-2.5" />Go Live
+                  className={`w-full py-1 ${isLate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-800 hover:bg-teal-600'} text-white rounded-lg text-[9px] font-bold transition-colors flex items-center justify-center gap-1`}>
+                  <Radio className="w-2.5 h-2.5" />{isLate ? 'Go Live (Late)' : 'Go Live'}
                 </button>
               )}
             </div>
@@ -271,64 +326,81 @@ const LiveSchedule = () => {
                 <tbody>
                   {classBySubject.map(({ classLevel, subjects }, clsIdx) => (
                     <React.Fragment key={`cls-${clsIdx}`}>
-
                       {/* Class Level Header Row */}
-                      <tr>
-                        <td colSpan={8} className="px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                      <tr 
+                        className="cursor-pointer group select-none"
+                        onClick={() => toggleClass(classLevel)}
+                      >
+                        <td colSpan={8} className="px-4 py-2.5 bg-slate-900 border-b border-slate-700 hover:bg-slate-800 transition-colors">
                           <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 bg-teal-500 rounded-md flex items-center justify-center shrink-0">
-                              <BookOpen className="w-3.5 h-3.5 text-white" />
+                            <div className={`w-7 h-7 ${getClassColor(classLevel)} rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-black/20 group-hover:scale-110 transition-transform`}>
+                              <BookOpen className="w-4 h-4 text-white" />
                             </div>
-                            <span className="text-sm font-black text-white tracking-wide">{classLevel}</span>
-                            <div className="h-px flex-1 bg-white/10"></div>
-                            <span className="text-[10px] font-bold text-teal-300 uppercase tracking-widest">
-                              {subjects.length} {subjects.length === 1 ? 'Subject' : 'Subjects'}
-                            </span>
+                            <span className="text-sm font-black text-white tracking-wide uppercase">{classLevel}</span>
+                            
+                            <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10 ml-2">
+                               <div className={`w-1.5 h-1.5 rounded-full ${getClassColor(classLevel)} animate-pulse`}></div>
+                               <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                                 {subjects.length} {subjects.length === 1 ? 'Subject' : 'Subjects'}
+                               </span>
+                            </div>
+
+                            <div className="h-px flex-1 bg-white/10 mx-4"></div>
+                            
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${expandedClasses[classLevel] ? 'bg-white/10 text-white rotate-180' : 'bg-[#f16126] text-white'}`}>
+                               <ChevronDown className="w-5 h-5" />
+                            </div>
                           </div>
                         </td>
                       </tr>
 
-                      {/* Subject Rows */}
-                      {subjects.map((subjectName, sIdx) => (
-                        <tr key={`${clsIdx}-${sIdx}`}
-                          className={`${sIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} border-b border-slate-100 last:border-b-0`}>
+                      {/* Subject Rows (Conditional) */}
+                      <AnimatePresence initial={false}>
+                        {expandedClasses[classLevel] && subjects.map((subjectName, sIdx) => (
+                          <motion.tr 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            key={`${clsIdx}-${sIdx}`}
+                            className={`${sIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} border-b border-slate-100 last:border-b-0 overflow-hidden`}
+                          >
+                            {/* Subject Label Cell */}
+                            <td className="px-4 py-3 border-r border-slate-200 align-middle bg-white relative">
+                              <div className="flex items-center gap-2 pl-2">
+                                <div className={`w-1.5 h-7 rounded-full ${getClassColor(classLevel)} opacity-60 shrink-0`}></div>
+                                <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider">{subjectName}</span>
+                              </div>
+                            </td>
 
-                          {/* Subject Label Cell */}
-                          <td className="px-4 py-3 border-r border-slate-200 align-middle bg-white">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-6 rounded-full bg-teal-400 shrink-0"></div>
-                              <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider">{subjectName}</span>
-                            </div>
-                          </td>
+                            {/* Day Cells */}
+                            {weekDates.map((date, di) => {
+                              const isToday = isSameDay(date, today);
+                              const daySessions = filteredSessions
+                                .filter(s =>
+                                  s.classLevel === classLevel &&
+                                  s.subjectName === subjectName &&
+                                  isSameDay(new Date(s.startTime), date)
+                                )
+                                .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-                          {/* Day Cells */}
-                          {weekDates.map((date, di) => {
-                            const isToday = isSameDay(date, today);
-                            const daySessions = filteredSessions
-                              .filter(s =>
-                                s.classLevel === classLevel &&
-                                s.subjectName === subjectName &&
-                                isSameDay(new Date(s.startTime), date)
-                              )
-                              .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-                            return (
-                              <td key={di}
-                                className={`px-2 py-2.5 border-l border-slate-100 align-top ${isToday ? 'bg-teal-50/20' : ''}`}>
-                                <div className="flex flex-col gap-2 min-h-[52px]">
-                                  {daySessions.length === 0 ? (
-                                    <div className="flex items-center justify-center h-full min-h-[52px]">
-                                      <span className="text-slate-200 text-base">—</span>
-                                    </div>
-                                  ) : (
-                                    daySessions.map((s, i) => <SessionCard key={i} s={s} />)
-                                  )}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
+                              return (
+                                <td key={di}
+                                  className={`px-2 py-2.5 border-l border-slate-100 align-top ${isToday ? 'bg-teal-50/10' : ''}`}>
+                                  <div className="flex flex-col gap-2 min-h-[52px]">
+                                    {daySessions.length === 0 ? (
+                                      <div className="flex items-center justify-center h-full min-h-[52px]">
+                                        <span className="text-slate-200 text-base opacity-40">—</span>
+                                      </div>
+                                    ) : (
+                                      daySessions.map((s, i) => <SessionCard key={i} s={s} />)
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </motion.tr>
+                        ))}
+                      </AnimatePresence>
                     </React.Fragment>
                   ))}
                 </tbody>
@@ -394,7 +466,7 @@ const LiveSchedule = () => {
                                   </span>
                                 ) : (
                                   <span className="px-2 py-0.5 bg-teal-50 text-teal-700 border border-teal-100 text-[9px] font-bold rounded-md uppercase">
-                                    Upcoming
+                                     {new Date(s.endTime) < new Date() ? 'Missed' : new Date(s.startTime) < new Date() ? 'Late' : 'Upcoming'}
                                   </span>
                                 )}
                                 <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-bold rounded-md uppercase">{s.board || 'TS Board'}</span>

@@ -7,11 +7,12 @@ const payoutSchema = new mongoose.Schema({
   totalSessions: { type: Number, default: 0 },
   totalHours: { type: Number, default: 0 },
   totalAmount: { type: Number, default: 0 },
-  status: { type: String, enum: ['Pending', 'Paid'], default: 'Pending' },
+  status: { type: String, enum: ['Pending', 'Settled'], default: 'Settled' },
   paymentMode: { type: String, enum: ['Online', 'Cash'] },
   transactionId: { type: String },
   proofImage: { type: String },
-  note: { type: String }
+  note: { type: String },
+  sessionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'LiveSession' }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Payout', payoutSchema);

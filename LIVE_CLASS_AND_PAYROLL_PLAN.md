@@ -77,54 +77,51 @@ No one needs to refresh their browser anymore:
 1.  **Phase 1:** Update Database & Backend validation (End times + Conflicts).
 2.  **Phase 2:** Implement Real-time updates (Socket.io) in Student/Teacher pages.
 3.  **Phase 3:** Build the UI for Multi-week navigation and End-time selection.
-4.  **Phase 4:** Build the Teacher Payroll system (Calculation + Admin/Teacher views).
-5.  **Phase 5:** Final Testing & Verification.
+4.  **Phase 4:** Fix Scheduler Repeat Logic & UI Polish (Ensure "1 Week/1 Month" properly generates sessions from the current date forward, without scheduling in the past, and polish the dropdown UI).
+5.  **Phase 5:** Build the Teacher Payroll system (Calculation + Admin/Teacher views).
+6.  **Phase 6:** Final Testing & Verification.
 
 ---
 
 > [!NOTE]
 > This plan has been created and approved for implementation.
 
-## ✨ Phase 6: Teacher Management & Payroll Integration (Redesign)
-- [x] **Sidebar UI Update:** Remove "Teacher Payroll" route, rename "Teachers" to "Teacher Management".
-- [x] **Teacher Management API & Models:** 
-   - Ensure Admin can fetch completed/upcoming classes per teacher.
-   - Payout model integration to mark payments as 'Settled'.
-- [x] **Card View UI (`TeacherManagement.jsx`):**
-   - Display a highly polished, interactive grid of Teacher Cards.
-- [x] **Detailed Teacher View:**
-   - Clicking a card opens a dedicated component showing performance, sessions (past, live, upcoming), assigned subjects, and session-wise payment.
-- [x] **Class Live Flow Integration:**
-   - Tracking connection and marking a class `ended` so payment calculations trigger.
+## ✨ Phase 6: Faculty Management (Separate Module)
+This module focuses entirely on managing teachers and their assigned subjects. It will have its own dedicated section in the sidebar.
+
+- **Add Teacher Workflow:**
+  - Clicking "Add Teacher" opens a simple modal.
+  - The admin only enters **Name, Email, and Password** to create the teacher profile.
+  - The teacher is saved to the database immediately.
+
+- **Assign Subjects Workflow:**
+  - Each teacher in the list has an **"Assign Subjects"** button.
+  - Clicking it opens a flow where the Admin can:
+    1. Select a **Board** (e.g., AP Board, CBSE).
+    2. Select a **Subject** belonging to that board (e.g., Class 10 Maths).
+    3. Enter the specific **Price per class** for this subject for this specific teacher.
+  - Saving this stores the assignment and the price directly in the database.
 
 ---
 
-## 💸 Teacher Payment Calculation Workflow (For Discussion)
-
-As discussed, we need a clear and transparent way to calculate exactly how much a teacher should be paid every month. Here is the proposed logic for discussion:
+## 💸 Phase 7: Teacher Payroll System (Separate Module)
+The Payroll System will be completely separated from Faculty Management. It will have its own dedicated item in the Admin Sidebar called **"Teacher Payroll"**.
 
 ### 1. How we count "Attempted" (Conducted) Classes
 - We will **ONLY** count classes where the status is successfully marked as `ended` (meaning the teacher joined and completed the session).
 - **Missed or Cancelled Classes:** If a class was scheduled but the teacher never joined (status remained `upcoming` until time passed), it is automatically marked as **Missed** and will **NOT** be added to the month's total.
 
-### 2. Pricing per Class (Class-batti Pricing)
-Every teacher will have fixed rates configured in their profile by the Admin:
-- **Category A Rate:** Price per class for lower classes (e.g., Classes 6 to 10). Example: ₹400/class.
-- **Category B Rate:** Price per class for higher classes (e.g., Inter 1st & 2nd Year). Example: ₹600/class.
+### 2. Pricing per Class (Subject-Specific Pricing)
+Pricing is no longer grouped broadly by category (like Category A or B). Instead, it is configured **per subject** during the "Assign Subjects" flow in the Faculty Management module.
 
 ### 3. Monthly Total Calculation Formula
 At the end of every month (or when the Admin opens the Payouts page), the system will calculate the total like this:
 1. **Find all `ended` sessions** for Teacher X in the given month (e.g., April).
-2. Separate them into Category A classes and Category B classes.
+2. Check the specific price assigned to that subject for that teacher.
 3. Multiply the count by the respective rates.
 
-> **Example Calculation for Teacher Ravi in April:**
-> - Conducted **10 classes** for 10th Standard (Category A @ ₹400) = ₹4,000
-> - Conducted **5 classes** for Inter 1st Year (Category B @ ₹600) = ₹3,000
-> - **Total April Payout** = ₹7,000
-
 ### 4. Admin Action (Payout Settlement Options)
-When the Admin is ready to pay the teacher (e.g., the ₹7,000 pending amount), they click **"Settle Payment"**. A popup will appear asking for the **Payment Mode**:
+When the Admin is ready to pay the teacher, they click **"Settle Payment"**. A popup will appear asking for the **Payment Mode**:
 
 **Option A: Online Payment (UPI / Bank Transfer)**
 - Admin selects "Online".
@@ -136,6 +133,4 @@ When the Admin is ready to pay the teacher (e.g., the ₹7,000 pending amount), 
 - The Transaction ID is not required, but the Admin can leave a small **Note** (e.g., "Handed over cash directly on 3rd May").
 - No proof image is required.
 
-Once submitted, the status changes to **"Settled"** and the Teacher can immediately see the Transaction ID / Note / Proof in their own dashboard, ensuring zero confusion!
-
-**Are you okay with this calculation method and these payment settlement options? Check the plan file to see the details.**
+Once submitted, the status changes to **"Settled"** and the Teacher can immediately see the Transaction ID / Note / Proof in their own dashboard.

@@ -28,18 +28,15 @@ const userSchema = new mongoose.Schema({
   activeSubscriptions: [subscriptionSchema],
   assignedSubjects: [
     {
-      assignmentType: { type: String, enum: ['bundle', 'subject'], required: true },
+      assignmentType: { type: String, enum: ['bundle', 'subject'], default: 'bundle' },
       classLevel: { type: String, required: true },
       subjectName: { type: String, required: true },
       subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
-      board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board'] }
+      board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board'] },
+      pricePerClass: { type: Number, default: 0 }
     }
   ],
-  currentDeviceToken: { type: String, default: null }, // for single device login
-  payRates: {
-    rateA: { type: Number, default: 0 }, // For Classes 6 to 10
-    rateB: { type: Number, default: 0 }  // For Inter / Class 11, 12
-  }
+  currentDeviceToken: { type: String, default: null } // for single device login
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {

@@ -7,6 +7,7 @@ const Material = require('../models/Material');
 const Transaction = require('../models/Transaction');
 const LiveSession = require('../models/LiveSession');
 const RecurringSchedule = require('../models/RecurringSchedule');
+const Payout = require('../models/Payout');
 const { generateSessionsFromTemplate, getEndOfNextMonth } = require('../cron/recurringScheduler');
 
 exports.updatePricing = async (req, res, next) => {
@@ -162,27 +163,33 @@ exports.getTeachersForSubject = async (req, res, next) => {
 
     // Build match filter for subject-specific teachers
     const matchFilter = { role: 'teacher' };
+    
+    // Use regex for case-insensitive and trimmed matching
     if (classLevel || subjectName || req.query.board) {
-      matchFilter.assignedSubjects = {
-        $elemMatch: {
-          ...(classLevel ? { classLevel } : {}),
-          ...(subjectName ? { subjectName } : {}),
-          ...(req.query.board ? { board: req.query.board } : {})
-        }
+      const elemMatch = {
+        ...(classLevel ? { classLevel: { $regex: new RegExp(`^\\s*${classLevel.trim()}\\s*$`, 'i') } } : {}),
+        ...(subjectName ? { subjectName: { $regex: new RegExp(`^\\s*${subjectName.trim()}\\s*$`, 'i') } } : {}),
       };
+
+      if (req.query.board) {
+        elemMatch.$or = [
+          { board: { $regex: new RegExp(`^\\s*${req.query.board.trim()}\\s*$`, 'i') } },
+          { board: { $exists: false } },
+          { board: null },
+          { board: "" }
+        ];
+      }
+
+      matchFilter.assignedSubjects = { $elemMatch: elemMatch };
     }
 
-    let teachers = await User.find(matchFilter)
+    const teachers = await User.find(matchFilter)
       .select('name email assignedSubjects')
       .sort({ name: 1 });
 
-    // Fallback: if no subject-specific teachers found, return ALL teachers
-    if (teachers.length === 0) {
-      teachers = await User.find({ role: 'teacher' })
-        .select('name email assignedSubjects')
-        .sort({ name: 1 });
-    }
-
+    // Fallback removed: We only want to return teachers actually assigned to this subject/class
+    // This prevents showing irrelevant teachers (e.g. Maths teacher for English class)
+    
     res.status(200).json(teachers);
   } catch (error) {
     next(error);
@@ -197,36 +204,53 @@ exports.assignSubjectToTeacher = async (req, res, next) => {
     const { assignments } = req.body;
     const teacher = await User.findById(req.params.id);
 
-    if (!teacher || teacher.role !== 'teacher') {
+    if (!teacher) {
       return res.status(404).json({ message: 'Teacher not found' });
+    }
+
+    if (!teacher.assignedSubjects) {
+      teacher.assignedSubjects = [];
     }
 
     // Support both single assignment and batch assignments
     const assignmentsToAdd = Array.isArray(assignments) ? assignments : [req.body];
 
     assignmentsToAdd.forEach(a => {
-      // Avoid exact duplicates (now including board)
-      const exists = teacher.assignedSubjects.some(
-        existing => 
-          existing.classLevel === a.classLevel && 
+      // Skip entries with no subject name or class level
+      if (!a.classLevel || !a.subjectName) return;
+
+      // Default assignmentType if missing (handles old DB records)
+      const aType = a.assignmentType || 'bundle';
+
+      const existingIdx = teacher.assignedSubjects.findIndex(
+        existing =>
+          existing.classLevel === a.classLevel &&
           existing.subjectName === a.subjectName &&
           existing.board === a.board
       );
 
-      if (!exists) {
+      if (existingIdx === -1) {
         teacher.assignedSubjects.push({
-          assignmentType: a.assignmentType,
+          assignmentType: aType,
           classLevel: a.classLevel,
           subjectName: a.subjectName,
           subjectId: a.subjectId || null,
-          board: a.board || null
+          board: a.board || null,
+          pricePerClass: Number(a.pricePerClass) || 0
         });
+      } else {
+        // Update existing: fix any missing assignmentType and update price
+        teacher.assignedSubjects[existingIdx].assignmentType = teacher.assignedSubjects[existingIdx].assignmentType || aType;
+        if (a.pricePerClass !== undefined) {
+          teacher.assignedSubjects[existingIdx].pricePerClass = Number(a.pricePerClass);
+        }
       }
     });
 
     await teacher.save();
     res.status(200).json(teacher);
   } catch (error) {
+    console.error('Error in assignSubjectToTeacher:', error.message);
     next(error);
   }
 };
@@ -432,7 +456,7 @@ exports.extendSubscription = async (req, res, next) => {
 // @access  Admin
 exports.addTeacher = async (req, res, next) => {
   try {
-    const { name, email, password, payRates } = req.body;
+    const { name, email, password } = req.body;
     const userExists = await User.findOne({ email });
 
     if (userExists) return res.status(400).json({ message: 'User already exists' });
@@ -441,7 +465,6 @@ exports.addTeacher = async (req, res, next) => {
       name,
       email,
       password,
-      payRates: payRates || { rateA: 0, rateB: 0 },
       role: 'teacher'
     });
 
@@ -462,7 +485,6 @@ exports.updateUser = async (req, res, next) => {
     user.name = req.body.name || user.name;
     user.email = req.body.email || user.email;
     if (req.body.password) user.password = req.body.password;
-    if (req.body.payRates) user.payRates = req.body.payRates;
 
     const updatedUser = await user.save();
     res.status(200).json({ _id: updatedUser._id, name: updatedUser.name, email: updatedUser.email });
@@ -738,7 +760,10 @@ exports.createLiveSession = async (req, res, next) => {
       // 1. Calculate duration and standard start time format
       const start = new Date(recurringTemplate.startTime);
       const end = new Date(recurringTemplate.endTime);
-      if (end <= start) return res.status(400).json({ message: 'End time must be after start time' });
+      // If end time is before or same as start time, assume it crosses midnight and ends the next day
+      if (end <= start) {
+        end.setDate(end.getDate() + 1);
+      }
       
       const startHour = start.getHours();
       const startMinute = start.getMinutes();
@@ -792,8 +817,10 @@ exports.createLiveSession = async (req, res, next) => {
       const newStart = new Date(s.startTime);
       const newEnd = new Date(s.endTime);
 
+      // Handle midnight crossing
       if (newEnd <= newStart) {
-        return res.status(400).json({ message: 'End time must be after start time.' });
+        newEnd.setDate(newEnd.getDate() + 1);
+        s.endTime = newEnd.toISOString();
       }
 
       const matchUpsertCond = {
@@ -879,8 +906,9 @@ exports.updateLiveSession = async (req, res, next) => {
     const newStart = new Date(startTime || session.startTime);
     const newEnd = new Date(endTime || session.endTime);
 
+    // Handle midnight crossing
     if (newEnd <= newStart) {
-      return res.status(400).json({ message: 'End time must be after start time.' });
+      newEnd.setDate(newEnd.getDate() + 1);
     }
 
     const proposedClassLevel = classLevel || session.classLevel;
@@ -963,14 +991,14 @@ exports.deleteLiveSession = async (req, res, next) => {
 // @access  Admin
 exports.getAllLiveSessions = async (req, res, next) => {
   try {
-    // Fetch from 2 days ago up to 45 days ahead (supports full month scheduling view)
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    // Fetch from 7 days ago up to 45 days ahead (supports full month scheduling view)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const fortyFiveDaysAhead = new Date();
     fortyFiveDaysAhead.setDate(fortyFiveDaysAhead.getDate() + 45);
 
     const sessions = await LiveSession.find({
-      startTime: { $gte: twoDaysAgo, $lte: fortyFiveDaysAhead }
+      startTime: { $gte: sevenDaysAgo, $lte: fortyFiveDaysAhead }
     })
       .populate('teacherId', 'name email')
       .sort({ startTime: 1 });
@@ -1036,6 +1064,95 @@ exports.stopRecurringSchedule = async (req, res, next) => {
     });
 
     res.status(200).json({ message: 'Recurring schedule stopped and future sessions removed.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get Payroll data for all teachers
+// @route   GET /api/admin/payroll
+// @access  Admin
+exports.getTeacherPayroll = async (req, res, next) => {
+  try {
+    const teachers = await User.find({ role: 'teacher' }).lean();
+    
+    // Get all unpaid ended sessions
+    const unpaidSessions = await LiveSession.find({
+      status: 'ended',
+      payoutStatus: 'unpaid'
+    }).lean();
+
+    // Group by teacher
+    const sessionsByTeacher = unpaidSessions.reduce((acc, session) => {
+      const tId = session.teacherId.toString();
+      if (!acc[tId]) acc[tId] = [];
+      acc[tId].push(session);
+      return acc;
+    }, {});
+
+    const payrollData = await Promise.all(teachers.map(async (teacher) => {
+      const teacherSessions = sessionsByTeacher[teacher._id.toString()] || [];
+      
+      let pendingAmount = 0;
+      const sessionDetails = teacherSessions.map(session => {
+        // Find assigned subject price
+        const assignment = teacher.assignedSubjects.find(a => 
+          a.subjectName === session.subjectName && 
+          (a.board === session.board || (!a.board && !session.board)) &&
+          (a.classLevel === session.classLevel)
+        );
+        
+        const price = assignment ? assignment.pricePerClass : 0;
+        pendingAmount += price;
+        return {
+          ...session,
+          priceApplied: price
+        };
+      });
+
+      const history = await Payout.find({ teacherId: teacher._id }).sort({ createdAt: -1 }).lean();
+
+      return {
+        teacher: { _id: teacher._id, name: teacher.name, email: teacher.email, assignedSubjects: teacher.assignedSubjects },
+        pendingAmount,
+        unpaidSessionsCount: sessionDetails.length,
+        unpaidSessions: sessionDetails,
+        history
+      };
+    }));
+
+    res.status(200).json(payrollData);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Settle teacher payment
+// @route   POST /api/admin/payroll/settle
+// @access  Admin
+exports.settleTeacherPayment = async (req, res, next) => {
+  try {
+    const { teacherId, sessionIds, totalAmount, paymentMode, transactionId, note, month, year } = req.body;
+
+    const payout = await Payout.create({
+      teacherId,
+      month: month || new Date().getMonth() + 1,
+      year: year || new Date().getFullYear(),
+      totalAmount,
+      status: 'Settled',
+      paymentMode,
+      transactionId,
+      note,
+      sessionIds
+    });
+
+    // Mark sessions as paid
+    await LiveSession.updateMany(
+      { _id: { $in: sessionIds } },
+      { $set: { payoutStatus: 'paid', payoutId: payout._id } }
+    );
+
+    res.status(201).json(payout);
   } catch (error) {
     next(error);
   }

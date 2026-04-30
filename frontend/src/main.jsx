@@ -7,13 +7,18 @@ import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
 import axios from 'axios'
 import './index.css'
 
-// Global Axios Configuration (Automatically appends /api and handles Proxy vs. Production)
-const backendUrl = import.meta.env.VITE_API_URL || '';
-const isLocal = backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1');
+// Global Axios Configuration (Intelligent Local vs Production detection)
+const getBaseUrl = () => {
+    // If we are on localhost, force the local backend URL
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+    }
+    // Otherwise use the env variable
+    const envUrl = import.meta.env.VITE_API_URL || 'https://mye3etutions.com/api';
+    return envUrl.includes('/api') ? envUrl : (envUrl.endsWith('/') ? `${envUrl}api` : `${envUrl}/api`);
+};
 
-axios.defaults.baseURL = (isLocal || !backendUrl) 
-  ? '/api' 
-  : backendUrl.includes('/api') ? backendUrl : (backendUrl.endsWith('/') ? `${backendUrl}api` : `${backendUrl}/api`);
+axios.defaults.baseURL = getBaseUrl();
 
 axios.defaults.withCredentials = true;
 

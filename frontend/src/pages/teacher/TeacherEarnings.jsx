@@ -1,235 +1,224 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { DollarSign, CheckCircle, Clock, Calendar as CalendarIcon, FileText } from 'lucide-react';
+import { Wallet, CheckCircle, Clock, Calendar as CalendarIcon, FileText, BookOpen } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+const months = [
+    { val: 1, label: 'January' }, { val: 2, label: 'February' }, { val: 3, label: 'March' },
+    { val: 4, label: 'April' }, { val: 5, label: 'May' }, { val: 6, label: 'June' },
+    { val: 7, label: 'July' }, { val: 8, label: 'August' }, { val: 9, label: 'September' },
+    { val: 10, label: 'October' }, { val: 11, label: 'November' }, { val: 12, label: 'December' }
+];
+
 const TeacherEarnings = () => {
-    const [earnings, setEarnings] = useState([]);
-    const [sessions, setSessions] = useState([]);
-    const [payRates, setPayRates] = useState({ rateA: 0, rateB: 0 });
-    const [viewMode, setViewMode] = useState('monthly');
+    const [earningsData, setEarningsData] = useState({
+        pendingAmount: 0,
+        unpaidSessionsCount: 0,
+        unpaidSessions: [],
+        history: []
+    });
+    const [viewMode, setViewMode] = useState('pending'); // 'pending' or 'history'
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchAll = async () => {
+        const fetchEarnings = async () => {
             try {
-                const [earnRes, sessRes, profRes] = await Promise.all([
-                    axios.get('/teacher/earnings'),
-                    axios.get('/teacher/live-sessions'),
-                    axios.get('/auth/profile')
-                ]);
-                setEarnings(earnRes.data);
-                setSessions(sessRes.data || []);
-                setPayRates(profRes.data?.payRates || { rateA: 0, rateB: 0 });
-                setLoading(false);
+                const { data } = await axios.get('/teacher/earnings');
+                setEarningsData(data);
             } catch (error) {
-                console.error(error);
-                toast.error('Failed to load data');
+                toast.error('Failed to load earnings data');
+            } finally {
                 setLoading(false);
             }
         };
-
-        fetchAll();
+        fetchEarnings();
     }, []);
 
-    const getSessionRate = (level) => {
-        const cl = (level || '').toLowerCase();
-        if (cl.includes('11') || cl.includes('12') || cl.includes('inter')) return payRates.rateB;
-        return payRates.rateA;
-    };
+    if (loading) return (
+        <div className="flex h-[60vh] items-center justify-center">
+            <div className="animate-spin w-8 h-8 border-4 border-[#002147] border-t-transparent rounded-full"></div>
+        </div>
+    );
 
-    const getMonday = (d) => {
-        const dt = new Date(d);
-        const day = dt.getDay(), diff = dt.getDate() - day + (day === 0 ? -6:1);
-        dt.setDate(diff);
-        return dt;
-    };
-
-    const buildGroupedData = (groupType) => {
-        const obj = sessions.reduce((acc, s) => {
-            const dateRef = s.endTime || s.startTime;
-            if (!dateRef) return acc;
-            
-            let key, dateObj;
-            if (groupType === 'daily') {
-                dateObj = new Date(dateRef);
-                key = dateObj.toLocaleDateString('en-GB');
-            } else {
-                dateObj = getMonday(dateRef);
-                key = "Week of " + dateObj.toLocaleDateString('en-GB');
-            }
-
-            if (!acc[key]) acc[key] = { date: key, dateObj, sessions: 0, amount: 0, details: [] };
-            acc[key].sessions += 1;
-            acc[key].amount += s.status === 'ended' ? getSessionRate(s.classLevel) : 0;
-            acc[key].details.push(s);
-            return acc;
-        }, {});
-        return Object.values(obj).sort((a, b) => b.dateObj - a.dateObj);
-    };
-
-    const dailyEarnings = buildGroupedData('daily');
-    const weeklyEarnings = buildGroupedData('weekly');
-
-    const months = [
-        { val: 1, label: 'January' }, { val: 2, label: 'February' }, { val: 3, label: 'March' },
-        { val: 4, label: 'April' }, { val: 5, label: 'May' }, { val: 6, label: 'June' },
-        { val: 7, label: 'July' }, { val: 8, label: 'August' }, { val: 9, label: 'September' },
-        { val: 10, label: 'October' }, { val: 11, label: 'November' }, { val: 12, label: 'December' }
-    ];
-
-    if (loading) return <div className="p-8 flex justify-center"><div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full"></div></div>;
-
-    const totalEarned = earnings.reduce((acc, curr) => acc + curr.totalAmount, 0);
-    const paidAmount = earnings.filter(e => e.status === 'Paid').reduce((acc, curr) => acc + curr.totalAmount, 0);
-    const pendingAmount = earnings.filter(e => e.status === 'Pending').reduce((acc, curr) => acc + curr.totalAmount, 0);
+    const paidAmount = earningsData.history.reduce((acc, curr) => acc + curr.totalAmount, 0);
+    const totalEarned = earningsData.pendingAmount + paidAmount;
 
     return (
-        <div className="space-y-8 animate-in fade-in p-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-[#002147] tracking-tighter uppercase italic">My Earnings</h1>
-                    <p className="text-sm font-bold text-slate-500 mt-1">Track your monthly payouts and transaction history</p>
+        <div className="space-y-6 animate-in fade-in duration-300 px-2 md:px-0 max-w-6xl mx-auto pb-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div className="space-y-0.5">
+                    <h1 className="text-xl font-bold text-slate-800 tracking-tight">My Earnings</h1>
+                    <p className="text-slate-500 font-medium text-xs">Track your class-wise earnings and payout history</p>
                 </div>
             </div>
 
+            {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-xl">
-                     <div className="w-16 h-16 bg-slate-50 text-slate-800 rounded-2xl flex items-center justify-center border border-slate-200">
-                        <DollarSign className="w-8 h-8" />
+                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+                     <div className="w-14 h-14 bg-slate-50 text-slate-800 rounded-xl flex items-center justify-center border border-slate-200">
+                        <Wallet className="w-6 h-6" />
                      </div>
                      <div>
                          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Lifetime Earned</p>
-                         <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{totalEarned}</p>
+                         <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{totalEarned}</p>
                      </div>
                  </div>
-                 <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-xl border-t-4 border-t-rose-500">
-                     <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center">
-                        <Clock className="w-8 h-8" />
+                 <div className="bg-white p-5 rounded-2xl border border-orange-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+                     <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center border border-orange-100">
+                        <Clock className="w-6 h-6" />
                      </div>
                      <div>
-                         <p className="text-[10px] font-black uppercase text-rose-400 tracking-widest leading-none mb-1">Total Pending</p>
-                         <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{pendingAmount}</p>
+                         <p className="text-[10px] font-black uppercase text-orange-400 tracking-widest leading-none mb-1">Unpaid Balance</p>
+                         <p className="text-2xl font-black text-orange-600 tracking-tighter">₹{earningsData.pendingAmount}</p>
                      </div>
                  </div>
-                 <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-xl border-t-4 border-t-emerald-500">
-                     <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
-                        <CheckCircle className="w-8 h-8" />
+                 <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+                     <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center border border-emerald-100">
+                        <CheckCircle className="w-6 h-6" />
                      </div>
                      <div>
                          <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest leading-none mb-1">Total Paid</p>
-                         <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{paidAmount}</p>
+                         <p className="text-2xl font-black text-emerald-600 tracking-tighter">₹{paidAmount}</p>
                      </div>
                  </div>
             </div>
 
-            <div className="bg-white border rounded-[40px] overflow-hidden shadow-sm">
-                <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                    <h2 className="text-xl font-black text-slate-800 uppercase italic tracking-tighter">Earnings & Schedule</h2>
-                    <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
+            {/* Content Area */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50">
+                    <div className="flex gap-2 bg-white border border-slate-200 p-1 rounded-xl w-full md:w-auto">
                         <button 
-                            onClick={() => setViewMode('monthly')}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'monthly' ? 'bg-[#002147] text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                            onClick={() => setViewMode('pending')}
+                            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
+                                viewMode === 'pending' 
+                                ? 'bg-[#f16126] text-white shadow-sm' 
+                                : 'text-slate-500 hover:bg-slate-50'
+                            }`}
                         >
-                            Monthly
+                            Pending Classes
                         </button>
                         <button 
-                            onClick={() => setViewMode('weekly')}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'weekly' ? 'bg-[#f16126] text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                            onClick={() => setViewMode('history')}
+                            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
+                                viewMode === 'history' 
+                                ? 'bg-[#002147] text-white shadow-sm' 
+                                : 'text-slate-500 hover:bg-slate-50'
+                            }`}
                         >
-                            Weekly
-                        </button>
-                        <button 
-                            onClick={() => setViewMode('daily')}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'daily' ? 'bg-[#f16126] text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                            Day-Wise
+                            Payout History
                         </button>
                     </div>
                 </div>
-                <div className="overflow-x-auto p-4">
-                    <table className="w-full text-left text-sm">
-                        <thead className="text-[10px] uppercase tracking-widest font-black text-slate-400">
-                            <tr>
-                                <th className="px-6 py-4">{viewMode === 'monthly' ? 'Billing Month' : (viewMode === 'weekly' ? 'Week Index' : 'Date')}</th>
-                                <th className="px-6 py-4">Classes Logged & Details</th>
-                                <th className="px-6 py-4">Total Amount</th>
-                                {viewMode === 'monthly' && <th className="px-6 py-4">Status & Details</th>}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-600 font-bold">
-                            {viewMode === 'monthly' ? (
-                                earnings.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="4" className="px-6 py-16 text-center">
-                                            <div className="flex flex-col items-center justify-center gap-4">
-                                                <div className="w-16 h-16 bg-slate-50 flex items-center justify-center rounded-full"><FileText className="w-8 h-8 text-slate-300" /></div>
-                                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">No Earnings Generated Yet</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : earnings.map(e => (
-                                    <tr key={e._id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="px-6 py-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"><CalendarIcon className="w-5 h-5" /></div>
-                                                <span className="text-sm font-black text-[#002147] uppercase italic">{months.find(m => m.val === e.month)?.label} {e.year}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-6 font-bold text-slate-500">{e.totalSessions} sessions</td>
-                                        <td className="px-6 py-6 text-xl font-black text-slate-900 tracking-tighter">₹{e.totalAmount}</td>
-                                        <td className="px-6 py-6">
-                                            {e.status === 'Paid' ? (
-                                                <div className="flex flex-col items-start">
-                                                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Paid</span>
-                                                    <span className="text-[10px] text-slate-400 font-black mt-1.5 uppercase tracking-widest">TRX: {e.transactionId || 'N/A'}</span>
-                                                </div>
-                                            ) : (
-                                                <span className="px-3 py-1 bg-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-1 w-max"><Clock className="w-3 h-3" /> Pending</span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+
+                <div className="p-0">
+                    {viewMode === 'pending' && (
+                        <div>
+                            {earningsData.unpaidSessions.length === 0 ? (
+                                <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+                                    <BookOpen className="w-12 h-12 opacity-50 mb-3" />
+                                    <span className="text-sm font-bold">No unpaid classes found.</span>
+                                </div>
                             ) : (
-                                (viewMode === 'daily' ? dailyEarnings : weeklyEarnings).length === 0 ? (
-                                    <tr>
-                                        <td colSpan="3" className="px-6 py-16 text-center">
-                                            <div className="flex flex-col items-center justify-center gap-4">
-                                                <div className="w-16 h-16 bg-slate-50 flex items-center justify-center rounded-full"><CalendarIcon className="w-8 h-8 text-slate-300" /></div>
-                                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">No Sessions Yet</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (viewMode === 'daily' ? dailyEarnings : weeklyEarnings).map((d, i) => (
-                                    <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="px-6 py-6 align-top font-black text-slate-800 pt-8">{d.date}</td>
-                                        <td className="px-6 py-6 align-top">
-                                            <div className="font-black text-slate-800 text-sm mb-3 bg-slate-100 w-max px-3 py-1 rounded-md">{d.sessions} Total Sessions</div>
-                                            <div className="space-y-2 grid grid-cols-1 max-w-lg">
-                                                {d.details.map((s, idx) => (
-                                                    <div key={s._id || idx} className={`p-3 rounded-xl border ${s.status === 'ended' ? 'bg-emerald-50/50 border-emerald-100' : s.status === 'live' ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-white border-slate-200'}`}>
-                                                        <div className="flex justify-between items-start mb-1.5">
-                                                            <span className="font-black text-[#002147]">{s.title}</span>
-                                                            <span className={`text-[9px] px-2 py-1 uppercase tracking-widest font-black rounded-lg ${s.status === 'ended' ? 'text-emerald-700 bg-emerald-100' : s.status === 'live' ? 'text-rose-700 bg-rose-200 animate-pulse' : 'text-slate-500 bg-slate-100'}`}>
-                                                                {s.status}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                        <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <tr>
+                                                <th className="px-6 py-4">Date & Time</th>
+                                                <th className="px-6 py-4">Class Details</th>
+                                                <th className="px-6 py-4">Duration</th>
+                                                <th className="px-6 py-4 text-right">Earned</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                            {earningsData.unpaidSessions.map(session => {
+                                                const start = new Date(session.startTime);
+                                                const end = new Date(session.endTime);
+                                                const durationMins = Math.round((end - start) / 60000);
+                                                
+                                                return (
+                                                    <tr key={session._id} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-bold text-slate-900">{start.toLocaleDateString('en-GB')}</div>
+                                                            <div className="text-xs text-slate-500">{start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-bold text-[#002147]">{session.title}</div>
+                                                            <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mt-1">
+                                                                {session.subjectName} • {session.classLevel}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-bold">
+                                                                {durationMins} mins
                                                             </span>
-                                                        </div>
-                                                        <div className="text-xs font-bold text-slate-500 flex items-center gap-2">
-                                                            <span className="text-[#f16126]">{s.subjectName}</span>
-                                                            <span>• {new Date(s.endTime || s.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-6 align-top pt-8 text-xl font-black text-emerald-600 tracking-tighter">
-                                            {d.amount > 0 ? `₹${d.amount}` : <span className="text-sm text-slate-400">Scheduled</span>}
-                                        </td>
-                                    </tr>
-                                ))
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <span className="text-lg font-black text-orange-600">₹{session.priceApplied}</span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
-                        </tbody>
-                    </table>
+                        </div>
+                    )}
+
+                    {viewMode === 'history' && (
+                        <div>
+                            {earningsData.history.length === 0 ? (
+                                <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+                                    <FileText className="w-12 h-12 opacity-50 mb-3" />
+                                    <span className="text-sm font-bold">No payout history found.</span>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                        <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <tr>
+                                                <th className="px-6 py-4">Date Settled</th>
+                                                <th className="px-6 py-4">Classes</th>
+                                                <th className="px-6 py-4">Payment Info</th>
+                                                <th className="px-6 py-4 text-right">Amount Paid</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                            {earningsData.history.map(payout => {
+                                                const d = new Date(payout.createdAt);
+                                                return (
+                                                    <tr key={payout._id} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-bold text-slate-900 flex items-center gap-2">
+                                                                <CalendarIcon className="w-4 h-4 text-slate-400" />
+                                                                {d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="font-bold text-[#002147]">{payout.sessionIds?.length || 0} classes</span>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="w-max px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded">
+                                                                    {payout.paymentMode || 'Paid'}
+                                                                </span>
+                                                                {payout.transactionId && (
+                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase">TXN: {payout.transactionId}</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <span className="text-lg font-black text-emerald-600">₹{payout.totalAmount}</span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

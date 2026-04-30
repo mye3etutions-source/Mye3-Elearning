@@ -23,6 +23,8 @@ const {
   toggleMaterialVisibility,
   assignSubjectToTeacher, 
   removeAssignmentFromTeacher, 
+  getTeacherPayroll,
+  settleTeacherPayment,
   addStudent, 
   assignSubscription, 
   getDashboardStats,
@@ -83,5 +85,9 @@ router.delete('/users/:id', protect, authorizeRoles('admin'), deleteUser);
 router.get('/stats', protect, authorizeRoles('admin'), getDashboardStats);
 router.get('/reports', protect, authorizeRoles('admin'), getReports);
 router.get('/transactions', protect, authorizeRoles('admin'), getAllTransactions);
+
+// Teacher Payroll Routes
+router.get('/teacher-payroll', protect, authorizeRoles('admin'), getTeacherPayroll);
+router.post('/teacher-payroll/settle', protect, authorizeRoles('admin'), settleTeacherPayment);
 
 module.exports = router;

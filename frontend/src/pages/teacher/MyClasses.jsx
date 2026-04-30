@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FileText, Loader2, GraduationCap } from 'lucide-react';
+import { FileText, Loader2, GraduationCap, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const MyClasses = () => {
@@ -73,78 +73,67 @@ const MyClasses = () => {
          </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-         {classLevels.length === 0 ? (
-           <div className="col-span-full py-16 flex flex-col items-center justify-center bg-white border border-dashed border-slate-300 rounded-2xl shadow-sm text-center">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                 <BookOpen className="w-8 h-8 text-slate-300" />
-              </div>
-              <h3 className="text-base font-bold text-slate-700">No Assigned Classes Found</h3>
-              <p className="text-sm text-slate-500 mt-1 max-w-sm">You haven't been assigned to any classes or subjects yet. Contact the administration.</p>
+      {classes.length === 0 ? (
+        <div className="py-16 flex flex-col items-center justify-center bg-white border border-dashed border-slate-300 rounded-2xl shadow-sm text-center">
+           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <BookOpen className="w-8 h-8 text-slate-300" />
            </div>
-         ) : classLevels.map((lvl) => {
-            const items = groupedClasses[lvl];
-            const hasBundle = items.some(i => i.assignmentType === 'bundle');
-            const currentSub = subjectSelection[lvl] || items[0];
-
-            return (
-              <div key={lvl} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col h-full overflow-hidden group">
-                {/* HEADER */}
-                <div className={`h-28 relative p-6 flex flex-col justify-end shrink-0 transition-colors ${
-                   hasBundle ? 'bg-gradient-to-tr from-teal-600 to-teal-500' : 'bg-gradient-to-tr from-slate-800 to-slate-700'
-                }`}>
-                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mt-16 group-hover:scale-125 transition-all duration-700"></div>
-                   <div className="relative z-10 flex flex-col items-start gap-1">
-                      <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm shadow-sm rounded text-[10px] font-bold uppercase tracking-wider text-white">
-                        {hasBundle ? 'Bundle Assigned' : 'Individual Subjects'}
-                      </span>
-                      <h3 className="text-2xl font-bold text-white tracking-tight">{lvl}</h3>
-                   </div>
-                </div>
-
-                {/* CONTENT: DROPDOWN + ACTIONS */}
-                <div className="p-6 flex flex-col flex-1 bg-slate-50/50">
-                   <div className="space-y-3 flex-1">
-                      <label className="text-xs font-semibold text-slate-500 flex items-center gap-2">
-                         Assigned Subjects <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[10px]">{items.length}</span>
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                         {items.map((item, idx) => {
-                            const isSelected = JSON.stringify(item) === JSON.stringify(currentSub);
-                            return (
-                               <button 
-                                 key={idx} 
-                                 onClick={() => handleLocalSubjectChange(lvl, item)}
-                                 className={`relative px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                                    isSelected 
-                                    ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-sm' 
-                                    : 'bg-white border-slate-200 text-slate-600 hover:border-teal-200 hover:bg-slate-50'
-                                 }`}
-                               >
-                                  {item.subjectName}
-                                  {isSelected && (
-                                     <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-teal-500 border border-white rounded-full"></div>
-                                  )}
-                               </button>
-                            );
-                         })}
-                      </div>
-                   </div>
-
-                    <div className="pt-8 mt-auto">
-                      <Link 
-                        to="/teacher/materials" 
-                        className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-all shadow-sm flex items-center justify-center gap-2 font-bold text-sm"
-                      >
-                         <FileText className="w-4 h-4" /> 
-                         <span>Go to Study Materials</span>
-                      </Link>
-                    </div>
-                </div>
-              </div>
-            );
-         })}
-      </div>
+           <h3 className="text-base font-bold text-slate-700">No Assigned Classes Found</h3>
+           <p className="text-sm text-slate-500 mt-1 max-w-sm">You haven't been assigned to any classes or subjects yet. Contact the administration.</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+           <table className="w-full text-left border-collapse">
+              <thead>
+                 <tr className="bg-slate-50/50 border-b border-slate-100">
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Board</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Class / Grade</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Subject</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Price / Class</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Actions</th>
+                 </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                 {classes.map((item, idx) => {
+                    const boardName = item.board || 'TS Board';
+                    
+                    return (
+                       <tr key={idx} className="hover:bg-teal-50/30 transition-colors group">
+                          <td className="px-8 py-6">
+                             <span className="px-3 py-1 bg-orange-50 text-[#f16126] text-[10px] font-black uppercase tracking-widest rounded-full border border-orange-100">
+                                {boardName}
+                             </span>
+                          </td>
+                          <td className="px-8 py-6">
+                             <div className="flex items-center gap-4">
+                                <div className="w-8 h-8 bg-[#002147] rounded-lg flex items-center justify-center text-white shadow-md shadow-blue-900/10 group-hover:scale-110 transition-transform">
+                                   <GraduationCap className="w-4 h-4" />
+                                </div>
+                                <span className="text-sm font-black text-[#002147] tracking-tight uppercase italic">{item.classLevel}</span>
+                             </div>
+                          </td>
+                          <td className="px-8 py-6">
+                             <span className="text-sm font-bold text-slate-700 uppercase">{item.subjectName}</span>
+                          </td>
+                          <td className="px-8 py-6">
+                             <span className="text-lg font-black text-[#f16126]">₹{item.pricePerClass || 0}</span>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                             <Link 
+                                to="/teacher/materials" 
+                                className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#002147] hover:text-white transition-all border border-slate-200"
+                             >
+                                <FileText className="w-3.5 h-3.5" />
+                                Materials
+                             </Link>
+                          </td>
+                       </tr>
+                    );
+                 })}
+              </tbody>
+           </table>
+        </div>
+      )}
     </div>
   );
 };

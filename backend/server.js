@@ -18,9 +18,13 @@ initializeExpiryCron();
 const io = new Server(server, {
   path: '/api/socket.io',
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? process.env.FRONTEND_URL 
-      : ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      process.env.FRONTEND_URL,
+      'https://mye3etutions.com',
+      'https://www.mye3etutions.com'
+    ].filter(Boolean),
     methods: ['GET', 'POST'],
     credentials: true
   }

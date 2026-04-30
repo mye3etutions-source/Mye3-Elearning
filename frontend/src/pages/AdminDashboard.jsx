@@ -11,19 +11,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import io from 'socket.io-client';
-
-const getSocketUrl = () => {
-  return import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin + '/api');
-};
-
-const socket = io(getSocketUrl(), {
-  path: window.location.hostname === 'localhost' ? '/socket.io' : '/api/socket.io',
-  transports: ['polling', 'websocket'],
-  reconnection: true,
-  reconnectionAttempts: 10,
-  reconnectionDelay: 2000
-});
+import socket from '../socket';
 
 const AdminDashboard = () => {
   const [statsData, setStatsData] = useState(null);

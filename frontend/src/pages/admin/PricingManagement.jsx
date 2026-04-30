@@ -230,7 +230,7 @@ const PricingManagement = () => {
            </div>
          )}
          
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+         <div className="grid grid-cols-1 gap-3 items-start">
             {uniqueJuniorNames.map((name) => {
               const grade = getGradeForBoard(name);
               const classId = grade?._id;
@@ -276,7 +276,7 @@ const PricingManagement = () => {
                                </div>
                              ) : (
                                <>
-                               <div className="grid grid-cols-2 gap-2">
+                               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                                   {[
                                      { k: 'oneMonth', l: 'Monthly' },
                                      { k: 'threeMonths', l: 'Quarterly' },
@@ -287,7 +287,7 @@ const PricingManagement = () => {
                                         <div className="text-[9px] font-medium text-slate-500 uppercase tracking-wide mb-1 px-1">{t.l}</div>
                                         <div className="relative">
                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-xs">₹</span>
-                                           <input type="number" value={editPricing[classId]?.[t.k] ?? ''} onFocus={(e) => { if(e.target.value === '0') e.target.value = ''; }} onChange={(e) => setEditPricing({ ...editPricing, [classId]: { ...editPricing[classId], [t.k]: e.target.value } })} className="w-full bg-slate-50 border border-slate-200 rounded pl-5 pr-2 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-indigo-500/30" />
+                                           <input type="number" value={editPricing[classId]?.[t.k] ?? ''} onFocus={(e) => { if(e.target.value === '0') e.target.value = ''; }} onChange={(e) => setEditPricing({ ...editPricing, [classId]: { ...editPricing[classId], [t.k]: e.target.value } })} className="w-full bg-slate-50 border border-slate-200 rounded pl-5 pr-2 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-indigo-500/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                                         </div>
                                      </div>
                                   ))}
@@ -297,16 +297,34 @@ const PricingManagement = () => {
                                </button>
                                <div className="pt-2 border-t border-slate-200">
                                   <h4 className="text-[9px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-2 px-1"><BookOpen className="w-3 h-3 text-indigo-500" /> Subjects</h4>
-                                  <div className="flex flex-wrap gap-1.5">
+                                  <div className="flex flex-wrap gap-2">
                                      {(grade.subjects || []).map((sub, idx) => (
-                                       <div key={idx} className="bg-white px-2 py-1 rounded border border-slate-200 shadow-sm flex items-center gap-1.5 group">
-                                          <span className="text-[10px] font-medium text-slate-700">{sub.name}</span>
-                                          <button onClick={() => { const up = grade.subjects.filter((_,i)=>i!==idx); handleUpdatePriceBoard(classId, true, { subjects: up }); }} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><X className="w-3 h-3" /></button>
+                                       <div key={idx} className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2 group hover:border-indigo-400 transition-all hover:shadow-md">
+                                          <span className="text-xs font-bold text-slate-700">{sub.name}</span>
+                                          <button onClick={() => { const up = grade.subjects.filter((_,i)=>i!==idx); handleUpdatePriceBoard(classId, true, { subjects: up }); }} className="text-slate-300 hover:text-red-500 transition-colors">
+                                             <X className="w-3.5 h-3.5" />
+                                          </button>
                                        </div>
                                      ))}
-                                     <div className="flex items-center bg-white border border-dashed border-indigo-300 rounded px-1">
-                                        <input id={`new-sn-${classId}`} type="text" placeholder="Add..." className="bg-transparent px-1 py-1 text-[10px] font-medium outline-none w-16" />
-                                        <button onClick={async () => { const subName = document.getElementById(`new-sn-${classId}`).value; if(!subName) return; const up = [...(grade.subjects||[]), {name:subName, singleSubjectPrice:0}]; await handleUpdatePriceBoard(classId, true, { subjects: up }); document.getElementById(`new-sn-${classId}`).value = ''; }} className="p-0.5 text-indigo-600 hover:bg-indigo-50 rounded transition-colors"><Plus className="w-3 h-3" /></button>
+                                     <div className="flex items-center bg-white border-2 border-dashed border-indigo-200 rounded-lg px-2 hover:border-indigo-400 transition-colors">
+                                        <input 
+                                           id={`new-sn-${classId}`} 
+                                           type="text" 
+                                           placeholder="New Subject..." 
+                                           className="bg-transparent px-2 py-1.5 text-xs font-bold outline-none w-28 placeholder:text-slate-300" 
+                                        />
+                                        <button 
+                                           onClick={async () => { 
+                                              const subName = document.getElementById(`new-sn-${classId}`).value; 
+                                              if(!subName) return; 
+                                              const up = [...(grade.subjects||[]), {name:subName, singleSubjectPrice:0}]; 
+                                              await handleUpdatePriceBoard(classId, true, { subjects: up }); 
+                                              document.getElementById(`new-sn-${classId}`).value = ''; 
+                                           }} 
+                                           className="p-1 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                                        >
+                                           <Plus className="w-4 h-4" />
+                                        </button>
                                      </div>
                                   </div>
                                </div>
@@ -385,7 +403,7 @@ const PricingManagement = () => {
                                                 type="number"
                                                 defaultValue={sub.pricing?.[t.k] || 0}
                                                 id={`si-${sub._id}-${t.k}`}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded px-1 py-1 text-[11px] font-semibold outline-none focus:border-indigo-400 text-center text-slate-700"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded px-1 py-1 text-[11px] font-semibold outline-none focus:border-indigo-400 text-center text-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                              />
                                           </div>
                                        ))}

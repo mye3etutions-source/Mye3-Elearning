@@ -3,27 +3,10 @@ import axios from 'axios';
 import {
     Activity, Loader2, BookOpen, Plus, X, Calendar, Video,
     Check, ChevronDown, ChevronRight, Edit2, Trash2, Clock,
-    ShieldCheck, Link as LinkIcon, AlertCircle, Users
+    ShieldCheck, Link as LinkIcon, AlertCircle, Users, Lock
 } from 'lucide-react';
 
-import io from 'socket.io-client';
-
-// ─── Socket Initialization ───────────────────────────────────────────────────
-const getSocketUrl = () => {
-    if (import.meta.env.VITE_API_URL) {
-        return import.meta.env.VITE_API_URL.replace('/api', '').replace(/\/$/, '');
-    }
-    return import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin + '/api');
-};
-
-const socket = io(getSocketUrl(), {
-    path: window.location.hostname === 'localhost' ? '/socket.io' : '/api/socket.io',
-    withCredentials: true,
-    transports: ['polling', 'websocket'],
-    reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 2000
-});
+import socket from '../../socket';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const BOARDS = ['AP Board', 'TS Board', 'CBSE', 'ICSE'];
@@ -107,7 +90,7 @@ const EMPTY_CELL_FORM = {
     link: '',
     board: 'AP Board',
     selectedDays: [],   // day numbers 0-6
-    scheduleType: 'once', // 'once' | '1week' | '2weeks' | '1month' | 'everyday'
+    scheduleType: 'once', // 'once' | 'this_week' | 'next_week' | 'this_month' | '2weeks' | '1month' | 'everyday'
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,8 +135,11 @@ const LiveMonitor = () => {
 
     const [weekOffset, setWeekOffset] = useState(0);
     const [monthOffset, setMonthOffset] = useState(0); // -1, 0, or +1 only
-    const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
     const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+    
+    const weekDates = useMemo(() => {
+        return getWeekDates(weekOffset);
+    }, [weekOffset]);
 
     // ── Month & Week Navigation Logic ────────────────────────────────────────
     const navInfo = useMemo(() => {
@@ -163,13 +149,10 @@ const LiveMonitor = () => {
         const normalizedMonth = ((activeMonthIndex % 12) + 12) % 12;
         
         const monthStart = new Date(activeYear, normalizedMonth, 1);
-        const monthEnd = new Date(activeYear, normalizedMonth + 1, 0);
         
-        const curWeekStart = weekDates[0];
-        const curWeekEnd = weekDates[6];
-        
-        const prevWStart = new Date(curWeekStart); prevWStart.setDate(prevWStart.getDate() - 7);
-        const nextWStart = new Date(curWeekStart); nextWStart.setDate(nextWStart.getDate() + 7);
+        const fullWeekDates = getWeekDates(weekOffset);
+        const curWeekStart = fullWeekDates[0];
+        const curWeekEnd = fullWeekDates[6];
         
         return {
             monthLabels: [-1, 0, 1].map(offset => {
@@ -178,9 +161,9 @@ const LiveMonitor = () => {
             }),
             activeMonth: normalizedMonth,
             activeYear: activeYear,
-            weekLabel: `${curWeekStart.getDate()} ${curWeekStart.toLocaleDateString('en-IN',{month:'short'})} – ${curWeekEnd.getDate()} ${curWeekEnd.toLocaleDateString('en-IN',{month:'short'})}`,
-            canGoPrev: prevWStart >= monthStart || curWeekStart > monthStart,
-            canGoNext: nextWStart <= monthEnd
+            weekLabel: `${curWeekStart.getDate()} ${curWeekStart.toLocaleDateString('en-IN',{month:'short'})} – ${curWeekEnd.getDate()} ${curWeekEnd.toLocaleDateString('en-IN',{month:'short', year:'numeric'})}`,
+            canGoPrev: true,   // always allow going back
+            canGoNext: true    // always allow going forward
         };
     }, [monthOffset, weekDates]);
 
@@ -249,7 +232,7 @@ const LiveMonitor = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [boardFilter]);
 
     useEffect(() => {
         fetchData();
@@ -289,17 +272,20 @@ const LiveMonitor = () => {
         setCellLoadingTeachers(true);
         setCellTeachers([]);
         try {
-            const params = new URLSearchParams({ classLevel, subjectName });
+            const params = new URLSearchParams({ 
+                classLevel, 
+                subjectName,
+                board: boardFilter // Pass the current board to the backend
+            });
             const res = await axios.get(`/admin/teachers-for-subject?${params}`);
             const list = res.data || [];
-            // Fallback to ALL teachers if none assigned to this subject
-            setCellTeachers(list.length > 0 ? list : allTeachers);
+            setCellTeachers(list);
         } catch {
-            setCellTeachers(allTeachers);
+            setCellTeachers([]);
         } finally {
             setCellLoadingTeachers(false);
         }
-    }, [allTeachers]);
+    }, [boardFilter]);
 
     // ── Open the inline scheduler ─────────────────────────────────────────────
     const openCellScheduler = useCallback((classLevel, date, existingSession = null, subjectName = null) => {
@@ -319,35 +305,47 @@ const LiveMonitor = () => {
                 platform: existingSession.platform,
                 link: existingSession.link,
                 board: existingSession.board || boardFilter,
-                selectedDays: [],
+                selectedDays: [new Date(existingSession.startTime).getDay()],
+                scheduleType: 'once'
             });
             loadTeachersForSubject(classLevel, existingSession.subjectName);
         } else {
-            // CREATE mode — use last-used values as smart defaults
+            const now = new Date();
+            // Add 2 mins buffer to default "now" to avoid immediate past-time error
+            const bufferedNow = new Date(now.getTime() + 2 * 60 * 1000);
+            let startH = bufferedNow.getHours();
+            let startM = bufferedNow.getMinutes();
+
+            // Smart time logic: default to last session's end + 5 mins (Grade-wide)
+            const gradeSessions = allSessions.filter(s => 
+                (s.classLevel || '').trim().toLowerCase() === (classLevel || '').trim().toLowerCase() &&
+                s.board === boardFilter &&
+                isSameDay(new Date(s.startTime), date)
+            ).sort((a, b) => {
+                const endA = new Date(a.endTime || new Date(a.startTime).getTime() + 60*60*1000);
+                const endB = new Date(b.endTime || new Date(b.startTime).getTime() + 60*60*1000);
+                return endB - endA;
+            });
+
+            if (gradeSessions.length > 0) {
+                const lastSession = gradeSessions[0];
+                const lastEnd = new Date(lastSession.endTime || new Date(lastSession.startTime).getTime() + 60*60*1000);
+                const nextStart = new Date(lastEnd.getTime() + 5 * 60 * 1000);
+                
+                // Only use nextStart if it's in the future OR if we're scheduling for a future date
+                if (!isSameDay(date, now) || nextStart > now) {
+                    startH = nextStart.getHours();
+                    startM = nextStart.getMinutes();
+                }
+            }
+            
+            const defaultTime = `${startH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
+            const endH = (startH + 1) % 24;
+            const defaultEndTime = `${endH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
+
+            // CREATE mode 
             const initSub = subs.find(s => s.subjectName === subjectName) || subs[0];
             const sameSubject = lastForm && lastForm.subjectId === initSub?.id;
-
-            // Smart Time Default: If last used time is already taken in this cell, find next hour
-            let defaultTime = lastForm?.time || '10:00';
-            let defaultEndTime = lastForm?.endTime || '11:00';
-            const [h, m] = defaultTime.split(':').map(Number);
-
-            // Check if this specific subject+time exists on this day
-            const exists = allSessions.some(s =>
-                s.classLevel === classLevel &&
-                s.subjectName === (subjectName || initSub?.subjectName) &&
-                isSameDay(new Date(s.startTime), date) &&
-                new Date(s.startTime).getHours() === h &&
-                new Date(s.startTime).getMinutes() === m
-            );
-
-            if (exists) {
-                // If 10:00 is taken, try 11:00, 12:00 etc.
-                let nextHour = (h + 1) % 24;
-                defaultTime = `${nextHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                let nextEndHour = (nextHour + 1) % 24;
-                defaultEndTime = `${nextEndHour.toString().padStart(2, '0')}:${defaultEndTime.split(':')[1] || '00'}`;
-            }
 
             setCellForm({
                 ...EMPTY_CELL_FORM,
@@ -356,7 +354,7 @@ const LiveMonitor = () => {
                 teacherId: sameSubject ? (lastForm.teacherId || '') : '',
                 time: defaultTime,
                 endTime: defaultEndTime,
-                platform: lastForm?.platform || 'Zoom',
+                platform: lastForm?.platform || 'Google Meet',
                 link: lastForm?.link || '',
                 board: boardFilter,
                 selectedDays: [date.getDay()],
@@ -404,7 +402,12 @@ const LiveMonitor = () => {
 
         const sessionStart = new Date(date);
         sessionStart.setHours(h, m, 0, 0);
-        if (sessionStart < new Date() && !cellForm.sessionId && cellForm.scheduleType === 'once') {
+
+        // Add 5-minute grace period to prevent race conditions when scheduling "now"
+        const graceTime = new Date();
+        graceTime.setMinutes(graceTime.getMinutes() - 5);
+
+        if (sessionStart < graceTime && !cellForm.sessionId && cellForm.scheduleType === 'once') {
             return setCellError('Cannot schedule a session for a past time!');
         }
 
@@ -460,6 +463,53 @@ const LiveMonitor = () => {
                 endTime.setHours(eh, em, 0, 0);
                 await axios.put(`/admin/live-sessions/${cellForm.sessionId}`, { ...payload, startTime: startTime.toISOString(), endTime: endTime.toISOString() });
 
+                // If user changed single session to repeat, create others
+                if (cellForm.scheduleType !== 'once') {
+                    const days = cellForm.selectedDays.length > 0 ? cellForm.selectedDays : [date.getDay()];
+                    const sessions = [];
+                    
+                    let startWeekOffset = 0;
+                    let weekCount = 1;
+                    let stopAtMonthEnd = false;
+
+                    if (cellForm.scheduleType === 'this_week') {
+                        weekCount = 1;
+                    } else if (cellForm.scheduleType === 'next_week') {
+                        startWeekOffset = 1;
+                        weekCount = 1;
+                    } else if (cellForm.scheduleType === 'this_month') {
+                        weekCount = 6;
+                        stopAtMonthEnd = true;
+                    } else if (cellForm.scheduleType === '2weeks') {
+                        weekCount = 3;
+                    } else if (cellForm.scheduleType === '1month') {
+                        weekCount = 5;
+                    }
+
+                    const baseDate = new Date(date);
+                    const originalMonth = baseDate.getMonth();
+
+                    for (let w = startWeekOffset; w < (startWeekOffset + weekCount); w++) {
+                        days.forEach(dayNum => {
+                            const anchor = new Date(baseDate);
+                            anchor.setDate(baseDate.getDate() + w * 7);
+                            const dt = dateForDayInWeek(anchor, dayNum, h, m);
+                            const endDt = dateForDayInWeek(anchor, dayNum, eh, em);
+
+                            if (stopAtMonthEnd && dt.getMonth() !== originalMonth) return;
+
+                            // SKIP the session we just updated (current day)
+                            if (isSameDay(dt, date)) return;
+
+                            if (dt > new Date()) {
+                                sessions.push({ ...payload, startTime: dt.toISOString(), endTime: endDt.toISOString() });
+                            }
+                        });
+                    }
+                    if (sessions.length > 0) {
+                        await axios.post('/admin/live-sessions', { sessions });
+                    }
+                }
             } else if (cellForm.scheduleType === 'everyday') {
                 // INFINITE RECURRING — send template to backend cron system
                 const startTime = new Date(date);
@@ -472,25 +522,68 @@ const LiveMonitor = () => {
                 });
 
             } else {
-                // CREATE — Bulk sessions for selected days or a date range
+                // CREATE — Bulk sessions for selected days repeating over N weeks
                 const days = cellForm.selectedDays.length > 0 ? cellForm.selectedDays : [date.getDay()];
                 const sessions = [];
 
-                // Determine how many weeks to generate
+                // weekCount = how many weeks total (including current week)
+                // '1week'  → 2 weeks (this week + next week)
+                // '2weeks' → 3 weeks
+                // '1month' → 5 weeks (~1 month)
+                // 'once'   → 1 week (just selected days this week)
+                let startWeekOffset = 0;
                 let weekCount = 1;
-                if (cellForm.scheduleType === '2weeks') weekCount = 2;
-                else if (cellForm.scheduleType === '1month') weekCount = 4;
+                let stopAtMonthEnd = false;
 
-                for (let w = 0; w < weekCount; w++) {
-                    days.forEach(dayNum => {
-                        const anchor = new Date(date);
-                        anchor.setDate(anchor.getDate() + w * 7);
-                        const dt = dateForDayInWeek(anchor, dayNum, h, m);
-                        const endDt = dateForDayInWeek(anchor, dayNum, eh, em);
-                        sessions.push({ ...payload, startTime: dt.toISOString(), endTime: endDt.toISOString() });
-                    });
+                if (cellForm.scheduleType === 'this_week') {
+                    startWeekOffset = 0;
+                    weekCount = 1;
+                } else if (cellForm.scheduleType === 'next_week') {
+                    startWeekOffset = 1;
+                    weekCount = 1;
+                } else if (cellForm.scheduleType === 'this_month') {
+                    startWeekOffset = 0;
+                    weekCount = 6; 
+                    stopAtMonthEnd = true;
+                } else if (cellForm.scheduleType === '2weeks') {
+                    weekCount = 2;
+                } else if (cellForm.scheduleType === '1month') {
+                    weekCount = 4;
                 }
-                await axios.post('/admin/live-sessions', { sessions });
+
+                // Find the Sunday of the week containing `date`
+                const baseDate = new Date(date);
+                const originalMonth = baseDate.getMonth();
+
+                if (cellForm.scheduleType === 'weekly') {
+                    // Weekly (Permanent) logic
+                    await axios.post('/admin/live-sessions', {
+                        isRecurring: true,
+                        recurringTemplate: { ...payload, startTime: startTime.toISOString(), endTime: endTime.toISOString(), days: cellForm.selectedDays }
+                    });
+                } else {
+                    for (let w = startWeekOffset; w < (startWeekOffset + weekCount); w++) {
+                        days.forEach(dayNum => {
+                            const anchor = new Date(baseDate);
+                            anchor.setDate(baseDate.getDate() + w * 7);
+                            const dt = dateForDayInWeek(anchor, dayNum, h, m);
+                            const endDt = dateForDayInWeek(anchor, dayNum, eh, em);
+
+                            if (stopAtMonthEnd && dt.getMonth() !== originalMonth) return;
+
+                            // Only schedule future sessions
+                            if (dt > new Date()) {
+                                sessions.push({ ...payload, startTime: dt.toISOString(), endTime: endDt.toISOString() });
+                            }
+                        });
+                    }
+
+                    if (sessions.length === 0) {
+                        return setCellError('All selected days are in the past! Choose a future time.');
+                    }
+
+                    await axios.post('/admin/live-sessions', { sessions });
+                }
             }
             // Remember settings for next time
             setLastForm({ ...cellForm, subjectId: sub.id });
@@ -564,10 +657,10 @@ const LiveMonitor = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    {recurringSchedules.length > 0 && (
+                    {recurringSchedules.filter(s => s.board === boardFilter).length > 0 && (
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold shadow-sm animate-in fade-in zoom-in duration-500">
                             <Activity className="w-3.5 h-3.5" />
-                            <span>{recurringSchedules.length} Active Series</span>
+                            <span>{recurringSchedules.filter(s => s.board === boardFilter).length} Active Series</span>
                         </div>
                     )}
                     <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
@@ -652,7 +745,11 @@ const LiveMonitor = () => {
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     {(() => {
-                                                                        const count = allSessions.filter(s => s.classLevel === lvl && s.board === boardFilter).length;
+                                                                        const count = allSessions.filter(s => {
+                                                                            const isLevelMatch = (s.classLevel || '').trim().toLowerCase() === (lvl || '').trim().toLowerCase();
+                                                                            const isBoardMatch = s.board === boardFilter;
+                                                                            return isLevelMatch && isBoardMatch;
+                                                                        }).length;
                                                                         return (
                                                                             <div className="flex items-center gap-1.5">
                                                                                 <div className={`w-1.5 h-1.5 rounded-full ${count > 0 ? 'bg-emerald-500' : 'bg-slate-300'}`} />
@@ -711,17 +808,29 @@ const LiveMonitor = () => {
                                                                     rs.board === boardFilter
                                                                 );
 
-                                                                const daySessions = allSessions
+                                                                 const daySessions = allSessions
                                                                     .filter(s => {
-                                                                        if (s.classLevel !== lvl) return false;
-                                                                        if (s.subjectName !== sub.subjectName) return false;
+                                                                        const sessionClass = (s.classLevel || '').trim().toLowerCase();
+                                                                        const targetClass = (lvl || '').trim().toLowerCase();
+                                                                        const sessionSub = (s.subjectName || '').trim().toLowerCase();
+                                                                        const targetSub = (sub.subjectName || '').trim().toLowerCase();
+                                                                        const teacherName = (s.teacherId?.name || '').toLowerCase();
+
+                                                                        if (sessionClass !== targetClass) return false;
+                                                                        
+                                                                        // Smart Match: Exact match OR (Generic session AND teacher name has subject)
+                                                                        const isExactMatch = sessionSub === targetSub;
+                                                                        const isSmartMatch = sessionSub === sessionClass && teacherName.includes(targetSub);
+                                                                        
+                                                                        if (!isExactMatch && !isSmartMatch) return false;
+                                                                        
                                                                         if (s.board !== boardFilter) return false;
                                                                         if (!isSameDay(new Date(s.startTime), date)) return false;
                                                                         return true;
                                                                     })
                                                                     .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-                                                                const isFormOpen =
+                                                                const isNoSessionPast = daySessions.length === 0 && isPastDate; const isFormOpen =
                                                                     activeCell?.classLevel === lvl &&
                                                                     activeCell?.subjectName === sub.subjectName &&
                                                                     activeCell?.date &&
@@ -746,38 +855,42 @@ const LiveMonitor = () => {
                                                                                     const isLive = s.status === 'live';
                                                                                     const isEnded = s.status === 'ended';
                                                                                     const isMissed = s.status === 'upcoming' && new Date(s.endTime || new Date(s.startTime).getTime() + 60*60*1000) < new Date();
-                                                                                    const isPastSessionTime = new Date(s.startTime) < new Date();
                                                                                     const theme = BOARD_THEMES[boardFilter];
                                                                                     return (
                                                                                         <div
                                                                                             key={sidx}
-                                                                                            className={`p-2 border rounded-md shadow-sm flex flex-col justify-between transition-colors relative group/card hover:border-indigo-300 hover:shadow-md ${deleteConfirmId === s._id ? 'border-rose-400 bg-rose-50 z-20' : isLive ? 'bg-rose-50 border-rose-200' : isEnded ? 'bg-slate-50 border-slate-200 text-slate-500' : isMissed ? 'bg-orange-50 border-orange-200 text-orange-600 opacity-80' : `bg-white ${theme.border}`}`}
+                                                                                            className={`p-2 border rounded-md shadow-sm flex flex-col justify-between transition-colors relative group/card hover:border-indigo-300 hover:shadow-md ${deleteConfirmId === s._id ? 'border-rose-400 bg-rose-50 z-20' : isLive ? 'bg-rose-50 border-rose-300 shadow-rose-100 animate-pulse' : isEnded ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : isMissed ? 'bg-rose-50 border-rose-200 text-rose-600 opacity-90' : `bg-white ${theme.border}`}`}
                                                                                         >
-                                                                                            <div className={`absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm ${isLive ? 'bg-rose-500' : isEnded ? 'bg-emerald-500' : isMissed ? 'bg-orange-500' : theme.primary}`} />
+                                                                                            <div className={`absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm ${isLive ? 'bg-rose-500' : isEnded ? 'bg-emerald-500' : isMissed ? 'bg-rose-500' : theme.primary}`} />
 
                                                                                             <div className="flex items-center justify-between pl-1.5">
-                                                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isLive ? 'text-rose-600' : isEnded ? 'text-emerald-600' : isMissed ? 'text-orange-600 line-through' : 'text-slate-600'}`}>
-                                                                                                    {fmt24To12(get24HFromDate(s.startTime))}
+                                                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isLive ? 'text-rose-600' : isEnded ? 'text-emerald-700' : isMissed ? 'text-rose-600 line-through' : 'text-slate-600'}`}>
+                                                                                                    {fmt24To12(get24HFromDate(s.startTime))} - {fmt24To12(get24HFromDate(s.endTime || new Date(s.startTime).getTime() + 60*60*1000))}
                                                                                                 </span>
                                                                                                 <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                                                                                                    {!isEnded && !isLive && !isPastSessionTime && (
-                                                                                                        <>
-                                                                                                            {deleteConfirmId === s._id ? (
+                                                                                                    {(() => {
+                                                                                                        if (isLive || isEnded || isMissed) return <span title={isLive ? "Live class" : isEnded ? "Ended class" : "Missed class"} className="p-1 text-slate-300"><Lock className="w-3 h-3" /></span>;
+
+                                                                                                        if (deleteConfirmId === s._id) {
+                                                                                                            return (
                                                                                                                 <button onClick={() => handleDeleteSession(s._id)} className="p-1 text-white bg-rose-600 rounded flex gap-1 items-center">
                                                                                                                     <Trash2 className="w-3 h-3" />
                                                                                                                 </button>
-                                                                                                            ) : (
-                                                                                                                <>
-                                                                                                                    <button onClick={() => openCellScheduler(lvl, date, s)} className={`p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded`}>
-                                                                                                                        <Edit2 className="w-3 h-3" />
-                                                                                                                    </button>
-                                                                                                                    <button onClick={() => setDeleteConfirmId(s._id)} className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded">
-                                                                                                                        <Trash2 className="w-3 h-3" />
-                                                                                                                    </button>
-                                                                                                                </>
-                                                                                                            )}
-                                                                                                        </>
-                                                                                                    )}
+                                                                                                            );
+                                                                                                        }
+
+                                                                                                        
+                                                                                                        return (
+                                                                                                            <>
+                                                                                                                <button onClick={() => openCellScheduler(lvl, date, s)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Edit">
+                                                                                                                    <Edit2 className="w-3 h-3" />
+                                                                                                                </button>
+                                                                                                                <button onClick={() => setDeleteConfirmId(s._id)} className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Delete">
+                                                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                                                </button>
+                                                                                                            </>
+                                                                                                        );
+                                                                                                    })()}
                                                                                                 </div>
                                                                                             </div>
 
@@ -825,10 +938,14 @@ const LiveMonitor = () => {
                                                                                     <select
                                                                                         value={cellForm.teacherId}
                                                                                         onChange={e => setCellForm(f => ({ ...f, teacherId: e.target.value }))}
-                                                                                        className="w-full text-sm font-medium bg-white border border-slate-200 rounded-md px-2 py-1.5 outline-none focus:border-indigo-500"
+                                                                                        className={`w-full text-sm font-medium bg-white border rounded-md px-2 py-1.5 outline-none focus:border-indigo-500 ${!cellForm.teacherId ? 'border-amber-200' : 'border-slate-200'}`}
                                                                                     >
-                                                                                        <option value="">Select Teacher</option>
-                                                                                        {cellTeachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                                                                        <option value="">{cellLoadingTeachers ? 'Loading Teachers...' : 'Select Teacher'}</option>
+                                                                                        {cellTeachers.length > 0 ? (
+                                                                                            cellTeachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)
+                                                                                        ) : (
+                                                                                            !cellLoadingTeachers && <option disabled>⚠️ No teachers assigned to this subject</option>
+                                                                                        )}
                                                                                     </select>
 
                                                                                     <div className="bg-slate-50 p-2 rounded-md border border-slate-200">
@@ -850,8 +967,8 @@ const LiveMonitor = () => {
                                                                                                             {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}</option>)}
                                                                                                         </select>
                                                                                                         <span className="font-bold text-slate-400">:</span>
-                                                                                                        <select value={m24} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
-                                                                                                            {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => <option key={m} value={m}>{m}</option>)}
+                                                                                                        <select value={m24.toString().padStart(2, '0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
+                                                                                                            {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(m => <option key={m} value={m}>{m}</option>)}
                                                                                                         </select>
                                                                                                         <select value={period} onChange={e => update(h12, m24, e.target.value)} className={`flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded`}>
                                                                                                             <option value="AM">AM</option>
@@ -879,8 +996,8 @@ const LiveMonitor = () => {
                                                                                                             {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}</option>)}
                                                                                                         </select>
                                                                                                         <span className="font-bold text-slate-400">:</span>
-                                                                                                        <select value={m24} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
-                                                                                                            {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => <option key={m} value={m}>{m}</option>)}
+                                                                                                        <select value={m24.toString().padStart(2, '0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
+                                                                                                            {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(m => <option key={m} value={m}>{m}</option>)}
                                                                                                         </select>
                                                                                                         <select value={period} onChange={e => update(h12, m24, e.target.value)} className={`flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded`}>
                                                                                                             <option value="AM">AM</option>
@@ -910,25 +1027,43 @@ const LiveMonitor = () => {
                                                                                         />
                                                                                     </div>
 
-                                                                                    {!cellForm.sessionId && (
+                                                                                    {(true) && (
                                                                                         <div className="pt-2 space-y-2">
-                                                                                            {/* Day picker — hidden for everyday repeat */}
+                                                                                            {/* Day picker */}
                                                                                             {cellForm.scheduleType !== 'everyday' && (
-                                                                                                <div className="flex justify-between gap-1">
-                                                                                                    {DAYS_META.map((day, idx) => {
-                                                                                                        const isSelected = (cellForm.selectedDays || []).includes(day.value);
-                                                                                                        return (
-                                                                                                            <button
-                                                                                                                type="button" key={idx}
-                                                                                                                onClick={() => setCellForm(prev => {
-                                                                                                                    const sel = prev.selectedDays || [];
-                                                                                                                    return { ...prev, selectedDays: sel.includes(day.value) ? sel.filter(d => d !== day.value) : [...sel, day.value] };                                                                     })}
-                                                                                                                className={`w-6 h-6 rounded text-[10px] font-semibold flex items-center justify-center transition-colors ${isSelected ? `bg-indigo-600 text-white` : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100'}`}
-                                                                                                            >
-                                                                                                                {day.label}
-                                                                                                            </button>
-                                                                                                        );
-                                                                     })}
+                                                                                                <div className="space-y-1">
+                                                                                                    <div className="flex items-center justify-between">
+                                                                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Days</span>
+                                                                                                        <div className="flex gap-1.5">
+                                                                                                            <button type="button" onClick={() => setCellForm(f => ({ ...f, selectedDays: [0,1,2,3,4,5,6] }))} className="text-[9px] font-black text-indigo-500 hover:text-indigo-700">All</button>
+                                                                                                            <span className="text-slate-300">|</span>
+                                                                                                            <button type="button" onClick={() => setCellForm(f => ({ ...f, selectedDays: [1,2,3,4,5] }))} className="text-[9px] font-black text-indigo-500 hover:text-indigo-700">Mon–Fri</button>
+                                                                                                            <span className="text-slate-300">|</span>
+                                                                                                            <button type="button" onClick={() => setCellForm(f => ({ ...f, selectedDays: [] }))} className="text-[9px] font-black text-slate-400 hover:text-rose-500">Clear</button>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                    <div className="flex justify-between gap-1">
+                                                                                                        {DAYS_META.map((day, idx) => {
+                                                                                                            const isSelected = (cellForm.selectedDays || []).includes(day.value);
+                                                                                                            // For current week, disable past days
+                                                                                                            const dayDate = dateForDayInWeek(activeCell?.date || new Date(), day.value, 0, 0);
+                                                                                                            const isPast = dayDate < today;
+
+                                                                                                            return (
+                                                                                                                <button
+                                                                                                                    type="button" key={idx}
+                                                                                                                    disabled={isPast && cellForm.scheduleType !== 'next_week'}
+                                                                                                                    onClick={() => setCellForm(prev => {
+                                                                                                                        const sel = prev.selectedDays || [];
+                                                                                                                        return { ...prev, selectedDays: sel.includes(day.value) ? sel.filter(d => d !== day.value) : [...sel, day.value] };
+                                                                                                                    })}
+                                                                                                                    className={`w-7 h-7 rounded-lg text-[10px] font-black flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : isPast && cellForm.scheduleType !== 'next_week' ? 'bg-slate-100 text-slate-300 border-none cursor-not-allowed' : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300'}`}
+                                                                                                                >
+                                                                                                                    {day.label}
+                                                                                                                </button>
+                                                                                                            );
+                                                                                                        })}
+                                                                                                    </div>
                                                                                                 </div>
                                                                                             )}
                                                                                             {/* Repeat / Schedule Type */}
@@ -936,18 +1071,33 @@ const LiveMonitor = () => {
                                                                                                 <span className="text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Repeat</span>
                                                                                                 <select
                                                                                                     value={cellForm.scheduleType}
-                                                                                                    onChange={e => setCellForm(f => ({ ...f, scheduleType: e.target.value }))}
+                                                                                                    onChange={e => {
+                                                                                                        const val = e.target.value;
+                                                                                                        setCellForm(f => {
+                                                                                                            let newDays = f.selectedDays;
+                                                                                                            if (val === 'once') {
+                                                                                                                newDays = [activeCell?.date?.getDay() ?? new Date().getDay()];
+                                                                                                            } else if (val === 'everyday' || (newDays.length === 0 && val !== 'once')) {
+                                                                                                                newDays = [0,1,2,3,4,5,6];
+                                                                                                            }
+                                                                                                            return { ...f, scheduleType: val, selectedDays: newDays };
+                                                                                                        });
+                                                                                                    }}
                                                                                                     className="flex-1 text-xs font-semibold bg-white border border-slate-200 rounded-md px-2 py-1 outline-none focus:border-indigo-500"
                                                                                                 >
-                                                                                                    <option value="once">No Repeat (Once)</option>
-                                                                                                    <option value="1week">Repeat for 1 Week</option>
-                                                                                                    <option value="2weeks">Repeat for 2 Weeks</option>
-                                                                                                    <option value="1month">Repeat for 1 Month</option>
-                                                                                                    <option value="everyday">Every Day (Infinite 🔁)</option>
+                                                                                                    <option value="once">Once (This Week Only)</option>
+                                                                                                    <option value="next_week">Next Week Only</option>
+                                                                                                    <option value="everyday">Every Day (Permanent 🔁)</option>
+                                                                                                    <option value="this_month">Until End of Month</option>
                                                                                                 </select>
                                                                                             </div>
                                                                                             {cellForm.scheduleType === 'everyday' && (
-                                                                                                <p className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 p-1.5 rounded-md">⚡ Sessions will auto-generate daily until end of next month. Cron job renews them automatically!</p>
+                                                                                                <p className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 p-1.5 rounded-md">⚡ Sessions auto-generate daily until end of next month.</p>
+                                                                                            )}
+                                                                                            {['this_week','next_week','this_month','1week','2weeks','1month'].includes(cellForm.scheduleType) && cellForm.selectedDays.length > 0 && (
+                                                                                                <p className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 p-1.5 rounded-md">
+                                                                                                    ✅ Bulk scheduling: {cellForm.selectedDays.length} days selected.
+                                                                                                </p>
                                                                                             )}
                                                                                         </div>
                                                                                     )}
@@ -967,7 +1117,7 @@ const LiveMonitor = () => {
                                                                                     </div>
                                                                                 </div>
                                                                             ) : (
-                                                                                !isPastDate && (
+                                                                                !isPastDate ? (
                                                                                     <button
                                                                                         onClick={() => openCellScheduler(lvl, date, null, sub.subjectName)}
                                                                                         className={`w-full py-2.5 mt-2 border border-dashed border-slate-300 text-slate-400 rounded-md flex items-center justify-center gap-1.5 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all opacity-80 hover:opacity-100 ${daySessions.length === 0 ? 'min-h-[44px]' : ''}`}
@@ -975,6 +1125,12 @@ const LiveMonitor = () => {
                                                                                         <Plus className="w-3.5 h-3.5" />
                                                                                         <span className="text-[10px] uppercase font-bold tracking-wider">Add Slot</span>
                                                                                     </button>
+                                                                                ) : (
+                                                                                    isNoSessionPast && (
+                                                                                        <div className="flex-grow flex items-center justify-center py-4 opacity-30 select-none">
+                                                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] italic">No Session</span>
+                                                                                        </div>
+                                                                                    )
                                                                                 )
                                                                             )}
                                                                         </div>

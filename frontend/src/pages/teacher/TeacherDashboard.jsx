@@ -19,22 +19,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import io from 'socket.io-client';
-
-const getSocketUrl = () => {
-    if (import.meta.env.VITE_API_URL) {
-        return import.meta.env.VITE_API_URL.replace('/api', '').replace(/\/$/, '');
-    }
-    return import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin + '/api');
-};
-
-const socket = io(getSocketUrl(), {
-    path: window.location.hostname === 'localhost' ? '/socket.io' : '/api/socket.io',
-    transports: ['polling', 'websocket'],
-    reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 2000
-});
+import socket from '../../socket';
 
 const TeacherDashboard = () => {
   const [stats, setStats] = useState({
@@ -87,19 +72,38 @@ const TeacherDashboard = () => {
     }
   };
 
-  const statCards = [
-    { label: 'Enrolled Students', value: stats.studentCount, icon: GraduationCap, color: 'text-[#f16126]', bg: 'bg-orange-50', sub: 'Total Count' },
-    { label: 'Assigned Classes', value: stats.totalAssigned, icon: BookOpen, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/classes', sub: 'All Grades' },
-    { label: 'Active Sessions', value: stats.liveCount + stats.upcomingCount, icon: Video, color: 'text-[#f16126]', bg: 'bg-orange-50', path: '/teacher/classes', sub: 'Today' },
-    { label: 'Past Broadcasts', value: stats.endedCount, icon: FileText, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/past-sessions', sub: 'Archive' },
-  ];
+  const now = new Date();
+  const todayStr = now.toDateString();
 
-  const filteredSessions = sessions.filter(s => {
+  // 1. Filter sessions for TODAY only
+  const todaySessions = sessions.filter(s => {
+    const sessionStartTime = new Date(s.startTime);
+    return sessionStartTime.toDateString() === todayStr;
+  });
+
+  // 2. Further filter for display based on status and time
+  const filteredSessions = todaySessions.filter(s => {
+    const sessionEndTime = new Date(s.endTime);
+    
+    // Hide upcoming sessions that have already passed their scheduled end time
+    if (s.status === 'upcoming' && sessionEndTime < now) return false;
+
     if (activeTab === 'live') return s.status === 'live';
     if (activeTab === 'upcoming') return s.status === 'upcoming';
     if (activeTab === 'ended') return s.status === 'ended';
     return true;
   });
+
+  // 3. Recalculate Stats for "Today" view consistency
+  const activeTodayCount = todaySessions.filter(s => 
+    s.status === 'live' || (s.status === 'upcoming' && new Date(s.endTime) > now)
+  ).length;
+
+  const statCards = [
+    { label: 'Assigned Classes', value: stats.totalAssigned, icon: BookOpen, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/classes', sub: 'All Grades' },
+    { label: 'Today\'s Classes', value: activeTodayCount, icon: Video, color: 'text-[#f16126]', bg: 'bg-orange-50', path: '/teacher/classes', sub: 'Active' },
+    { label: 'Total Sessions', value: stats.endedCount, icon: CheckCircle2, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/past-sessions', sub: 'Completed' },
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 p-4 md:p-6 lg:p-8 pb-24 bg-slate-50/30 min-h-screen font-sans">
@@ -109,13 +113,13 @@ const TeacherDashboard = () => {
          <div className="space-y-3">
             <div className="flex items-center gap-3 px-4 py-1.5 bg-[#002147]/5 rounded-full w-fit border border-[#002147]/10">
                <Activity className="w-3.5 h-3.5 text-[#002147]" />
-               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#002147]">Faculty Command Center</span>
+               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#002147]">Teacher Dashboard</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-none uppercase italic">
-               FACULTY <span className="text-[#f16126] not-italic">OVERVIEW</span>
+               WELCOME <span className="text-[#f16126] not-italic">BACK</span>
             </h1>
             <p className="text-slate-500 font-bold italic text-sm md:text-lg max-w-xl">
-               Manage your live broadcasts and monitor student enrollment performance.
+               Manage your daily classes and live sessions for today.
             </p>
          </div>
 
@@ -133,7 +137,7 @@ const TeacherDashboard = () => {
       </div>
       
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {statCards.map((stat, idx) => (
           <motion.div 
             whileHover={{ y: -5 }}
@@ -163,7 +167,7 @@ const TeacherDashboard = () => {
                <div className="w-12 h-12 bg-[#f16126] rounded-2xl flex items-center justify-center text-white shadow-xl shadow-orange-900/20">
                   <MonitorPlay className="w-6 h-6" />
                </div>
-               <h2 className="text-2xl font-black text-[#002147] tracking-tighter uppercase italic">Live Management <span className="text-[#f16126]">Hub</span></h2>
+               <h2 className="text-2xl font-black text-[#002147] tracking-tighter uppercase italic">Today's <span className="text-[#f16126]">Classes</span></h2>
             </div>
             
             <div className="flex bg-white p-1 rounded-xl border border-slate-100 shadow-sm overflow-hidden">
@@ -264,92 +268,101 @@ const TeacherDashboard = () => {
             className="fixed inset-0 z-[2000] flex items-center justify-center p-4 backdrop-blur-md bg-[#002147]/40"
           >
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+              initial={{ scale: 0.95, opacity: 0, y: 10 }} 
               animate={{ scale: 1, opacity: 1, y: 0 }} 
-              exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 10 }} 
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-lg bg-white rounded-[32px] overflow-hidden shadow-2xl"
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] overflow-hidden shadow-[0_20px_70px_rgba(0,0,0,0.15)] border border-slate-100"
             >
-              {/* Modal Header */}
-              <div className={`p-8 ${selectedSession.status === 'live' ? 'bg-[#f16126]' : 'bg-[#002147]'} text-white relative`}>
-                 <button 
-                   onClick={() => setShowModal(false)} 
-                   className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
-                 >
-                   <X className="w-4 h-4" />
-                 </button>
-                 <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-80 leading-none">Session Intelligence</span>
-                    <h3 className="text-2xl md:text-3xl font-black uppercase italic tracking-tighter leading-none">{selectedSession.title}</h3>
-                 </div>
-              </div>
+               {/* Close Button */}
+               <button 
+                  onClick={() => setShowModal(false)} 
+                  className="absolute top-6 right-6 z-20 w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center hover:bg-slate-100 transition-colors border border-slate-100"
+               >
+                  <X className="w-4 h-4 text-slate-400" />
+               </button>
 
               {/* Modal Body */}
-              <div className="p-8 space-y-6">
-                 {/* Top Meta Info */}
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Class Designation</p>
-                        <div className="flex items-center gap-2 text-[#002147]">
-                           <GraduationCap className="w-4 h-4" />
-                           <span className="text-xs font-black uppercase italic">{selectedSession.classLevel} • {selectedSession.board || 'TS Board'}</span>
-                        </div>
+              <div className="p-10 space-y-8">
+                 {/* Header Section */}
+                 <div className="flex flex-col items-center text-center space-y-4">
+                    <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center shadow-lg ${
+                       selectedSession.status === 'live' ? 'bg-orange-50 text-[#f16126] shadow-orange-200/50' : 'bg-slate-50 text-[#002147] shadow-slate-200/50'
+                    }`}>
+                       <GraduationCap className="w-10 h-10" />
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Subject Focus</p>
-                        <div className="flex items-center gap-2 text-[#002147]">
-                           <BookOpen className="w-4 h-4" />
-                           <span className="text-xs font-black uppercase italic">{selectedSession.subjectName}</span>
-                        </div>
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Class Information</p>
+                       <h3 className="text-3xl font-black text-[#002147] tracking-tighter uppercase italic">{selectedSession.title}</h3>
                     </div>
                  </div>
 
-                 {/* Timing & Platform */}
-                 <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                        <div className="flex items-center gap-3">
-                            <Clock className="text-[#f16126] w-5 h-5" />
-                            <div>
-                                <p className="text-[8px] font-black text-[#f16126] uppercase tracking-widest">Broadcast Clock</p>
-                                <p className="text-sm font-black text-[#002147] uppercase italic">{new Date(selectedSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Platform</p>
-                            <p className="text-sm font-black text-[#002147] uppercase italic">{selectedSession.platform || 'YouTube Live'}</p>
-                        </div>
+                 {/* Information Grid */}
+                 <div className="grid grid-cols-1 gap-3">
+                    <div className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100">
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border border-slate-100">
+                             <Activity className="w-4 h-4 text-slate-400" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Board & Grade</span>
+                       </div>
+                       <span className="text-xs font-black text-[#002147] uppercase italic">{selectedSession.board || 'TS Board'} • {selectedSession.classLevel}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100">
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border border-slate-100">
+                             <BookOpen className="w-4 h-4 text-slate-400" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Subject</span>
+                       </div>
+                       <span className="text-xs font-black text-[#002147] uppercase italic">{selectedSession.subjectName}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-5 bg-orange-50/30 rounded-2xl border border-orange-100/50">
+                       <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm border border-orange-100">
+                             <Clock className="w-4 h-4 text-[#f16126]" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Timing</span>
+                       </div>
+                       <span className="text-xs font-black text-[#f16126] uppercase italic">
+                          {new Date(selectedSession.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                       </span>
                     </div>
                  </div>
 
                  {/* Action Buttons */}
-                 <div className="pt-2">
+                 <div className="pt-4">
                     {selectedSession.status === 'upcoming' && (
                         <button 
                             onClick={() => { handleUpdateStatus(selectedSession._id, 'live'); setShowModal(false); }}
-                            className="w-full bg-[#002147] text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#f16126] transition-all shadow-xl active:scale-95 group"
+                            className="w-full bg-[#002147] text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#f16126] transition-all shadow-xl shadow-blue-900/10 active:scale-95 group"
                         >
-                            INITIATE BROADCAST <Play className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            START CLASS <Play className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
                     )}
                     {selectedSession.status === 'live' && (
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-4">
                             <a 
                                 href={selectedSession.link} target="_blank" rel="noopener noreferrer"
-                                className="w-full bg-[#f16126] text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl hover:shadow-orange-900/20 transition-all"
+                                className="w-full bg-[#f16126] text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-orange-600/20 hover:scale-[1.02] transition-all"
                             >
-                                MONITOR LIVE FEED
+                                <Play className="w-4 h-4 fill-white" /> JOIN CLASS
                             </a>
                             <button 
                                 onClick={() => { handleUpdateStatus(selectedSession._id, 'ended'); setShowModal(false); }}
-                                className="w-full bg-white text-rose-600 border-2 border-rose-100 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-50 transition-all"
+                                className="w-full bg-white text-rose-600 border border-rose-100 py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-50 transition-all"
                             >
-                                END SESSION
+                                END CLASS
                             </button>
                         </div>
                     )}
                     {selectedSession.status === 'ended' && (
-                        <div className="w-full py-4 text-center bg-slate-100 rounded-2xl">
-                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] italic">Session Archiving Finalized</span>
+                        <div className="w-full py-5 text-center bg-slate-50 rounded-3xl border border-slate-100">
+                           <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] italic flex items-center justify-center gap-2">
+                              <CheckCircle2 className="w-4 h-4" /> SESSION ENDED
+                           </span>
                         </div>
                     )}
                  </div>

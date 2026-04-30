@@ -1,7 +1,17 @@
 import axios from 'axios';
 
 // Set baseURL to the root of the server
-const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Set baseURL intelligently based on environment
+const getBaseUrl = () => {
+    // If we are on localhost, prefer the local backend
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000';
+    }
+    // Otherwise use the env variable or fallback to production
+    return import.meta.env.VITE_API_URL || 'https://mye3etutions.com/api';
+};
+
+const base = getBaseUrl();
 
 const instance = axios.create({
   baseURL: base.includes('/api') ? base : (base.endsWith('/') ? `${base}api` : `${base}/api`),

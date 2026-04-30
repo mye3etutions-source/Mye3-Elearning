@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { ArrowLeft, BookOpen, Clock, DollarSign, Calendar as CalendarIcon, CheckCircle, PlayCircle, Loader2, Award, GraduationCap, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, BookOpen, Clock, DollarSign, Calendar as CalendarIcon, CheckCircle, PlayCircle, Loader2, Award, GraduationCap, X, Upload, Image as ImageIcon, Wallet } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const TeacherProfile = ({ teacher, onBack }) => {
@@ -105,13 +105,17 @@ const TeacherProfile = ({ teacher, onBack }) => {
     // Performance mock calculation (could be based on actual metrics if available)
     const completedClasses = sessions.past.length;
     const performanceScore = completedClasses > 0 ? Math.min(100, 75 + (completedClasses * 2)) : 0; 
-    const totalEarnings = payouts.filter(p => p.status === 'Paid').reduce((acc, curr) => acc + curr.totalAmount, 0);
+    const totalEarnings = payouts.filter(p => p.status === 'Paid' || p.status === 'Settled').reduce((acc, curr) => acc + curr.totalAmount, 0);
 
     // Calculate Daily Earnings dynamically from past sessions
-    const getSessionRate = (level) => {
-        const cl = (level || '').toLowerCase();
-        if (cl.includes('11') || cl.includes('12') || cl.includes('inter')) return teacher.payRates?.rateB || 0;
-        return teacher.payRates?.rateA || 0;
+    const getSessionRate = (session) => {
+        if (!teacher.assignedSubjects) return 0;
+        const assignment = teacher.assignedSubjects.find(a =>
+            a.classLevel === session.classLevel &&
+            a.subjectName === session.subjectName &&
+            (a.board === session.board || !a.board)
+        );
+        return assignment ? (assignment.pricePerClass || 0) : 0;
     };
 
     const getMonday = (d) => {
@@ -150,7 +154,7 @@ const TeacherProfile = ({ teacher, onBack }) => {
 
             if (!acc[key]) acc[key] = { date: key, displayDate, dateObj, sessions: 0, amount: 0, details: [] };
             acc[key].sessions += 1;
-            acc[key].amount += s.status === 'ended' ? getSessionRate(s.classLevel) : 0;
+            acc[key].amount += s.status === 'ended' ? getSessionRate(s) : 0;
             acc[key].details.push(s);
             return acc;
         }, {});
@@ -197,7 +201,7 @@ const TeacherProfile = ({ teacher, onBack }) => {
                     </div>
                 </div>
                 <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#002147]/5 text-[#002147] rounded-xl flex items-center justify-center"><DollarSign className="w-6 h-6" /></div>
+                    <div className="w-12 h-12 bg-[#002147]/5 text-[#002147] rounded-xl flex items-center justify-center"><Wallet className="w-6 h-6" /></div>
                     <div>
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Paid</p>
                         <p className="text-xl font-black text-slate-900">₹{totalEarnings}</p>
@@ -212,14 +216,15 @@ const TeacherProfile = ({ teacher, onBack }) => {
                         <h2 className="text-lg font-black text-[#002147]">Curriculum & Rates</h2>
                     </div>
                     <div className="p-5 flex-1">
-                        <div className="mb-6 flex gap-4">
-                            <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Class 6-10 Rate</p>
-                                <p className="text-lg font-black text-slate-800">₹{teacher.payRates?.rateA || 0} <span className="text-xs text-slate-500 font-bold">/class</span></p>
-                            </div>
-                            <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Class 11-12 Rate</p>
-                                <p className="text-lg font-black text-slate-800">₹{teacher.payRates?.rateB || 0} <span className="text-xs text-slate-500 font-bold">/class</span></p>
+                        <div className="mb-6">
+                            <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100 flex items-center gap-4">
+                                <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100">
+                                    <Wallet className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Pricing Model</p>
+                                    <p className="text-sm font-bold text-slate-700 leading-tight">Subject-Specific Pricing Enabled</p>
+                                </div>
                             </div>
                         </div>
 
@@ -236,6 +241,10 @@ const TeacherProfile = ({ teacher, onBack }) => {
                                                     <span className="text-[#f16126]">{sub.board || 'TS Board'}</span> • <span><GraduationCap className="w-3 h-3 inline pb-0.5" /> {sub.classLevel}</span>
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-black text-[#002147]">₹{sub.pricePerClass || 0}</p>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Per Class</p>
                                         </div>
                                     </div>
                                 ))
@@ -291,263 +300,260 @@ const TeacherProfile = ({ teacher, onBack }) => {
                 </div>
                 
                 {/* Payout History spanning full width */}
-                <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm lg:col-span-2">
-                    <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-                        <h2 className="text-lg font-black text-[#002147]">Payout Records & Schedule</h2>
-                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
-                            <button 
-                                onClick={() => setViewMode('monthly')}
-                                className={`px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors ${viewMode === 'monthly' ? 'bg-[#002147] text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                            >
-                                Monthly
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('weekly')}
-                                className={`px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors ${viewMode === 'weekly' ? 'bg-[#f16126] text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                            >
-                                Weekly
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('daily')}
-                                className={`px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors ${viewMode === 'daily' ? 'bg-[#f16126] text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                            >
-                                Day-Wise
-                            </button>
-                        </div>
+                <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.02)] lg:col-span-2">
+                <div className="p-8 border-b border-slate-50 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-1">
+                        <h2 className="text-xl font-black text-[#002147] tracking-tight">PAYOUT RECORDS</h2>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Detailed breakdown by period</p>
                     </div>
-                    
-                    <div className="p-0 overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-[#f8fafc] text-[10px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-100">
-                                <tr>
-                                    <th className="px-5 py-4">{viewMode === 'monthly' ? 'Month' : (viewMode === 'weekly' ? 'Weekly Range' : 'Date')}</th>
-                                    <th className="px-5 py-4">{viewMode === 'monthly' ? 'Total Sessions' : 'Total Sessions & Details'}</th>
-                                    <th className="px-5 py-4">Amount</th>
-                                    {viewMode === 'monthly' && <th className="px-5 py-4 text-right">Status / Action</th>}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
-                                {viewMode === 'monthly' ? (
-                                    monthlyEarnings.length === 0 ? (
-                                        <tr><td colSpan="4" className="px-5 py-8 text-center text-xs font-bold text-slate-400">No monthly payout records yet.</td></tr>
-                                    ) : monthlyEarnings.map(m => {
-                                        const monthNum = m.dateObj.getMonth() + 1;
-                                        const yearNum = m.dateObj.getFullYear();
-                                        const p = payouts.find(rec => rec.month === monthNum && rec.year === yearNum);
-                                        
-                                        const isPaid = p?.status === 'Paid';
-                                        const isPartiallyPaid = isPaid && m.amount > p.totalAmount;
-                                        const isPending = !isPaid || isPartiallyPaid;
+                    <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        {[
+                            { id: 'monthly', label: 'Monthly' },
+                            { id: 'weekly', label: 'Weekly' },
+                            { id: 'daily', label: 'Day-Wise' }
+                        ].map(tab => (
+                            <button 
+                                key={tab.id}
+                                onClick={() => setViewMode(tab.id)}
+                                className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                    viewMode === tab.id ? 'bg-[#002147] text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-50'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50/50 border-b border-slate-100">
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                    {viewMode === 'monthly' ? 'Month' : (viewMode === 'weekly' ? 'Period' : 'Date')}
+                                </th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Classes</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Total Earnings</th>
+                                <th className="px-8 py-5 text-right text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {viewMode === 'monthly' ? (
+                                monthlyEarnings.length === 0 ? (
+                                    <tr><td colSpan="4" className="px-8 py-20 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">No payout records yet</td></tr>
+                                ) : monthlyEarnings.map(m => {
+                                    const monthNum = m.dateObj.getMonth() + 1;
+                                    const yearNum = m.dateObj.getFullYear();
+                                    const p = payouts.find(rec => rec.month === monthNum && rec.year === yearNum);
+                                    
+                                    const isPaid = p?.status === 'Paid' || p?.status === 'Settled';
+                                    const isPartiallyPaid = isPaid && m.amount > p.totalAmount;
 
-                                        return (
-                                        <tr key={m.date} className="hover:bg-slate-50/50">
-                                            <td className="px-5 py-4 font-black text-slate-800">{m.displayDate}</td>
-                                            <td className="px-5 py-4">
-                                                <div className="font-black text-slate-800 bg-slate-100 w-max px-3 py-1 rounded-md">{m.sessions} Classes</div>
+                                    return (
+                                        <tr key={m.date} className="hover:bg-teal-50/30 transition-colors group">
+                                            <td className="px-8 py-6">
+                                                <span className="text-sm font-black text-[#002147] uppercase italic">{m.displayDate}</span>
                                             </td>
-                                            <td className="px-5 py-4 font-black text-slate-900 text-lg">
-                                                ₹{m.amount}
-                                                {isPartiallyPaid && <span className="block text-[10px] text-amber-600 font-bold mt-0.5">Only ₹{p.totalAmount} Settled</span>}
+                                            <td className="px-8 py-6">
+                                                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200">
+                                                    <BookOpen className="w-3 h-3 text-slate-400" />
+                                                    <span className="text-[10px] font-black text-slate-600 uppercase">{m.sessions} Sessions</span>
+                                                </div>
                                             </td>
-                                            <td className="px-5 py-4 text-right">
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col">
+                                                    <span className="text-lg font-black text-[#002147]">
+                                                        ₹{m.amount || ((p?.status === 'Paid' || p?.status === 'Settled') ? p.totalAmount : 0)}
+                                                    </span>
+                                                    {(p?.status === 'Paid' || p?.status === 'Settled') && (
+                                                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter flex items-center gap-1">
+                                                            <CheckCircle className="w-2.5 h-2.5" /> Total Settled: ₹{p.totalAmount}
+                                                        </span>
+                                                    )}
+                                                    {isPartiallyPaid && !p?.status === 'Paid' && (
+                                                        <span className="text-[9px] font-black text-orange-600 uppercase tracking-tighter">
+                                                            Paid: ₹{p.totalAmount}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
                                                 {isPaid && !isPartiallyPaid ? (
                                                     <div className="flex flex-col items-end gap-1">
-                                                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-emerald-200">
-                                                            <CheckCircle className="w-3 h-3" /> Settled ({p.paymentMode || 'Online'})
+                                                        <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest rounded-full border border-emerald-100 flex items-center gap-1.5">
+                                                            <CheckCircle className="w-3 h-3" /> Settled
                                                         </span>
-                                                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
-                                                            {p.paymentMode === 'Online' && p.transactionId && <span>ID: {p.transactionId}</span>}
-                                                            {p.paymentMode === 'Cash' && p.note && <span title={p.note} className="cursor-help border-b border-dashed border-slate-400">Note Attached</span>}
-                                                            {p.proofImage && (
-                                                                <button onClick={() => setViewProofModal(p.proofImage)} className="text-[#f16126] hover:underline flex items-center gap-1">
-                                                                    <ImageIcon className="w-3 h-3" /> Proof
-                                                                </button>
-                                                            )}
-                                                        </div>
+                                                        <span className="text-[9px] font-bold text-slate-400 uppercase italic">{p.paymentMode} {p.transactionId && `• ${p.transactionId}`}</span>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex flex-col items-end gap-2">
-                                                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-amber-200">
-                                                            {isPartiallyPaid ? 'Partially Paid' : 'Pending'}
-                                                        </span>
-                                                        <button 
-                                                            onClick={() => {
-                                                                if (p) {
-                                                                    setSettleModal({ isOpen: true, payoutId: p._id, mode: 'Online', transactionId: '', note: '', proofImage: '' });
-                                                                } else {
-                                                                    toast.error("Please calculate payouts first in Teacher Payouts page.");
-                                                                }
-                                                            }}
-                                                            className="inline-flex items-center gap-1.5 bg-[#002147] text-white px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest shadow-sm hover:opacity-90 transition-opacity"
-                                                        >
-                                                            Settle Payment
-                                                        </button>
-                                                    </div>
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (p) {
+                                                                setSettleModal({ isOpen: true, payoutId: p._id, mode: 'Online', transactionId: '', note: '', proofImage: '' });
+                                                            } else {
+                                                                toast.error("Please ensure the payout is generated in the system first.");
+                                                            }
+                                                        }}
+                                                        className="px-6 py-2.5 bg-[#002147] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#f16126] transition-all shadow-md hover:shadow-orange-600/20"
+                                                    >
+                                                        Settle Month
+                                                    </button>
                                                 )}
                                             </td>
                                         </tr>
-                                    )})
-                                ) : (
-                                    (viewMode === 'daily' ? dailyEarnings : weeklyEarnings).length === 0 ? (
-                                        <tr>
-                                            <td colSpan="3" className="px-5 py-16 text-center">
-                                                <div className="flex flex-col items-center justify-center gap-4">
-                                                    <div className="w-16 h-16 bg-slate-50 flex items-center justify-center rounded-full"><CalendarIcon className="w-8 h-8 text-slate-300" /></div>
-                                                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">No Sessions Yet</span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ) : (viewMode === 'daily' ? dailyEarnings : weeklyEarnings).map((d, i) => (
-                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-5 py-6 align-top font-black text-slate-800 pt-8">{d.date}</td>
-                                            <td className="px-5 py-6 align-top">
-                                                <div className="font-black text-slate-800 text-sm mb-3 bg-slate-100 w-max px-3 py-1 rounded-md">{d.sessions} Total Sessions</div>
-                                                <div className="space-y-2 grid grid-cols-1 max-w-lg">
-                                                    {d.details.map((s, idx) => (
-                                                        <div key={s._id || idx} className={`p-3 rounded-xl border ${s.status === 'ended' ? 'bg-[#002147]/5/50 border-[#002147]/10' : s.status === 'live' ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-white border-slate-200'}`}>
-                                                            <div className="flex justify-between items-start mb-1.5">
-                                                                <span className="font-black text-[#002147]">{s.title}</span>
-                                                                <span className={`text-[9px] px-2 py-1 uppercase tracking-widest font-black rounded-lg ${s.status === 'ended' ? 'text-[#002147] bg-[#002147]/10' : s.status === 'live' ? 'text-rose-700 bg-rose-200 animate-pulse' : 'text-slate-500 bg-slate-100'}`}>
-                                                                    {s.status}
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-xs font-bold text-slate-500 flex items-center gap-2">
-                                                                <span className="text-[#f16126]">{s.subjectName}</span>
-                                                                <span>• {new Date(s.endTime || s.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                                            </div>
-                                                        </div>
+                                    );
+                                })
+                            ) : (
+                                (viewMode === 'daily' ? dailyEarnings : weeklyEarnings).length === 0 ? (
+                                    <tr><td colSpan="4" className="px-8 py-20 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">No activity found</td></tr>
+                                ) : (viewMode === 'daily' ? dailyEarnings : weeklyEarnings).map((d, i) => (
+                                    <tr key={i} className="hover:bg-teal-50/30 transition-colors group">
+                                        <td className="px-8 py-6">
+                                            <span className="text-sm font-black text-[#002147] uppercase italic">{d.displayDate || d.date}</span>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase">{d.sessions} Classes</span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {d.details.slice(0, 3).map((s, idx) => (
+                                                        <span key={idx} className="text-[8px] font-bold text-slate-500 bg-white border border-slate-100 px-1.5 rounded">{s.subjectName}</span>
                                                     ))}
+                                                    {d.details.length > 3 && <span className="text-[8px] font-bold text-slate-400">+{d.details.length - 3}</span>}
                                                 </div>
-                                            </td>
-                                            <td className="px-5 py-6 align-top pt-8 text-xl font-black text-[#002147] tracking-tighter">
-                                                {d.amount > 0 ? `₹${d.amount}` : <span className="text-sm text-slate-400">Scheduled</span>}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className="text-lg font-black text-[#002147]">₹{d.amount}</span>
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            <span className="text-[9px] font-black text-slate-300 uppercase italic">Detailed in Monthly</span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
+        </div>
 
-            {/* SETTLEMENT MODAL */}
-            {settleModal.isOpen && (
-                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <h2 className="text-lg font-black text-[#002147] flex items-center gap-2"><DollarSign className="w-5 h-5 text-[#f16126]" /> Settle Payment</h2>
-                            <button onClick={() => setSettleModal(prev => ({...prev, isOpen: false}))} className="text-slate-400 hover:text-slate-800 transition-colors"><X className="w-5 h-5" /></button>
+        {/* SETTLEMENT MODAL */}
+        {settleModal.isOpen && (
+            <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                        <h2 className="text-lg font-black text-[#002147] flex items-center gap-2"><Wallet className="w-5 h-5 text-[#f16126]" /> Settle Payment</h2>
+                        <button onClick={() => setSettleModal(prev => ({...prev, isOpen: false}))} className="text-slate-400 hover:text-slate-800 transition-colors"><X className="w-5 h-5" /></button>
+                    </div>
+                    <form onSubmit={handleSettleSubmit} className="p-6 space-y-5">
+                        {/* Payment Mode Selection */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                type="button" 
+                                onClick={() => setSettleModal(prev => ({...prev, mode: 'Online'}))}
+                                className={`py-3 rounded-xl border-2 font-bold text-sm flex flex-col items-center gap-1 transition-all ${settleModal.mode === 'Online' ? 'border-[#002147] bg-[#002147]/5 text-[#002147]' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
+                            >
+                                <span>Online Transfer</span>
+                                <span className="text-[10px] font-medium opacity-70">UPI / Bank / Wallet</span>
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => setSettleModal(prev => ({...prev, mode: 'Cash'}))}
+                                className={`py-3 rounded-xl border-2 font-bold text-sm flex flex-col items-center gap-1 transition-all ${settleModal.mode === 'Cash' ? 'border-[#f16126] bg-[#f16126]/5 text-[#f16126]' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
+                            >
+                                <span>Cash Payment</span>
+                                <span className="text-[10px] font-medium opacity-70">Handed in person</span>
+                            </button>
                         </div>
-                        <form onSubmit={handleSettleSubmit} className="p-6 space-y-5">
-                            {/* Payment Mode Selection */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <button 
-                                    type="button" 
-                                    onClick={() => setSettleModal(prev => ({...prev, mode: 'Online'}))}
-                                    className={`py-3 rounded-xl border-2 font-bold text-sm flex flex-col items-center gap-1 transition-all ${settleModal.mode === 'Online' ? 'border-[#002147] bg-[#002147]/5 text-[#002147]' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
-                                >
-                                    <span>Online Transfer</span>
-                                    <span className="text-[10px] font-medium opacity-70">UPI / Bank / Wallet</span>
-                                </button>
-                                <button 
-                                    type="button" 
-                                    onClick={() => setSettleModal(prev => ({...prev, mode: 'Cash'}))}
-                                    className={`py-3 rounded-xl border-2 font-bold text-sm flex flex-col items-center gap-1 transition-all ${settleModal.mode === 'Cash' ? 'border-[#f16126] bg-[#f16126]/5 text-[#f16126]' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
-                                >
-                                    <span>Cash Payment</span>
-                                    <span className="text-[10px] font-medium opacity-70">Handed in person</span>
-                                </button>
-                            </div>
 
-                            {/* Dynamic Fields */}
-                            <div className="space-y-4 pt-2 border-t border-slate-100">
-                                {settleModal.mode === 'Online' ? (
-                                    <>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex justify-between">
-                                                <span>Transaction ID <span className="text-red-500">*</span></span>
-                                            </label>
-                                            <input 
-                                                required 
-                                                type="text" 
-                                                placeholder="e.g. T234908123890"
-                                                value={settleModal.transactionId} 
-                                                onChange={(e) => setSettleModal(prev => ({...prev, transactionId: e.target.value}))} 
-                                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-medium text-slate-800 focus:border-[#002147] focus:ring-1 focus:ring-[#002147] transition-all" 
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Proof Screenshot (Optional)</label>
-                                            <div className="relative">
-                                                <input 
-                                                    type="file" 
-                                                    accept="image/*"
-                                                    onChange={handleImageUpload} 
-                                                    className="hidden" 
-                                                    id="proof-upload" 
-                                                />
-                                                <label htmlFor="proof-upload" className="w-full flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 hover:border-indigo-300 transition-all">
-                                                    {settleModal.proofImage ? (
-                                                        <div className="flex flex-col items-center gap-2">
-                                                            <div className="w-12 h-12 rounded overflow-hidden shadow-sm">
-                                                                <img src={settleModal.proofImage} alt="Proof" className="w-full h-full object-cover" />
-                                                            </div>
-                                                            <span className="text-xs font-bold text-indigo-600">Change Image</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex flex-col items-center gap-1 text-slate-400">
-                                                            <Upload className="w-6 h-6 mb-1" />
-                                                            <span className="text-xs font-bold">Click to upload receipt</span>
-                                                            <span className="text-[10px] uppercase">Max 2MB</span>
-                                                        </div>
-                                                    )}
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </>
-                                ) : (
+                        {/* Dynamic Fields */}
+                        <div className="space-y-4 pt-2 border-t border-slate-100">
+                            {settleModal.mode === 'Online' ? (
+                                <>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex justify-between">
-                                            <span>Payment Note (Optional)</span>
+                                            <span>Transaction ID <span className="text-red-500">*</span></span>
                                         </label>
-                                        <textarea 
-                                            rows="3"
-                                            placeholder="e.g. Paid ₹7000 in cash directly at office."
-                                            value={settleModal.note} 
-                                            onChange={(e) => setSettleModal(prev => ({...prev, note: e.target.value}))} 
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-medium text-slate-800 focus:border-[#002147] focus:ring-1 focus:ring-[#002147] transition-all resize-none" 
-                                        ></textarea>
+                                        <input 
+                                            required 
+                                            type="text" 
+                                            placeholder="e.g. T234908123890"
+                                            value={settleModal.transactionId} 
+                                            onChange={(e) => setSettleModal(prev => ({...prev, transactionId: e.target.value}))} 
+                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-medium text-slate-800 focus:border-[#002147] focus:ring-1 focus:ring-[#002147] transition-all" 
+                                        />
                                     </div>
-                                )}
-                            </div>
-
-                            <button 
-                                type="submit" 
-                                disabled={isSettling}
-                                className="w-full py-3 bg-[#002147] text-white rounded-xl font-black text-sm shadow-md hover:bg-[#001a38] disabled:opacity-70 flex items-center justify-center gap-2 transition-colors mt-2"
-                            >
-                                {isSettling ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                {isSettling ? 'Processing...' : 'Confirm & Settle Payout'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* VIEW PROOF MODAL */}
-            {viewProofModal && (
-                <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4" onClick={() => setViewProofModal(null)}>
-                    <div className="relative max-w-3xl w-full max-h-[90vh] flex flex-col items-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="w-full flex justify-end mb-4">
-                            <button onClick={() => setViewProofModal(null)} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors"><X className="w-6 h-6" /></button>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Proof Screenshot (Optional)</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="file" 
+                                                accept="image/*"
+                                                onChange={handleImageUpload} 
+                                                className="hidden" 
+                                                id="proof-upload" 
+                                            />
+                                            <label htmlFor="proof-upload" className="w-full flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 hover:border-indigo-300 transition-all">
+                                                {settleModal.proofImage ? (
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <div className="w-12 h-12 rounded overflow-hidden shadow-sm">
+                                                            <img src={settleModal.proofImage} alt="Proof" className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <span className="text-xs font-bold text-indigo-600">Change Image</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-1 text-slate-400">
+                                                        <Upload className="w-6 h-6 mb-1" />
+                                                        <span className="text-xs font-bold">Click to upload receipt</span>
+                                                        <span className="text-[10px] uppercase">Max 2MB</span>
+                                                    </div>
+                                                )}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex justify-between">
+                                        <span>Payment Note (Optional)</span>
+                                    </label>
+                                    <textarea 
+                                        rows="3"
+                                        placeholder="e.g. Paid ₹7000 in cash directly at office."
+                                        value={settleModal.note} 
+                                        onChange={(e) => setSettleModal(prev => ({...prev, note: e.target.value}))} 
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-medium text-slate-800 focus:border-[#002147] focus:ring-1 focus:ring-[#002147] transition-all resize-none" 
+                                    ></textarea>
+                                </div>
+                            )}
                         </div>
-                        <img src={viewProofModal} alt="Payment Proof" className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
-                    </div>
+
+                        <button 
+                            type="submit" 
+                            disabled={isSettling}
+                            className="w-full py-3 bg-[#002147] text-white rounded-xl font-black text-sm shadow-md hover:bg-[#001a38] disabled:opacity-70 flex items-center justify-center gap-2 transition-colors mt-2"
+                        >
+                            {isSettling ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                            {isSettling ? 'Processing...' : 'Confirm & Settle Payout'}
+                        </button>
+                    </form>
                 </div>
-            )}
-        </div>
-    );
+            </div>
+        )}
+
+        {/* VIEW PROOF MODAL */}
+        {viewProofModal && (
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4" onClick={() => setViewProofModal(null)}>
+                <div className="relative max-w-3xl w-full max-h-[90vh] flex flex-col items-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                    <div className="w-full flex justify-end mb-4">
+                        <button onClick={() => setViewProofModal(null)} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors"><X className="w-6 h-6" /></button>
+                    </div>
+                    <img src={viewProofModal} alt="Payment Proof" className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
+                </div>
+            </div>
+        )}
+    </div>
+);
 };
 
 export default TeacherProfile;

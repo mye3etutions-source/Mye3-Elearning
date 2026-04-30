@@ -11,6 +11,7 @@ const TeacherLayout = ({ children }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -29,13 +30,18 @@ const TeacherLayout = ({ children }) => {
 
       {/* Sidebar - Responsive */}
       <div className={`
-        fixed inset-y-0 left-0 z-[70] w-72 transform transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:shrink-0
+        fixed inset-y-0 left-0 z-[70] transform transition-all duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:shrink-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+        ${isCollapsed ? 'lg:w-20' : 'lg:w-72'}
       `}>
-        <TeacherSidebar onClose={() => setIsSidebarOpen(false)} />
+        <TeacherSidebar 
+          onClose={() => setIsSidebarOpen(false)} 
+          isCollapsed={isCollapsed} 
+          onToggle={() => setIsCollapsed(!isCollapsed)} 
+        />
       </div>
 
-      <div className="flex-1 flex flex-col min-h-screen w-full">
+      <div className="flex-1 flex flex-col min-h-screen w-full transition-all duration-300">
         {/* Top Header */}
         <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 md:px-10 sticky top-0 z-40 shadow-sm">
            <div className="flex items-center gap-4">
@@ -47,18 +53,6 @@ const TeacherLayout = ({ children }) => {
               </button>
               <div className="bg-teal-50 text-teal-600 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-teal-100 hidden sm:block">
                  Faculty Portal
-              </div>
-              
-              <div className="hidden lg:flex items-center gap-2 ml-4">
-                 <NavLink to="/teacher/past-sessions" className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${isActive ? 'bg-orange-50 text-orange-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-                    <History className="w-4 h-4" /> Past Sessions
-                 </NavLink>
-                 <NavLink to="/teacher/earnings" className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${isActive ? 'bg-orange-50 text-orange-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-                    <Banknote className="w-4 h-4" /> My Earnings
-                 </NavLink>
-                 <NavLink to="/teacher/profile" className={({isActive}) => `flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${isActive ? 'bg-orange-50 text-orange-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-                    <User className="w-4 h-4" /> Profile
-                 </NavLink>
               </div>
            </div>
 

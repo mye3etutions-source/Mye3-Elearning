@@ -14,7 +14,7 @@ const ScheduleLive = () => {
   const [formData, setFormData] = useState({
     courseString: '', 
     title: '',
-    platform: 'Zoom',
+    platform: 'Google Meet',
     link: '',
     startTime: ''
   });
@@ -69,7 +69,7 @@ const ScheduleLive = () => {
       setFormData({
         courseString: '',
         title: '',
-        platform: 'Zoom',
+        platform: 'Google Meet',
         link: '',
         startTime: ''
       });
@@ -139,6 +139,7 @@ const ScheduleLive = () => {
               </label>
               <CustomSelect 
                 options={[
+                  { value: 'Google Meet', label: 'Google Meet' },
                   { value: 'Zoom', label: 'Zoom Meeting' },
                   { value: 'Google Meet', label: 'Google Meet' },
                   { value: 'YouTube Live', label: 'YouTube Live' },
