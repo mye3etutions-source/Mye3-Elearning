@@ -287,7 +287,18 @@ const PricingManagement = () => {
                                         <div className="text-[9px] font-medium text-slate-500 uppercase tracking-wide mb-1 px-1">{t.l}</div>
                                         <div className="relative">
                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-xs">₹</span>
-                                           <input type="number" value={editPricing[classId]?.[t.k] ?? ''} onFocus={(e) => { if(e.target.value === '0') e.target.value = ''; }} onChange={(e) => setEditPricing({ ...editPricing, [classId]: { ...editPricing[classId], [t.k]: e.target.value } })} className="w-full bg-slate-50 border border-slate-200 rounded pl-5 pr-2 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-indigo-500/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                                            <input 
+                                              type="text" 
+                                              value={editPricing[classId]?.[t.k] ?? ''} 
+                                              onFocus={(e) => { if(e.target.value === '0') setEditPricing({ ...editPricing, [classId]: { ...editPricing[classId], [t.k]: '' } }); }} 
+                                              onChange={(e) => {
+                                                 const val = e.target.value;
+                                                 if (val === '' || /^[0-9\b]+$/.test(val)) {
+                                                   setEditPricing({ ...editPricing, [classId]: { ...editPricing[classId], [t.k]: val } });
+                                                 }
+                                              }} 
+                                              className="w-full bg-slate-50 border border-slate-200 rounded pl-5 pr-2 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-indigo-500/30" 
+                                            />
                                         </div>
                                      </div>
                                   ))}
@@ -400,11 +411,12 @@ const PricingManagement = () => {
                                           <div key={t.k} className="flex-1">
                                              <div className="text-[8px] text-center font-bold text-slate-400 mb-0.5">{t.l}</div>
                                              <input 
-                                                type="number"
-                                                defaultValue={sub.pricing?.[t.k] || 0}
-                                                id={`si-${sub._id}-${t.k}`}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded px-1 py-1 text-[11px] font-semibold outline-none focus:border-indigo-400 text-center text-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                             />
+                                                 type="text"
+                                                 defaultValue={sub.pricing?.[t.k] || 0}
+                                                 id={`si-${sub._id}-${t.k}`}
+                                                 onKeyPress={(e) => { if (!/[0-9]/.test(e.key)) e.preventDefault(); }}
+                                                 className="w-full bg-slate-50 border border-slate-200 rounded px-1 py-1 text-[11px] font-semibold outline-none focus:border-indigo-400 text-center text-slate-700"
+                                              />
                                           </div>
                                        ))}
                                     </div>

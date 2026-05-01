@@ -195,7 +195,7 @@ const TeacherManagement = () => {
    const updateAssignmentPrice = (item, price) => {
       setSelectedAssignments(prev => prev.map(a =>
          (a.classLevel === item.classLevel && a.subjectName === item.subjectName && a.board === item.board)
-            ? { ...a, pricePerClass: Number(price) }
+            ? { ...a, pricePerClass: price === '' ? '' : Number(price) }
             : a
       ));
    };
@@ -822,10 +822,15 @@ const TeacherManagement = () => {
                                                                )}
                                                             </div>
                                                             <input
-                                                               type="number"
-                                                               min="0"
-                                                               value={selectedAssignments.find(a => a.classLevel === item.classLevel && a.subjectName === item.subjectName && a.board === item.board)?.pricePerClass || 0}
-                                                               onChange={(e) => updateAssignmentPrice(item, e.target.value)} onFocus={(e) => e.target.select()}
+                                                               type="text"
+                                                               value={selectedAssignments.find(a => a.classLevel === item.classLevel && a.subjectName === item.subjectName && a.board === item.board)?.pricePerClass ?? ''}
+                                                               onChange={(e) => {
+                                                                  const val = e.target.value;
+                                                                  if (val === '' || /^[0-9\b]+$/.test(val)) {
+                                                                     updateAssignmentPrice(item, val);
+                                                                  }
+                                                               }}
+                                                               onFocus={(e) => { if(e.target.value === '0') updateAssignmentPrice(item, ''); e.target.select(); }}
                                                                className={`w-full bg-white border ${ (Number(selectedAssignments.find(a => a.classLevel === item.classLevel && a.subjectName === item.subjectName && a.board === item.board)?.pricePerClass) || 0) <= 0 ? 'border-rose-500 ring-1 ring-rose-500' : 'border-indigo-200' } rounded p-1.5 text-xs text-slate-800 font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all`}
                                                                onClick={e => e.stopPropagation()}
                                                                placeholder="0"
