@@ -36,7 +36,7 @@ const inquirySchema = new mongoose.Schema(
     },
     source: {
       type: String,
-      enum: ['Contact Page', 'Connect Panel'],
+      enum: ['Contact Page', 'Connect Panel', 'Payment Support'],
       default: 'Contact Page',
     }
   },

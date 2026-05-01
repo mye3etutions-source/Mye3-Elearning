@@ -152,8 +152,24 @@ const PaymentHistory = () => {
             </div>
          </div>
          <button 
-           onClick={() => {
+           onClick={async () => {
              const msg = `Hi Mye3 Support, I have a payment issue. Name: ${userInfo?.name}, Email: ${userInfo?.email}`;
+             
+             // Also send to admin dashboard
+             try {
+               await axios.post('/inquiries', {
+                 name: userInfo?.name,
+                 email: userInfo?.email,
+                 mobile: userInfo?.mobile || '9912671666',
+                 message: 'PAYMENT ISSUE: Student is requesting support regarding course access/payment.',
+                 source: 'Payment Support',
+                 role: 'Student'
+               });
+               toast.success('Support request recorded');
+             } catch (err) {
+               console.error("Failed to record inquiry");
+             }
+
              window.open(`https://wa.me/919912671666?text=${encodeURIComponent(msg)}`, '_blank');
            }}
            className="w-full md:w-auto px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
