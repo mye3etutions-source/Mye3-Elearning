@@ -280,12 +280,24 @@ exports.getMyLearning = async (req, res, next) => {
     const student = await User.findById(req.user._id);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    const activeLearning = (student.activeSubscriptions || []).map(sub => ({
+    const activeLearningRaw = (student.activeSubscriptions || []).map(sub => ({
       ...sub.toObject ? sub.toObject() : sub,
       isExpired: now > new Date(sub.expiryDate)
     }));
 
-    res.status(200).json(activeLearning);
+    // Enrich with actual subject data
+    const enrichedLearning = await Promise.all(activeLearningRaw.map(async (sub) => {
+      if (sub.type === 'bundle') {
+        const bundle = await ClassBundle.findById(sub.referenceId);
+        return {
+          ...sub,
+          subjects: bundle ? bundle.subjects : []
+        };
+      }
+      return sub;
+    }));
+
+    res.status(200).json(enrichedLearning);
   } catch (error) {
     next(error);
   }
