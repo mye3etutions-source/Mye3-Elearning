@@ -49,6 +49,7 @@ import StudentLiveSchedule from './pages/student/StudentLiveSchedule';
 import ProfileSettings from './pages/shared/ProfileSettings';
 import PaymentHistory from './pages/student/PaymentHistory';
 import StudentNotes from './pages/student/StudentNotes';
+import StudentPerformance from './pages/student/StudentPerformance';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, role }) => {
@@ -103,6 +104,7 @@ function AppContent() {
                   <Route path="courses" element={<StudentStore />} />
                   <Route path="classes/:courseName" element={<StudentCourseContent />} />
                   <Route path="notes" element={<StudentNotes />} />
+                  <Route path="performance" element={<StudentPerformance />} />
                   <Route path="materials" element={<StudentNotes />} />
                   <Route path="payments" element={<PaymentHistory />} />
                   <Route path="profile" element={<ProfileSettings role="Student" />} />

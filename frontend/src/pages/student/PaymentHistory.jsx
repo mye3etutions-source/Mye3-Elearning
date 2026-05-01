@@ -5,19 +5,10 @@ import {
   CreditCard, 
   Search, 
   Download, 
-  CheckCircle2, 
-  XCircle, 
-  Clock,
-  Loader2,
+  Receipt,
   AlertCircle,
   X,
-  Receipt,
-  Calendar,
-  Hash,
-  IndianRupee,
   ShieldCheck,
-  ExternalLink,
-  Sparkles,
   ArrowRight
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -47,152 +38,168 @@ const PaymentHistory = () => {
   );
 
   if (loading) return (
-    <div className="space-y-8 p-6 md:p-10 animate-pulse">
-       <div className="h-32 bg-slate-100 rounded-[40px]" />
+    <div className="space-y-6 p-6 md:p-8 animate-pulse bg-slate-50 min-h-screen">
+       <div className="h-24 bg-slate-200 rounded-2xl" />
        <div className="space-y-4">
-          {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-50 rounded-3xl" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-20 bg-slate-200 rounded-xl" />)}
        </div>
     </div>
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-20 p-4 md:p-6 lg:p-10 bg-[#f8fbff]/50 min-h-screen">
+    <div className="space-y-6 md:space-y-8 pb-20 p-4 md:p-6 lg:px-8 bg-slate-50 min-h-screen">
       <Toaster position="top-right" />
 
-      {/* COMPACT PREMIUM HEADER */}
-      <div className="bg-[#002147] p-8 md:p-10 rounded-[40px] text-white shadow-2xl relative overflow-hidden group">
-         <div className="absolute top-0 right-0 w-64 h-64 bg-[#f16126] rounded-full -mr-32 -mt-32 blur-[80px] opacity-10" />
-         <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-            <div className="space-y-4 text-center lg:text-left">
-               <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/5 backdrop-blur-sm">
-                  <Sparkles className="w-3 h-3 text-[#f16126]" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-orange-100">Financial Ledger</span>
-               </div>
-               <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase leading-none">
-                  BILLING <span className="text-[#f16126] not-italic">HISTORY</span>
+      {/* HEADER */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
+         <div className="flex items-center gap-4 text-center md:text-left">
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0 mx-auto md:mx-0">
+               <Receipt className="w-6 h-6" />
+            </div>
+            <div>
+               <h1 className="text-xl md:text-2xl font-bold text-slate-800">
+                  Payment History
                </h1>
-               <p className="text-indigo-200/60 font-bold italic text-xs md:text-sm uppercase tracking-widest leading-none">
-                  Manage your enrollments and transaction records.
+               <p className="text-sm text-slate-500 mt-1">
+                  Manage your transaction records.
                </p>
             </div>
-            
-            <div className="relative w-full lg:w-96 group">
-               <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#f16126] transition-colors" />
-               <input
-                  type="text"
-                  placeholder="SEARCH TRANSACTIONS..."
-                  className="w-full pl-14 pr-8 py-5 bg-white text-[#002147] rounded-3xl border-2 border-transparent focus:border-[#f16126] focus:outline-none text-[11px] font-black uppercase tracking-widest shadow-2xl shadow-black/20"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-               />
-            </div>
+         </div>
+         
+         <div className="relative w-full md:w-[320px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+               type="text"
+               placeholder="Search transactions..."
+               className="w-full pl-9 pr-4 py-2.5 bg-slate-100 rounded-lg border border-transparent focus:border-indigo-300 focus:bg-white focus:outline-none text-sm transition-colors"
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+            />
          </div>
       </div>
 
       {filteredTransactions.length === 0 ? (
-        <div className="py-32 text-center space-y-6">
-           <div className="w-20 h-20 bg-white border border-slate-100 text-slate-200 rounded-[30px] flex items-center justify-center mx-auto shadow-sm">
-              <CreditCard className="w-10 h-10" />
-           </div>
-           <h3 className="text-xl font-black text-[#002147] uppercase italic tracking-tighter">No Payment Records Found</h3>
+        <div className="py-20 text-center bg-white rounded-2xl border border-dashed border-slate-200 shadow-sm space-y-4">
+           <CreditCard className="w-12 h-12 text-slate-300 mx-auto" />
+           <h3 className="text-lg font-bold text-slate-700">No Payment Records Found</h3>
+           <p className="text-sm text-slate-500">You haven't made any transactions yet.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-           {filteredTransactions.map((t, i) => (
-             <motion.div
-               key={t._id}
-               initial={{ opacity: 0, x: -20 }}
-               animate={{ opacity: 1, x: 0 }}
-               transition={{ delay: i * 0.05 }}
-               onClick={() => setSelectedTx(t)}
-               className="bg-white p-6 md:p-8 rounded-[36px] border border-slate-50 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl hover:border-indigo-100 transition-all cursor-pointer group"
-             >
-                <div className="flex items-center gap-6 w-full md:w-auto">
-                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border ${
-                      t.status === 'success' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100'
-                   }`}>
-                      <Receipt className="w-6 h-6" />
-                   </div>
-                   <div className="min-w-0">
-                      <p className="text-[9px] font-black text-[#f16126] uppercase tracking-[0.2em] italic mb-1">{new Date(t.date || t.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                      <h4 className="text-lg md:text-xl font-black text-[#002147] uppercase italic tracking-tighter group-hover:text-indigo-600 transition-colors truncate max-w-[200px] md:max-w-md">{t.packageName}</h4>
-                   </div>
-                </div>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+           <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="col-span-5">Package Details</div>
+              <div className="col-span-3 text-center">Status</div>
+              <div className="col-span-3 text-right">Amount</div>
+              <div className="col-span-1"></div>
+           </div>
+           
+           <div className="divide-y divide-slate-100">
+             {filteredTransactions.map((t, i) => (
+               <motion.div
+                 key={t._id}
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 transition={{ delay: i * 0.05 }}
+                 onClick={() => setSelectedTx(t)}
+                 className="flex flex-col md:grid md:grid-cols-12 items-center gap-4 p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
+               >
+                  <div className="col-span-5 flex items-center gap-4 w-full">
+                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
+                        t.status === 'success' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+                     }`}>
+                        <Receipt className="w-5 h-5" />
+                     </div>
+                     <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">{t.packageName}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{new Date(t.date || t.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                     </div>
+                  </div>
 
-                <div className="flex items-center gap-10 w-full md:w-auto justify-between md:justify-end">
-                   <div className="text-left md:text-right">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status</p>
-                      <span className={`text-[10px] font-black uppercase italic ${t.status === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                         {t.status === 'success' ? 'SUCCESS' : 'FAILED'}
-                      </span>
-                   </div>
-                   <div className="text-left md:text-right">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Amount</p>
-                      <p className="text-xl font-black text-[#002147] italic">₹{t.amount?.toLocaleString()}</p>
-                   </div>
-                   <div className="hidden md:flex w-12 h-12 bg-slate-50 rounded-2xl items-center justify-center text-slate-300 group-hover:bg-[#002147] group-hover:text-white transition-all">
-                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                   </div>
-                </div>
-             </motion.div>
-           ))}
+                  <div className="col-span-3 w-full md:w-auto flex justify-between md:justify-center items-center">
+                     <span className="md:hidden text-xs text-slate-500 font-medium">Status</span>
+                     <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${t.status === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}`}>
+                        {t.status === 'success' ? 'SUCCESS' : 'FAILED'}
+                     </span>
+                  </div>
+                  
+                  <div className="col-span-3 w-full md:w-auto flex justify-between md:justify-end items-center text-right">
+                     <span className="md:hidden text-xs text-slate-500 font-medium">Amount</span>
+                     <p className="text-base font-bold text-slate-800">₹{t.amount?.toLocaleString()}</p>
+                  </div>
+                  
+                  <div className="col-span-1 hidden md:flex justify-end">
+                     <div className="p-2 text-slate-400 group-hover:text-indigo-600 transition-colors">
+                        <ArrowRight className="w-4 h-4" />
+                     </div>
+                  </div>
+               </motion.div>
+             ))}
+           </div>
         </div>
       )}
 
       {/* SUPPORT PANEL */}
-      <div className="p-8 md:p-12 bg-[#002147] rounded-[48px] flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden text-white border-b-8 border-indigo-600/20">
-         <div className="absolute top-0 right-0 w-64 h-64 bg-[#f16126] rounded-full -mr-32 -mt-32 opacity-10" />
-         <div className="flex items-center gap-8 relative z-10 flex-col md:flex-row text-center md:text-left">
-            <div className="w-20 h-20 bg-white/10 rounded-3xl flex items-center justify-center text-[#f16126] shadow-xl">
-               <AlertCircle className="w-10 h-10" />
+      <div className="p-6 md:p-8 bg-indigo-50 border border-indigo-100 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+         <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
+               <AlertCircle className="w-6 h-6" />
             </div>
-            <div className="space-y-2">
-               <h4 className="text-2xl font-black italic uppercase tracking-tighter">Payment Issues?</h4>
-               <p className="text-indigo-200/60 font-bold italic text-xs md:text-sm uppercase tracking-widest">If access was not granted after successful payment.</p>
+            <div>
+               <h4 className="text-lg font-bold text-slate-800">Payment Issues?</h4>
+               <p className="text-sm text-slate-600 mt-1">If access was not granted after a successful payment, let us know.</p>
             </div>
          </div>
-         <button className="w-full md:w-auto px-12 py-5 bg-[#f16126] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-white hover:text-[#002147] transition-all active:scale-95 relative z-10">Raise Support Ticket</button>
+         <button className="w-full md:w-auto px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm">
+            Raise Support Ticket
+         </button>
       </div>
 
-      {/* DETAIL MODAL (CLEANER) */}
+      {/* DETAIL MODAL */}
       <AnimatePresence>
         {selectedTx && (
-          <div className="fixed inset-0 z-[2100] flex items-center justify-center p-4 backdrop-blur-3xl bg-[#002147]/70" onClick={() => setSelectedTx(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setSelectedTx(null)}>
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-lg bg-white rounded-[48px] overflow-hidden shadow-2xl"
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-2xl overflow-hidden shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-[#002147] p-10 text-white relative border-b-8 border-[#f16126]">
-                <button onClick={() => setSelectedTx(null)} className="absolute top-8 right-8 w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center hover:bg-[#f16126] transition-all"><X className="w-6 h-6" /></button>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] mb-3 text-indigo-300">Transaction Details</p>
-                <h3 className="text-2xl md:text-3xl font-black uppercase italic tracking-tighter truncate">{selectedTx.packageName}</h3>
+              <div className="p-6 border-b border-slate-100 flex justify-between items-start">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[10px] font-semibold mb-2">
+                     Transaction Details
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 leading-tight pr-4">{selectedTx.packageName}</h3>
+                </div>
+                <button onClick={() => setSelectedTx(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-md transition-colors"><X className="w-5 h-5" /></button>
               </div>
-              <div className="p-10 space-y-8">
+              
+              <div className="p-6 space-y-6">
                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-6 bg-slate-50 rounded-[32px] space-y-1">
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reference ID</p>
-                       <p className="text-[11px] font-black text-[#002147] truncate uppercase tracking-tighter italic">#{selectedTx._id?.slice(-8)}</p>
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                       <p className="text-xs font-semibold text-slate-500">Reference ID</p>
+                       <p className="text-sm font-bold text-slate-800 truncate">#{selectedTx._id?.slice(-8)}</p>
                     </div>
-                    <div className="p-6 bg-slate-50 rounded-[32px] space-y-1">
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount Paid</p>
-                       <p className="text-xl font-black text-emerald-600 italic">₹{selectedTx.amount?.toLocaleString()}</p>
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                       <p className="text-xs font-semibold text-slate-500">Amount Paid</p>
+                       <p className="text-lg font-bold text-emerald-600">₹{selectedTx.amount?.toLocaleString()}</p>
                     </div>
                  </div>
-                 <div className="bg-slate-50 p-6 rounded-[32px] flex items-center gap-4">
-                    <div className="w-10 h-10 bg-[#002147] text-white rounded-xl flex items-center justify-center"><ShieldCheck className="w-5 h-5" /></div>
+                 
+                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex items-center gap-3">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                     <div>
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Verified Payment</p>
-                       <p className="text-xs font-black text-[#002147] italic uppercase">Secured Gateway Alpha</p>
+                       <p className="text-xs font-semibold text-emerald-800">Verified Payment</p>
+                       <p className="text-[10px] text-emerald-600 mt-0.5">Processed securely.</p>
                     </div>
                  </div>
+                 
                  <button 
                   onClick={() => toast.success('Syncing with billing system...')}
-                  className="w-full bg-[#002147] text-white py-6 rounded-3xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-4 hover:bg-[#f16126] transition-all shadow-xl active:scale-95"
+                  className="w-full py-3 bg-slate-900 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:bg-indigo-600 transition-colors shadow-sm"
                  >
-                   DOWNLOAD RECEIPT <Download className="w-5 h-5" />
+                   Download Receipt <Download className="w-4 h-4" />
                  </button>
               </div>
             </motion.div>

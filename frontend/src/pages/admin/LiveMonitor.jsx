@@ -251,11 +251,11 @@ const LiveMonitor = () => {
     // ── Subjects for a class level ────────────────────────────────────────────
     const getSubjectsForLevel = useCallback((classLevel) => {
         const levelNum = parseInt(classLevel.replace(/\D/g, ''));
-        const fromSubjectModel = allSubjectsDB.filter(s => s.classLevel === levelNum);
+        const fromSubjectModel = allSubjectsDB.filter(s => s.classLevel === levelNum && s.board === boardFilter);
         if (fromSubjectModel.length > 0) {
             return fromSubjectModel.map(s => ({ id: s._id, subjectName: s.name, classLevel, type: 'subject' }));
         }
-        const bundle = allBundlesDB.find(b => b.className === classLevel);
+        const bundle = allBundlesDB.find(b => b.className === classLevel && b.board === boardFilter);
         if (bundle?.subjects?.length > 0) {
             return bundle.subjects.map(s => ({
                 id: `${classLevel}::${s.name}`,
@@ -265,7 +265,7 @@ const LiveMonitor = () => {
             }));
         }
         return [{ id: classLevel, subjectName: classLevel, classLevel, type: 'bundle' }];
-    }, [allSubjectsDB, allBundlesDB]);
+    }, [allSubjectsDB, allBundlesDB, boardFilter]);
 
     // ── Load teachers for a subject ───────────────────────────────────────────
     const loadTeachersForSubject = useCallback(async (classLevel, subjectName) => {
