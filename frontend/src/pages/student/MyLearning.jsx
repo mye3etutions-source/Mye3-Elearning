@@ -150,9 +150,9 @@ const MyLearning = () => {
                                 <div>
                                    <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5" /> Included Subjects</p>
                                    <div className="flex flex-wrap gap-1.5">
-                                      {displaySubjects.map((sName, sIdx) => (
-                                         <span key={sIdx} className="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-md border border-slate-200">
-                                            {sName}
+                                      {displaySubjects.map((s, sIdx) => (
+                                         <span key={s._id || sIdx} className="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-medium rounded-md border border-slate-200">
+                                            {typeof s === 'string' ? s : s.name}
                                          </span>
                                       ))}
                                    </div>
