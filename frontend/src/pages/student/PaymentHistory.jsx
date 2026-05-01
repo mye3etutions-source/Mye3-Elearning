@@ -149,7 +149,13 @@ const PaymentHistory = () => {
                <p className="text-sm text-slate-600 mt-1">If access was not granted after a successful payment, let us know.</p>
             </div>
          </div>
-         <button className="w-full md:w-auto px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm">
+         <button 
+           onClick={() => {
+             const msg = `Hi Mye3 Support, I have a payment issue. Name: ${userInfo?.name}, Email: ${userInfo?.email}`;
+             window.open(`https://wa.me/919912671666?text=${encodeURIComponent(msg)}`, '_blank');
+           }}
+           className="w-full md:w-auto px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
+         >
             Raise Support Ticket
          </button>
       </div>
