@@ -328,13 +328,39 @@ exports.assignSubscription = async (req, res, next) => {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + parseInt(durationDays));
 
-    student.activeSubscriptions.push({
-      type,
-      referenceId,
-      name,
-      expiryDate,
-      board: board || 'TS Board' // Default to TS Board if not provided
-    });
+    // Prevent duplicate active subscriptions for the same course
+    const isDuplicate = student.activeSubscriptions.some(sub => 
+      sub.referenceId === referenceId && 
+      new Date(sub.expiryDate) > new Date()
+    );
+
+    if (isDuplicate) {
+       // Optional: Update expiry instead of adding new? Or just skip.
+       // For now, let's just update the expiry of the existing one to extend it
+       const existing = student.activeSubscriptions.find(sub => sub.referenceId === referenceId && new Date(sub.expiryDate) > new Date());
+       existing.expiryDate = expiryDate;
+       existing.board = board || existing.board;
+       existing.name = name || existing.name;
+    } else {
+      student.activeSubscriptions.push({
+        type,
+        referenceId,
+        name,
+        expiryDate,
+        board: board || 'TS Board'
+      });
+    }
+
+    // Sync primary fields if it's a bundle
+    if (type === 'bundle') {
+       student.className = name.split(' ')[1] ? `Class ${name.split(' ')[1]}` : name;
+       student.board = board || 'TS Board';
+    } else if (type === 'subject') {
+       // Extract class level from name like "Physics (Class 11)"
+       const match = name.match(/Class (\d+)/);
+       if (match) student.className = `Class ${match[1]}`;
+       student.board = board || 'TS Board';
+    }
 
     await student.save();
     res.status(200).json(student);
@@ -686,14 +712,36 @@ exports.grantManualAccess = async (req, res, next) => {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + parseInt(durationDays || 365));
 
-    student.activeSubscriptions.push({
-      type, // 'bundle' or 'subject'
-      referenceId,
-      name,
-      subscriptionType: subscriptionType || 'full',
-      expiryDate,
-      board: board || 'TS Board'
-    });
+    const isDuplicate = student.activeSubscriptions.some(sub => 
+      sub.referenceId === referenceId && 
+      new Date(sub.expiryDate) > new Date()
+    );
+
+    if (isDuplicate) {
+      const existing = student.activeSubscriptions.find(sub => sub.referenceId === referenceId && new Date(sub.expiryDate) > new Date());
+      existing.expiryDate = expiryDate;
+      existing.board = board || existing.board;
+      existing.name = name || existing.name;
+    } else {
+      student.activeSubscriptions.push({
+        type, // 'bundle' or 'subject'
+        referenceId,
+        name,
+        subscriptionType: subscriptionType || 'full',
+        expiryDate,
+        board: board || 'TS Board'
+      });
+    }
+
+    // Sync primary fields
+    if (type === 'bundle') {
+       student.className = name.split(' ')[1] ? `Class ${name.split(' ')[1]}` : name;
+       student.board = board || 'TS Board';
+    } else if (type === 'subject') {
+       const match = name.match(/Class (\d+)/);
+       if (match) student.className = `Class ${match[1]}`;
+       student.board = board || 'TS Board';
+    }
 
     student.markModified('activeSubscriptions');
     await student.save();
@@ -1155,6 +1203,25 @@ exports.settleTeacherPayment = async (req, res, next) => {
     );
 
     res.status(201).json(payout);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Remove subscription from student
+// @route   DELETE /api/admin/students/:id/subscription/:subscriptionId
+// @access  Admin
+exports.removeSubscription = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'Student not found' });
+
+    user.activeSubscriptions = user.activeSubscriptions.filter(
+      sub => sub._id.toString() !== req.params.subscriptionId
+    );
+
+    await user.save();
+    res.status(200).json(user);
   } catch (error) {
     next(error);
   }

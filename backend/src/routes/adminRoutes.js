@@ -38,7 +38,8 @@ const {
   getAllLiveSessions, // New
   getRecurringSchedules,
   updateRecurringSchedule,
-  stopRecurringSchedule
+  stopRecurringSchedule,
+  removeSubscription
 } = require('../controllers/adminController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
@@ -78,6 +79,7 @@ router.get('/students', protect, authorizeRoles('admin'), getStudentsList);
 router.post('/students', protect, authorizeRoles('admin'), addStudent);
 router.put('/students/assign-subscription/:id', protect, authorizeRoles('admin'), assignSubscription);
 router.put('/students/:id/extend', protect, authorizeRoles('admin'), extendSubscription);
+router.delete('/students/:id/subscription/:subscriptionId', protect, authorizeRoles('admin'), removeSubscription);
 
 router.put('/users/:id', protect, authorizeRoles('admin'), updateUser);
 router.delete('/users/:id', protect, authorizeRoles('admin'), deleteUser);

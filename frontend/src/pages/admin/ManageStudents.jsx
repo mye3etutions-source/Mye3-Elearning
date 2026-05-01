@@ -106,6 +106,18 @@ const ManageStudents = () => {
     }
   };
 
+  const handleRemoveSubscription = async (studentId, subId) => {
+    if (!window.confirm('Are you sure you want to remove this course access?')) return;
+    try {
+      const res = await axios.delete(`/admin/students/${studentId}/subscription/${subId}`);
+      toast.success('Access removed');
+      setStudents(prev => prev.map(s => s._id === studentId ? res.data : s));
+      if (selectedStudent?._id === studentId) setSelectedStudent(res.data);
+    } catch (error) {
+      toast.error('Failed to remove access');
+    }
+  };
+
   const getStatus = (subscriptions) => {
     if (!subscriptions || subscriptions.length === 0) return { label: 'No Access', color: 'bg-slate-100 text-slate-500', icon: <Clock className="w-3 h-3" /> };
     
@@ -192,7 +204,8 @@ const ManageStudents = () => {
                     </tr>
                   ) : currentItems.map(student => {
                     const status = getStatus(student.activeSubscriptions);
-                    const board = student.board || 'Unassigned Board';
+                    const board = student.board || student.activeSubscriptions?.[0]?.board || 'Unassigned Board';
+                    const className = student.className || student.activeSubscriptions?.[0]?.name?.split(' (')[0] || 'NO CLASS';
                     return (
                       <tr key={student._id} className="hover:bg-slate-50/50 transition-colors group align-top">
                          <td className="px-5 py-6">
@@ -212,7 +225,7 @@ const ManageStudents = () => {
                                         {board}
                                      </span>
                                      <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 uppercase tracking-tight shadow-sm">
-                                        {student.className || 'NO CLASS'}
+                                        {className}
                                      </span>
                                      <span className="text-xs text-slate-500 font-bold ml-1.5 truncate max-w-[220px]">
                                         {student.email}
@@ -224,9 +237,9 @@ const ManageStudents = () => {
                          <td className="px-5 py-6">
                             <div className="flex flex-wrap gap-2">
                                 {student.activeSubscriptions?.length > 0 ? (() => {
-                                  // Deduplicate for visual display if name, board and expiry are same
+                                  // Deduplicate for visual display by referenceId
                                   const uniqueSubs = student.activeSubscriptions.reduce((acc, current) => {
-                                    const x = acc.find(item => item.name === current.name && item.board === current.board && new Date(item.expiryDate).getTime() === new Date(current.expiryDate).getTime());
+                                    const x = acc.find(item => item.referenceId === current.referenceId);
                                     if (!x) return acc.concat([current]);
                                     return acc;
                                   }, []);
@@ -540,23 +553,37 @@ const ManageStudents = () => {
                            const expiry = new Date(sub.expiryDate);
                            const isExpired = expiry < new Date();
                            return (
-                             <div key={i} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-indigo-100 transition-colors">
+                             <div key={sub._id || i} className="group/item flex items-center justify-between p-4 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-indigo-200 transition-all">
                                 <div className="flex items-center gap-4">
-                                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isExpired ? 'bg-slate-50 text-slate-300' : 'bg-emerald-50 text-emerald-600'}`}>
+                                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isExpired ? 'bg-slate-50 text-slate-300' : 'bg-indigo-50 text-indigo-600'}`}>
                                       <GraduationCap className="w-5 h-5" />
                                    </div>
                                    <div>
-                                      <p className={`font-bold text-sm uppercase tracking-tight ${isExpired ? 'text-slate-400' : 'text-slate-800'}`}>{sub.name}</p>
+                                      <div className="flex items-center gap-2">
+                                         <p className={`font-bold text-sm uppercase tracking-tight ${isExpired ? 'text-slate-400' : 'text-slate-800'}`}>{sub.name}</p>
+                                         {sub.board && (
+                                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase">{sub.board}</span>
+                                         )}
+                                      </div>
                                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{sub.type} Access</p>
                                    </div>
                                 </div>
-                                <div className="text-right">
-                                   <p className={`text-[10px] font-black uppercase tracking-widest ${isExpired ? 'text-rose-400' : 'text-emerald-500'}`}>
-                                      {isExpired ? 'EXPIRED' : 'ACTIVE'}
-                                   </p>
-                                   <p className="text-xs font-bold text-slate-600 mt-1">
-                                      {expiry.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                   </p>
+                                <div className="flex items-center gap-6">
+                                   <div className="text-right">
+                                      <p className={`text-[10px] font-black uppercase tracking-widest ${isExpired ? 'text-rose-400' : 'text-emerald-500'}`}>
+                                         {isExpired ? 'EXPIRED' : 'ACTIVE'}
+                                      </p>
+                                      <p className="text-xs font-bold text-slate-600 mt-1">
+                                         {expiry.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                      </p>
+                                   </div>
+                                   <button 
+                                     onClick={() => handleRemoveSubscription(selectedStudent._id, sub._id)}
+                                     className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover/item:opacity-100"
+                                     title="Remove Access"
+                                   >
+                                      <Trash2 className="w-4 h-4" />
+                                   </button>
                                 </div>
                              </div>
                            )
