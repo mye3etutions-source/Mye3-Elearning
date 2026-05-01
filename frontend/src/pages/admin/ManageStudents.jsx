@@ -24,6 +24,7 @@ const ManageStudents = () => {
     type: 'bundle',
     referenceId: '',
     name: '',
+    board: '',
     durationDays: 30
   });
 
@@ -222,28 +223,37 @@ const ManageStudents = () => {
                          </td>
                          <td className="px-5 py-6">
                             <div className="flex flex-wrap gap-2">
-                                {student.activeSubscriptions?.length > 0 ? student.activeSubscriptions.map((sub, i) => {
-                                  const daysLeft = Math.ceil((new Date(sub.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
-                                  const isNearExpiry = daysLeft <= 7 && daysLeft > 0;
-                                  const isExpired = daysLeft <= 0;
+                                {student.activeSubscriptions?.length > 0 ? (() => {
+                                  // Deduplicate for visual display if name, board and expiry are same
+                                  const uniqueSubs = student.activeSubscriptions.reduce((acc, current) => {
+                                    const x = acc.find(item => item.name === current.name && item.board === current.board && new Date(item.expiryDate).getTime() === new Date(current.expiryDate).getTime());
+                                    if (!x) return acc.concat([current]);
+                                    return acc;
+                                  }, []);
 
-                                  return (
-                                    <div key={i} className="flex flex-col gap-1">
-                                      <span className={`px-2 py-0.5 text-xs font-semibold rounded uppercase tracking-wide border whitespace-nowrap ${
-                                        isExpired ? 'bg-slate-50 text-slate-400 border-slate-200 opacity-80' : 
-                                        isNearExpiry ? 'bg-orange-50 text-orange-700 border-orange-200' : 
-                                        'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                      }`}>
-                                         {sub.name}
-                                      </span>
-                                      <span className={`text-xs ml-0.5 font-medium ${
-                                        isExpired ? 'text-slate-400' : isNearExpiry ? 'text-orange-600 animate-pulse' : 'text-slate-500'
-                                      }`}>
-                                        Exp: {new Date(sub.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                                      </span>
-                                    </div>
-                                  );
-                                }) : (
+                                  return uniqueSubs.map((sub, i) => {
+                                    const daysLeft = Math.ceil((new Date(sub.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+                                    const isNearExpiry = daysLeft <= 7 && daysLeft > 0;
+                                    const isExpired = daysLeft <= 0;
+
+                                    return (
+                                      <div key={i} className="flex flex-col gap-1">
+                                        <span className={`px-2 py-0.5 text-[11px] font-bold rounded uppercase tracking-tight border whitespace-nowrap ${
+                                          isExpired ? 'bg-slate-50 text-slate-400 border-slate-200 opacity-80' : 
+                                          isNearExpiry ? 'bg-orange-50 text-orange-700 border-orange-200' : 
+                                          'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                        }`}>
+                                           {sub.name} <span className="opacity-60 font-black ml-1">{sub.board ? `[${sub.board.split(' ')[0]}]` : ''}</span>
+                                        </span>
+                                        <span className={`text-[10px] ml-0.5 font-bold ${
+                                          isExpired ? 'text-slate-400' : isNearExpiry ? 'text-orange-600 animate-pulse' : 'text-slate-500'
+                                        }`}>
+                                          Exp: {new Date(sub.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                        </span>
+                                      </div>
+                                    );
+                                  });
+                                })() : (
                                   <span className="text-sm text-slate-400 italic">No Manual Overrides</span>
                                 )}
                             </div>
@@ -415,6 +425,7 @@ const ManageStudents = () => {
                            setGrantForm({
                              ...grantForm, 
                              referenceId: val, 
+                             board: item?.board || '',
                              name: item ? (grantForm.type === 'bundle' ? item.className : `${item.name} (${parseInt(item.classLevel) === 11 ? 'Inter 1st Year' : parseInt(item.classLevel) === 12 ? 'Inter 2nd Year' : `Class ${item.classLevel}`})`) : ''
                            });
                          }}

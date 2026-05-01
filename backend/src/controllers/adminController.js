@@ -318,7 +318,7 @@ exports.addStudent = async (req, res, next) => {
 // @access  Admin
 exports.assignSubscription = async (req, res, next) => {
   try {
-    const { type, referenceId, name, durationDays } = req.body;
+    const { type, referenceId, name, durationDays, board } = req.body;
     const student = await User.findById(req.params.id);
 
     if (!student || student.role !== 'student') {
@@ -332,7 +332,8 @@ exports.assignSubscription = async (req, res, next) => {
       type,
       referenceId,
       name,
-      expiryDate
+      expiryDate,
+      board: board || 'TS Board' // Default to TS Board if not provided
     });
 
     await student.save();
@@ -675,7 +676,7 @@ exports.toggleStatus = async (req, res, next) => {
 // @access  Admin
 exports.grantManualAccess = async (req, res, next) => {
   try {
-    const { email, type, referenceId, name, subscriptionType, durationDays } = req.body;
+    const { email, type, referenceId, name, subscriptionType, durationDays, board } = req.body;
     const student = await User.findOne({ email });
 
     if (!student || student.role !== 'student') {
@@ -690,7 +691,8 @@ exports.grantManualAccess = async (req, res, next) => {
       referenceId,
       name,
       subscriptionType: subscriptionType || 'full',
-      expiryDate
+      expiryDate,
+      board: board || 'TS Board'
     });
 
     student.markModified('activeSubscriptions');

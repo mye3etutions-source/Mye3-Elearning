@@ -10,7 +10,8 @@ const subscriptionSchema = new mongoose.Schema({
     enum: ['full', 'single', 'oneMonth', 'threeMonths', 'sixMonths', 'twelveMonths'],
     default: 'full'
   },
-  expiryDate: { type: Date, required: true }
+  expiryDate: { type: Date, required: true },
+  board: { type: String }
 });
 
 const userSchema = new mongoose.Schema({
