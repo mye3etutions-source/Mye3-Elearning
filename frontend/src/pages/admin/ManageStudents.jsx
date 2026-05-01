@@ -39,12 +39,22 @@ const ManageStudents = () => {
         axios.get('/subjects')
       ]);
       setStudents(studentRes.data);
-      setBundles(bundleRes.data.sort((a, b) => {
-        const numB = parseInt(b.className.replace(/\D/g, '')) || 0;
-        const numA = parseInt(a.className.replace(/\D/g, '')) || 0;
-        return numA - numB;
-      }));
-      setSubjects(subjectRes.data.sort((a, b) => (a.classLevel || 0) - (b.classLevel || 0)));
+      setBundles(bundleRes.data
+        .filter((v, i, a) => a.findIndex(t => t._id === v._id) === i)
+        .sort((a, b) => {
+          const numA = parseInt(a.className?.replace(/\D/g, '')) || 0;
+          const numB = parseInt(b.className?.replace(/\D/g, '')) || 0;
+          if (numA !== numB) return numA - numB;
+          return (a.board || '').localeCompare(b.board || '');
+        })
+      );
+      setSubjects(subjectRes.data
+        .filter((v, i, a) => a.findIndex(t => t._id === v._id) === i)
+        .sort((a, b) => {
+          if (a.classLevel !== b.classLevel) return (a.classLevel || 0) - (b.classLevel || 0);
+          return (a.name || '').localeCompare(b.name || '');
+        })
+      );
       setLoading(false);
     } catch (error) {
       toast.error('Failed to sync data with server');
@@ -405,15 +415,19 @@ const ManageStudents = () => {
                            setGrantForm({
                              ...grantForm, 
                              referenceId: val, 
-                             name: item ? (grantForm.type === 'bundle' ? item.className : `${item.name} (Cls ${item.classLevel})`) : ''
+                             name: item ? (grantForm.type === 'bundle' ? item.className : `${item.name} (${parseInt(item.classLevel) === 11 ? 'Inter 1st Year' : parseInt(item.classLevel) === 12 ? 'Inter 2nd Year' : `Class ${item.classLevel}`})`) : ''
                            });
                          }}
                          className="w-full px-3 py-2 bg-white border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 shadow-sm"
                        >
                           <option value="">Choose item...</option>
                           {grantForm.type === 'bundle' 
-                            ? bundles.map(b => <option key={b._id} value={b._id}>{b.className}</option>)
-                            : subjects.map(s => <option key={s._id} value={s._id}>{s.name} - Class {s.classLevel}</option>)
+                            ? bundles.map(b => <option key={b._id} value={b._id}>{b.className} {b.board ? `(${b.board})` : ''}</option>)
+                            : subjects.map(s => (
+                              <option key={s._id} value={s._id}>
+                                {s.name} - {parseInt(s.classLevel) === 11 ? 'Inter 1st Year' : parseInt(s.classLevel) === 12 ? 'Inter 2nd Year' : `Class ${s.classLevel}`} {s.board ? `(${s.board})` : ''}
+                              </option>
+                            ))
                           }
                        </select>
                     </div>
