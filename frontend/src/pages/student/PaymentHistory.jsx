@@ -12,8 +12,10 @@ import {
   ArrowRight
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { useSelector } from 'react-redux';
 
 const PaymentHistory = () => {
+  const { userInfo } = useSelector((state) => state.auth);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
