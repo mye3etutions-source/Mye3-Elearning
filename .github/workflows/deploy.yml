@@ -27,17 +27,12 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Protocol FTP matrame unchu (Reset avvakunda untundi)
           protocol: ftp
           local-dir: frontend/dist/
-          server-dir: mye3etutions.com/
-          # Timeout ni max limits ki penchanu
-          timeout: 1000000 
-          # Error ekkada ostundo clear ga teliyadaniki verbose mode
-          log-level: verbose
-          # Ee file sync issue create chesthe exclude cheyi
-          exclude: |
-            **/.ftp-deploy-sync-state.json
+          # Ikkada leading slash (/) add chesanu, idi server ki path ni clear ga chupisthundi
+          server-dir: /mye3etutions.com/
+          timeout: 600000
+          # .env vellali kabatti exclude lo pettaledu
 
       - name: 🚀 Deploy Backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -47,9 +42,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: backend/
-          server-dir: mye3etutions.com/backend/
-          timeout: 1000000
-          log-level: verbose
+          server-dir: /mye3etutions.com/backend/
+          timeout: 600000
           exclude: |
             **/node_modules/**
             **/debug.log
