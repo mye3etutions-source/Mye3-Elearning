@@ -19,29 +19,35 @@ jobs:
           npm install
           npm run build
         env:
+          # Kotha domain URL ikkada ivvandi (User browser lo type chese name)
           VITE_API_URL: https://mye3etuitions.com/api
 
-      - name: 🚀 Deploy Frontend to cPanel (mye3etuitions.com/)
+      - name: 🚀 Deploy Frontend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
+          protocol: ftp
           local-dir: frontend/dist/
+          # Meeru cheppinatlu root folder name marchaledu kabatti ikkada 'i' ledhu
           server-dir: mye3etutions.com/
-          timeout: 300000
+          timeout: 900000 # 15 minutes ki penchanu
+          state-name: .frontend-deploy-state.json
 
-      - name: 🚀 Deploy Backend to cPanel (mye3etuitions.com/backend/)
+      - name: 🚀 Deploy Backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
+          protocol: ftp
           local-dir: backend/
           server-dir: mye3etutions.com/backend/
-          timeout: 300000
+          timeout: 900000 # 15 minutes
+          state-name: .backend-deploy-state.json
           exclude: |
             **/node_modules/**
             **/debug.log
+            .git*
+            .env
