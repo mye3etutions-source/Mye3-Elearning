@@ -19,6 +19,7 @@ jobs:
           npm install
           npm run build
         env:
+          # Ikkada kotha domain spelling 'i' tho update chesa
           VITE_API_URL: https://mye3etuitions.com/api
 
       - name: 🚀 Deploy Frontend to cPanel
@@ -29,7 +30,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: frontend/dist/
-          server-dir: /mye3etuitions.com/
+          server-dir: mye3etuitions.com/
           parallel: 1
           timeout: 600000
 
@@ -41,7 +42,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: backend/
-          server-dir: /mye3etuitions.com/backend/
+          server-dir: mye3etuitions.com/backend/
           parallel: 1
           timeout: 600000
           exclude: |
