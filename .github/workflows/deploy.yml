@@ -30,7 +30,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: frontend/dist/
-          server-dir: mye3etuitions.com/
+          # Kotha FTP account path '/mye3etuitions' ki direct ga map ayyi undi kabatti ./ vadochu
+          server-dir: ./
           parallel: 1
           timeout: 600000
 
@@ -42,7 +43,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: backend/
-          server-dir: mye3etuitions.com/backend/
+          # Kotha account lo backend sub-folder ga unte ./backend/ correct
+          server-dir: ./backend/
           parallel: 1
           timeout: 600000
           exclude: |
