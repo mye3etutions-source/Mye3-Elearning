@@ -8,7 +8,7 @@ const getBaseUrl = () => {
         return 'http://localhost:5000';
     }
     // Otherwise use the env variable or fallback to production
-    return import.meta.env.VITE_API_URL || 'https://mye3etutions.com/api';
+    return import.meta.env.VITE_API_URL || 'https://mye3etuitions.com/api';
 };
 
 const base = getBaseUrl();

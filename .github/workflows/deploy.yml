@@ -19,9 +19,9 @@ jobs:
           npm install
           npm run build
         env:
-          VITE_API_URL: https://mye3etutions.com/api
+          VITE_API_URL: https://mye3etuitions.com/api
 
-      - name: 🚀 Deploy Frontend to cPanel (mye3etutions.com/)
+      - name: 🚀 Deploy Frontend to cPanel (mye3etuitions.com/)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -30,7 +30,7 @@ jobs:
           local-dir: frontend/dist/
           server-dir: mye3etutions.com/
 
-      - name: 🚀 Deploy Backend to cPanel (mye3etutions.com/backend/)
+      - name: 🚀 Deploy Backend to cPanel (mye3etuitions.com/backend/)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}

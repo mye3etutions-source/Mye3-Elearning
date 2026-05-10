@@ -182,7 +182,7 @@ const Footer = () => {
                 <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center shrink-0 bg-white/10 text-white border border-white/5">
                   <HiOutlineMail className="text-sm md:text-[15px]" />
                 </div>
-                <span className="text-[11px] md:text-[14px] font-bold text-indigo-100/70 leading-none break-all">mye3etutions@gmail.com</span>
+                <span className="text-[11px] md:text-[14px] font-bold text-indigo-100/70 leading-none break-all">mye3etuitions@gmail.com</span>
               </li>
               <li className="flex items-center gap-3">
                 <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center shrink-0 bg-white/10 text-white border border-white/5">

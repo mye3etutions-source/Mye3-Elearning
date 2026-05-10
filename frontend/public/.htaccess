@@ -4,6 +4,9 @@
   RewriteEngine On
   RewriteBase /
 
+  # Internally rewrite /uploads to /api/uploads so Passenger handles it
+  RewriteRule ^uploads/(.*)$ /api/uploads/$1 [L]
+
   # Skip /api/* — let cPanel Passenger proxy handle it
   RewriteCond %{REQUEST_URI} ^/api [NC]
   RewriteRule ^ - [L]

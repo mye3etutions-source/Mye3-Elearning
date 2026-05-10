@@ -14,7 +14,7 @@ const getBaseUrl = () => {
         return 'http://localhost:5000/api';
     }
     // Otherwise use the env variable
-    const envUrl = import.meta.env.VITE_API_URL || 'https://mye3etutions.com/api';
+    const envUrl = import.meta.env.VITE_API_URL || 'https://mye3etuitions.com/api';
     return envUrl.includes('/api') ? envUrl : (envUrl.endsWith('/') ? `${envUrl}api` : `${envUrl}/api`);
 };
 

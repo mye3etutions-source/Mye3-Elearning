@@ -24,8 +24,8 @@ app.use(cors({
       'http://localhost:5173',
       'http://127.0.0.1:5173',
       process.env.FRONTEND_URL,
-      'https://mye3etutions.com',
-      'https://www.mye3etutions.com'
+      'https://mye3etuitions.com',
+      'https://www.mye3etuitions.com'
     ].filter(Boolean);
     
     if (!origin || allowedOrigins.includes(origin)) {
@@ -44,6 +44,7 @@ app.use(morgan('dev'));
 
 // Static folder for file uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Import Routes
 const authRoutes = require('./routes/authRoutes');

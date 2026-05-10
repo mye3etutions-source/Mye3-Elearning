@@ -47,7 +47,7 @@ At Mye3 Academy, we strive to ensure our students have the best learning experie
 - If you have technical issues preventing access to the content that our support team cannot resolve within 48 hours, a pro-rated refund may be considered at the discretion of management.
 
 3. How to Request a Refund:
-To request an exception refund, please email us at mye3etutions@gmail.com with your transaction ID and the reason for the request.`;
+To request an exception refund, please email us at mye3etuitions@gmail.com with your transaction ID and the reason for the request.`;
       break;
 
     case '/terms-and-conditions':
@@ -75,7 +75,7 @@ By accessing the Mye3 Academy platform, you agree to comply with and be bound by
       title = 'Disclaimer';
       content = `Last Updated: April 2026
 
-The information provided by Mye3 Academy ("we," "us," or "our") on mye3etutions.com is for general educational purposes only.
+The information provided by Mye3 Academy ("we," "us," or "our") on mye3etuitions.com is for general educational purposes only.
 
 1. Educational Results:
 - While we provide high-quality teaching and materials, academic results depend on the student's own effort and participation. We do not guarantee specific marks or ranks in exams.

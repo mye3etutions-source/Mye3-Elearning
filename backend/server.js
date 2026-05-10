@@ -22,8 +22,8 @@ const io = new Server(server, {
       'http://localhost:5173',
       'http://127.0.0.1:5173',
       process.env.FRONTEND_URL,
-      'https://mye3etutions.com',
-      'https://www.mye3etutions.com'
+      'https://mye3etuitions.com',
+      'https://www.mye3etuitions.com'
     ].filter(Boolean),
     methods: ['GET', 'POST'],
     credentials: true

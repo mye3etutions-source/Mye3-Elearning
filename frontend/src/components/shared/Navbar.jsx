@@ -389,12 +389,12 @@ const Navbar = () => {
               </span>
               <span className="hidden md:inline">Talk with us{' '}<span className="font-bold text-slate-900">+91 99126 71666</span></span>
             </a>
-            <a href="mailto:mye3etutions@gmail.com" className="flex items-center gap-0 hover:text-orange-600 transition-colors">
+            <a href="mailto:mye3etuitions@gmail.com" className="flex items-center gap-0 hover:text-orange-600 transition-colors">
               <img src="https://img.icons8.com/color/48/gmail-new.png" alt="email" className="w-[28px] h-[28px] md:hidden object-contain mr-1" />
               <span className="hidden md:flex w-7 h-7 rounded-full bg-red-100 items-center justify-center mr-2">
                 <MdEmail className="text-red-500 text-[15px] md:text-sm" />
               </span>
-              <span className="hidden md:inline">Mail Us{' '}<span className="font-bold text-slate-900">mye3etutions@gmail.com</span></span>
+              <span className="hidden md:inline">Mail Us{' '}<span className="font-bold text-slate-900">mye3etuitions@gmail.com</span></span>
             </a>
           </div>
 
@@ -501,8 +501,8 @@ const Navbar = () => {
                 <a href="tel:+919912671666" className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
                   <HiOutlinePhone className="text-orange-500" /> +91 99126 71666
                 </a>
-                <a href="mailto:mye3etutions@gmail.com" className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
-                  <HiOutlineMail className="text-orange-500" /> mye3etutions@gmail.com
+                <a href="mailto:mye3etuitions@gmail.com" className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
+                  <HiOutlineMail className="text-orange-500" /> mye3etuitions@gmail.com
                 </a>
               </div>
 
