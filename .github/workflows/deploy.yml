@@ -19,7 +19,6 @@ jobs:
           npm install
           npm run build
         env:
-          # Kotha domain URL ikkada ivvandi (User browser lo type chese name)
           VITE_API_URL: https://mye3etuitions.com/api
 
       - name: 🚀 Deploy Frontend to cPanel
@@ -28,12 +27,17 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          # Protocol FTP matrame unchu (Reset avvakunda untundi)
           protocol: ftp
           local-dir: frontend/dist/
-          # Meeru cheppinatlu root folder name marchaledu kabatti ikkada 'i' ledhu
           server-dir: mye3etutions.com/
-          timeout: 900000 # 15 minutes ki penchanu
-          state-name: .frontend-deploy-state.json
+          # Timeout ni max limits ki penchanu
+          timeout: 1000000 
+          # Error ekkada ostundo clear ga teliyadaniki verbose mode
+          log-level: verbose
+          # Ee file sync issue create chesthe exclude cheyi
+          exclude: |
+            **/.ftp-deploy-sync-state.json
 
       - name: 🚀 Deploy Backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -44,10 +48,9 @@ jobs:
           protocol: ftp
           local-dir: backend/
           server-dir: mye3etutions.com/backend/
-          timeout: 900000 # 15 minutes
-          state-name: .backend-deploy-state.json
+          timeout: 1000000
+          log-level: verbose
           exclude: |
             **/node_modules/**
             **/debug.log
             .git*
-            .env
