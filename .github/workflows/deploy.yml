@@ -22,32 +22,38 @@ jobs:
           # Ikkada kotha domain spelling 'i' tho update chesa
           VITE_API_URL: https://mye3etuitions.com/api
 
-      - name: 🚀 Deploy Frontend to cPanel
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: 🚀 Deploy Frontend to cPanel via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: frontend/dist/
-          # Kotha FTP account path '/mye3etuitions' ki direct ga map ayyi undi kabatti ./ vadochu
-          server-dir: ./
-          parallel: 1
-          timeout: 600000
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "frontend/dist/*"
+          target: "public_html/mye3etuitions.com"
+          strip_components: 2
 
-      - name: 🚀 Deploy Backend to cPanel
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      - name: 🚀 Deploy Backend to cPanel via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: backend/
-          # Kotha account lo backend sub-folder ga unte ./backend/ correct
-          server-dir: ./backend/
-          parallel: 1
-          timeout: 600000
-          exclude: |
-            **/node_modules/**
-            **/debug.log
-            .git*
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "backend/*"
+          target: "public_html/mye3etuitions.com"
+          strip_components: 1
+
+      - name: 🔄 Restart Backend (Node.js)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            # Add command to restart node app if needed, e.g., restarting passenger
+            touch public_html/mye3etuitions.com/backend/tmp/restart.txt
