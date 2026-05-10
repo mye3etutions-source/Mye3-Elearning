@@ -43,7 +43,7 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ secrets.SSH_PORT || 22 }}
           source: "backend/*"
-          target: "mye3etuitions.com"
+          target: "mye3-backend"
           strip_components: 1
 
       - name: 🔄 Restart Backend (Node.js)
@@ -56,4 +56,4 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             # Add command to restart node app if needed, e.g., restarting passenger
-            touch mye3etuitions.com/backend/tmp/restart.txt
+            touch mye3-backend/tmp/restart.txt
