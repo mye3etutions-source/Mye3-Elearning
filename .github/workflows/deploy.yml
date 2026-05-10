@@ -29,10 +29,12 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: frontend/dist/
-          # Ikkada leading slash (/) add chesanu, idi server ki path ni clear ga chupisthundi
-          server-dir: /mye3etutions.com/
+          # Nee cPanel screenshot lo unna folder name exact ga 'i' lekunda unchanu
+          server-dir: mye3etutions.com/
+          # Connection reset avvakunda okkokka file pampisthundi (Safe mode)
+          parallel: 1
           timeout: 600000
-          # .env vellali kabatti exclude lo pettaledu
+          # .env file vellali annavu kabatti exclusion lo pettaledu
 
       - name: 🚀 Deploy Backend to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -42,7 +44,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: backend/
-          server-dir: /mye3etutions.com/backend/
+          server-dir: mye3etutions.com/backend/
+          parallel: 1
           timeout: 600000
           exclude: |
             **/node_modules/**
