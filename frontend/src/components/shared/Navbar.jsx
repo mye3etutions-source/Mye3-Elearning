@@ -20,7 +20,7 @@ import {
 } from 'react-icons/hi';
 import { FaWhatsapp, FaHandshake } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Dropdown data placeholder - actual items are generated dynamically inside Navbar
 const DEFAULT_NAV_ITEMS = [
@@ -332,6 +332,60 @@ const Navbar = () => {
   const [mobileExpanded, setMobileExpanded] = useState(null);
   const [isMobileDrag, setIsMobileDrag] = useState(false);
 
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showMobileBanner, setShowMobileBanner] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Check if app is running in standalone mode (already installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) {
+      setIsInstalled(true);
+      return;
+    }
+
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      
+      // Only show banner if user hasn't already dismissed it in this session
+      const isDismissed = sessionStorage.getItem('pwa-prompt-dismissed') === 'true';
+      if (!isDismissed) {
+        setShowMobileBanner(true);
+      }
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setShowMobileBanner(false);
+      setIsInstalled(true);
+      toast.success('Mye3 App installed successfully!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setShowMobileBanner(false);
+    }
+  };
+
+  const handleCancelClick = () => {
+    setShowMobileBanner(false);
+    sessionStorage.setItem('pwa-prompt-dismissed', 'true');
+  };
+
   // Helper to generate slug for board routes (e.g., 'TS Board' -> 'ts-board')
   const getBoardSlug = (boardName) => {
     if (!boardName) return 'all';
@@ -400,6 +454,17 @@ const Navbar = () => {
 
           {/* Right: book demo / login */}
           <div className="flex items-center text-[12px] font-medium text-slate-500 md:text-slate-600 text-right">
+            {deferredPrompt && (
+              <>
+                <button
+                  onClick={handleInstallClick}
+                  className="text-orange-600 hover:text-orange-700 font-bold transition-colors flex items-center gap-1 mr-2 px-1 py-0.5 rounded hover:bg-orange-50"
+                >
+                  📥 Install App
+                </button>
+                <span className="text-slate-300 mr-2">|</span>
+              </>
+            )}
             <Link 
               to={userInfo ? (userInfo?.role?.toLowerCase() === 'teacher' ? '/teacher/dashboard' : '/student/dashboard') : '/register'} 
               className="hover:text-orange-600 transition-colors flex flex-col items-center md:flex-row leading-[1.2] md:leading-normal mr-2"
@@ -443,6 +508,14 @@ const Navbar = () => {
 
           {/* Right CTA */}
           <div className="flex items-center gap-3 shrink-0">
+            {deferredPrompt && (
+              <button
+                onClick={handleInstallClick}
+                className="hidden md:flex items-center px-4 py-2 border-[1.5px] border-[#f36b21] text-[#f36b21] hover:bg-[#f36b21] hover:text-white text-[13px] font-black uppercase tracking-wider rounded-lg active:scale-95 transition-all"
+              >
+                Install App
+              </button>
+            )}
             {userInfo ? (
               <Link
                 to={
@@ -594,6 +667,59 @@ const Navbar = () => {
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
+
+      {/* PWA Mobile Slide-Up Install Drawer */}
+      <AnimatePresence>
+        {showMobileBanner && deferredPrompt && (
+          <motion.div
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+            className="md:hidden fixed bottom-[68px] left-4 right-4 z-[999] bg-white rounded-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.08)] border border-slate-100 p-4 flex flex-col gap-3"
+          >
+            <div className="flex items-center gap-3">
+              {/* App Icon */}
+              <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center shrink-0 border border-orange-100 overflow-hidden shadow-inner">
+                <img
+                  src={logoImg}
+                  alt="App Icon"
+                  className="w-10 h-10 object-contain scale-110"
+                />
+              </div>
+              {/* Text Info */}
+              <div className="flex-1">
+                <h4 className="text-[14px] font-extrabold text-slate-800 leading-tight">Install Mye3 App</h4>
+                <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-snug">Get fast, secure 1-on-1 online classes & offline access.</p>
+              </div>
+              {/* Close Button */}
+              <button 
+                onClick={handleCancelClick}
+                className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancelClick}
+                className="flex-1 py-2 text-center text-slate-500 font-bold text-[12px] rounded-xl hover:bg-slate-50 border border-slate-100 active:scale-95 transition-all"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={handleInstallClick}
+                className="flex-1 py-2 text-center text-white font-extrabold text-[12px] rounded-xl active:scale-95 transition-all shadow-md"
+                style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+              >
+                Install App
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         @keyframes fadeIn {

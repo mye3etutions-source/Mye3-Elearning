@@ -30,6 +30,7 @@ const authUser = async (req, res, next) => {
           _id: user._id,
           name: user.name,
           email: user.email,
+          mobileNumber: user.mobileNumber,
           role: user.role,
           board: user.board,
           className: user.className,
@@ -47,9 +48,9 @@ const authUser = async (req, res, next) => {
 
 const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password, role, board, className } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    const { name, email, password, role, board, className, mobileNumber } = req.body;
+    if (!email || !password || !mobileNumber) {
+      return res.status(400).json({ message: 'Email, password and mobile number are required' });
     }
     const userExists = await User.findOne({ email: email.toLowerCase() });
 
@@ -60,6 +61,7 @@ const registerUser = async (req, res, next) => {
     const user = new User({
       name,
       email: email.toLowerCase(),
+      mobileNumber,
       password,
       role: role || 'Student',
       board,
@@ -93,6 +95,7 @@ const registerUser = async (req, res, next) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        mobileNumber: user.mobileNumber,
         role: user.role,
         board: user.board,
         className: user.className,
@@ -134,6 +137,7 @@ const getUserProfile = async (req, res, next) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        mobileNumber: user.mobileNumber,
         role: user.role,
         board: user.board,
         className: user.className,
@@ -156,6 +160,7 @@ const updateUserProfile = async (req, res, next) => {
     if (user) {
       user.name = req.body.name || user.name;
       user.email = req.body.email || user.email;
+      user.mobileNumber = req.body.mobileNumber || user.mobileNumber;
       if (req.body.password) {
         user.password = req.body.password;
       }
@@ -164,6 +169,7 @@ const updateUserProfile = async (req, res, next) => {
         _id: updatedUser._id,
         name: updatedUser.name,
         email: updatedUser.email,
+        mobileNumber: updatedUser.mobileNumber,
         role: updatedUser.role,
         board: updatedUser.board,
         className: updatedUser.className,

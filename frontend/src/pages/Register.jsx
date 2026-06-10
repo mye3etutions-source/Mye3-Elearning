@@ -9,6 +9,7 @@ import logoImg from '../assets/output-onlinepngtools.png';
 const Register = () => {
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole]         = useState('Student');
   const [board, setBoard] = useState('');
@@ -43,7 +44,7 @@ const Register = () => {
   const submitHandler = async (e) => {
     e.preventDefault();
     try {
-      const res  = await axios.post('/auth/register', { name, email: email.toLowerCase(), password, role, board, className });
+      const res  = await axios.post('/auth/register', { name, email: email.toLowerCase(), mobileNumber, password, role, board, className });
       const user = res.data;
       dispatch(setCredentials({ ...user }));
       const userRole = user?.role?.toLowerCase() || 'student';
@@ -317,6 +318,10 @@ const Register = () => {
 
                 <div className="reg-input-group">
                   <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+
+                <div className="reg-input-group">
+                  <input type="tel" placeholder="Mobile Number" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} required />
                 </div>
 
                 <div className="reg-input-group">

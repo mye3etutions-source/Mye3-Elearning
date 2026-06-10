@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   HiOutlinePhone,
@@ -17,6 +17,39 @@ import {
 
 const Footer = () => {
   const [email, setEmail] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) return;
+
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async (e) => {
+    e.preventDefault();
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   return (
     <footer className="bg-[#002147] text-white border-t border-slate-100 transition-colors duration-300">
@@ -144,6 +177,16 @@ const Footer = () => {
                   </Link>
                 </li>
               ))}
+              {deferredPrompt && (
+                <li>
+                  <button
+                    onClick={handleInstallClick}
+                    className="text-[10px] transition-colors font-bold text-orange-400 hover:text-orange-300 uppercase tracking-wider flex items-center gap-1 mt-1"
+                  >
+                    📥 Install App
+                  </button>
+                </li>
+              )}
             </ul>
 
             {/* Desktop: Original quick links */}
@@ -165,6 +208,16 @@ const Footer = () => {
                   </Link>
                 </li>
               ))}
+              {deferredPrompt && (
+                <li>
+                  <button
+                    onClick={handleInstallClick}
+                    className="text-[13px] transition-colors font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 group mt-1"
+                  >
+                    📥 Install App
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
 

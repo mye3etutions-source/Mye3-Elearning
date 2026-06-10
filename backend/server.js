@@ -6,7 +6,7 @@ const connectDB = require('./src/config/db');
 const { initializeCronJobs } = require('./src/cron/recurringScheduler');
 const { initializeExpiryCron } = require('./src/cron/expiryScheduler');
 
-
+// Restart server after installing dotenv
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
