@@ -16,7 +16,7 @@ jobs:
       - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
 
       - name: 🏗️ Build Frontend (Vite)
         run: |
@@ -39,7 +39,7 @@ jobs:
           target: "mye3etuitions.com"
           strip_components: 2
 
-      - name: 🚀 Deploy Backend to cPanel via SCP
+      - name: 🚀 Deploy Backend Source to cPanel via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -47,11 +47,11 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          source: "backend/*"
+          source: "backend/src,backend/server.js,backend/package.json,backend/package-lock.json,backend/scripts"
           target: "mye3-backend"
           strip_components: 1
 
-      - name: 🔄 Restart Backend (Node.js)
+      - name: 🔄 Install Dependencies & Restart Backend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -60,5 +60,6 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            # Add command to restart node app if needed, e.g., restarting passenger
-            touch mye3-backend/tmp/restart.txt
+            cd ~/mye3-backend
+            npm install --omit=dev
+            touch tmp/restart.txt
