@@ -329,23 +329,40 @@ const Register = () => {
                 </div>
 
                 <div className="reg-input-group">
-                  <select value={board} onChange={(e) => setBoard(e.target.value)} required>
+                  <select 
+                    value={board} 
+                    onChange={(e) => {
+                      const selectedBoard = e.target.value;
+                      setBoard(selectedBoard);
+                      if (selectedBoard === '1-on-1') {
+                        setClassName('');
+                      }
+                    }} 
+                    required
+                  >
                     <option value="" disabled>Select Board</option>
                     <option value="TS Board">TS Board</option>
                     <option value="AP Board">AP Board</option>
                     <option value="CBSE">CBSE Board</option>
                     <option value="ICSE">ICSE Board</option>
+                    <option value="1-on-1">1-on-1 Personal Class</option>
                   </select>
                 </div>
 
-                <div className="reg-input-group">
-                  <select value={className} onChange={(e) => setClassName(e.target.value)} required>
-                    <option value="" disabled>Select Class</option>
-                    {availableClasses.map((cls, idx) => (
-                      <option key={idx} value={cls}>{cls}</option>
-                    ))}
-                  </select>
-                </div>
+                {board !== '1-on-1' && (
+                  <div className="reg-input-group">
+                    <select 
+                      value={className} 
+                      onChange={(e) => setClassName(e.target.value)} 
+                      required={board !== '1-on-1'}
+                    >
+                      <option value="" disabled>Select Class</option>
+                      {availableClasses.map((cls, idx) => (
+                        <option key={idx} value={cls}>{cls}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="reg-checkbox-group">
                   <input type="checkbox" id="terms" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} required />

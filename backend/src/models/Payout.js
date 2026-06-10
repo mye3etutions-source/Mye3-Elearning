@@ -12,7 +12,8 @@ const payoutSchema = new mongoose.Schema({
   transactionId: { type: String },
   proofImage: { type: String },
   note: { type: String },
-  sessionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'LiveSession' }]
+  liveSessionIds:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'LiveSession' }],     // Group class sessions
+  personalSessionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PersonalSession' }]  // 1-on-1 personal sessions
 }, { timestamps: true });
 
 module.exports = mongoose.model('Payout', payoutSchema);

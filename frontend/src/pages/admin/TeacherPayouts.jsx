@@ -14,7 +14,8 @@ const TeacherPayouts = () => {
         show: false, 
         teacherId: null, 
         teacherName: '',
-        sessionIds: [], 
+        liveSessionIds: [], 
+        personalSessionIds: [], 
         totalAmount: 0,
         paymentMode: 'Online', // Online or Cash
         transactionId: '',
@@ -46,14 +47,15 @@ const TeacherPayouts = () => {
         try {
             await axios.post('/admin/teacher-payroll/settle', { 
                 teacherId: settleModal.teacherId,
-                sessionIds: settleModal.sessionIds,
+                liveSessionIds: settleModal.liveSessionIds,
+                personalSessionIds: settleModal.personalSessionIds,
                 totalAmount: settleModal.totalAmount,
                 paymentMode: settleModal.paymentMode,
                 transactionId: settleModal.transactionId,
                 note: settleModal.note
             });
             toast.success('Payment settled successfully!', { id: loadingToast });
-            setSettleModal({ show: false, teacherId: null, teacherName: '', sessionIds: [], totalAmount: 0, paymentMode: 'Online', transactionId: '', note: '' });
+            setSettleModal({ show: false, teacherId: null, teacherName: '', liveSessionIds: [], personalSessionIds: [], totalAmount: 0, paymentMode: 'Online', transactionId: '', note: '' });
             fetchPayroll(); // Refresh
         } catch (error) {
             toast.error('Failed to settle payment', { id: loadingToast });
@@ -123,15 +125,26 @@ const TeacherPayouts = () => {
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <span className="text-lg font-black text-orange-600">₹{pendingAmount}</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-lg font-black text-orange-600">₹{pendingAmount}</span>
+                                            <span className="text-[10px] font-semibold text-slate-500 mt-0.5">
+                                                Group: ₹{data.pendingLiveAmount || 0} | 1-on-1: ₹{data.pendingPersonalAmount || 0}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td className="px-8 py-6">
                                         <span className="text-lg font-black text-emerald-600">₹{totalPaid}</span>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full w-fit">
-                                            <BookOpen className="w-3 h-3 text-slate-400" />
-                                            <span className="text-[10px] font-bold text-slate-600">{unpaidSessionsCount} Pending</span>
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-1 px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full w-fit border border-blue-100">
+                                                <BookOpen className="w-2.5 h-2.5 text-blue-500 mr-1" />
+                                                <span className="text-[9px] font-extrabold">{data.unpaidLiveSessionsCount || 0} Group</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded-full w-fit border border-purple-100">
+                                                <Video className="w-2.5 h-2.5 text-purple-500 mr-1" />
+                                                <span className="text-[9px] font-extrabold">{data.unpaidPersonalSessionsCount || 0} 1-on-1</span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-right">
@@ -149,7 +162,8 @@ const TeacherPayouts = () => {
                                                     show: true,
                                                     teacherId: teacher._id,
                                                     teacherName: teacher.name,
-                                                    sessionIds: data.unpaidSessions.map(s => s._id),
+                                                    liveSessionIds: data.unpaidLiveSessions ? data.unpaidLiveSessions.map(s => s._id) : [],
+                                                    personalSessionIds: data.unpaidPersonalSessions ? data.unpaidPersonalSessions.map(s => s._id) : [],
                                                     totalAmount: pendingAmount,
                                                     paymentMode: 'Online',
                                                     transactionId: '',
@@ -197,7 +211,9 @@ const TeacherPayouts = () => {
                         <div className="p-6 bg-orange-50 border-b border-orange-100 text-center">
                             <span className="text-xs font-bold text-orange-600/70 uppercase tracking-widest block mb-1">Total Settlement Amount</span>
                             <span className="text-4xl font-black text-orange-600">₹{settleModal.totalAmount}</span>
-                            <span className="text-xs font-medium text-orange-800/60 mt-1 block">For {settleModal.sessionIds.length} completed classes</span>
+                             <span className="text-xs font-medium text-orange-800/60 mt-1 block">
+                                For {(settleModal.liveSessionIds?.length || 0) + (settleModal.personalSessionIds?.length || 0)} completed classes
+                             </span>
                         </div>
 
                         <form onSubmit={handleSettle} className="p-6 space-y-5">

@@ -30,6 +30,7 @@ import LiveMonitor from './pages/admin/LiveMonitor';
 import AdminMaterials from './pages/admin/AdminMaterials';
 import TeacherPayouts from './pages/admin/TeacherPayouts';
 import AdminInquiries from './pages/admin/AdminInquiries';
+import AdminPersonalSessions from './pages/admin/AdminPersonalSessions';
 
 // Teacher Pages
 import TeacherLayout from './components/teacher/TeacherLayout';
@@ -38,6 +39,7 @@ import MyClasses from './pages/teacher/MyClasses';
 import LiveSchedule from './pages/teacher/LiveSchedule';
 import PastSessions from './pages/teacher/PastSessions';
 import ManageStudents from './pages/admin/ManageStudents'; // Moved up
+import MyPersonalSessions from './pages/teacher/MyPersonalSessions';
 
 // Student Pages
 import TeacherMaterials from './pages/teacher/TeacherMaterials';
@@ -125,6 +127,7 @@ function AppContent() {
                   <Route path="past-sessions" element={<PastSessions />} />
                   <Route path="earnings" element={<TeacherEarnings />} />
                   <Route path="materials" element={<TeacherMaterials />} />
+                  <Route path="personal-sessions" element={<MyPersonalSessions />} />
                   <Route path="profile" element={<ProfileSettings role="Teacher" />} />
                 </Routes>
               </TeacherLayout>
@@ -149,6 +152,7 @@ function AppContent() {
                   <Route path="live-monitor" element={<LiveMonitor />} />
                   <Route path="notes" element={<AdminMaterials />} />
                   <Route path="inquiries" element={<AdminInquiries />} />
+                  <Route path="personal-sessions" element={<AdminPersonalSessions />} />
                 </Routes>
               </AdminLayout>
             </ProtectedRoute>

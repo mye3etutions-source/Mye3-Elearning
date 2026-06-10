@@ -8,7 +8,7 @@ const classBundleSchema = new mongoose.Schema({
   },
   board: {
     type: String,
-    enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board'],
+    enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-on-1'],
     required: true,
     default: 'TS Board'
   },

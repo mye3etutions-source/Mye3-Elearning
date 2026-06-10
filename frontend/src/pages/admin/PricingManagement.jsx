@@ -31,15 +31,23 @@ const PricingManagement = () => {
   
   // Local state for pricing edits before syncing
   const [editPricing, setEditPricing] = useState({});
+  const [personalPricing, setPersonalPricing] = useState({
+    oneMonth: 0,
+    threeMonths: 0,
+    sixMonths: 0,
+    twelveMonths: 0
+  });
 
   const fetchData = async () => {
     try {
-      const [resClasses, resSubjects] = await Promise.all([
+      const [resClasses, resSubjects, resPersonalPricing] = await Promise.all([
         axios.get('/admin/classes'),
-        axios.get('/admin/subjects')
+        axios.get('/admin/subjects'),
+        axios.get('/admin/personal-sessions/pricing')
       ]);
       setJuniorClasses(resClasses.data);
       setSeniorSubjects(resSubjects.data);
+      setPersonalPricing(resPersonalPricing.data || { oneMonth: 0, threeMonths: 0, sixMonths: 0, twelveMonths: 0 });
       
       // Initialize edit state keyed by class _id
       const initialPricing = {};
@@ -51,6 +59,24 @@ const PricingManagement = () => {
     } catch (error) {
       toast.error('Data error');
       setLoading(false);
+    }
+  };
+
+  const handleUpdatePersonalPricing = async () => {
+    const loadingToast = toast.loading('Saving 1-on-1 pricing...');
+    try {
+      const payload = {
+        oneMonth: Number(personalPricing.oneMonth) || 0,
+        threeMonths: Number(personalPricing.threeMonths) || 0,
+        sixMonths: Number(personalPricing.sixMonths) || 0,
+        twelveMonths: Number(personalPricing.twelveMonths) || 0,
+      };
+      await axios.put('/admin/personal-sessions/pricing', payload);
+      toast.success('1-on-1 pricing saved successfully!', { id: loadingToast });
+      fetchData();
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Save failed';
+      toast.error(msg, { id: loadingToast });
     }
   };
 
@@ -465,6 +491,46 @@ const PricingManagement = () => {
                  </div>
                );
             })}
+         </div>
+      </div>
+
+      {/* 1-on-1 PERSONAL TRAINING SECTION */}
+      <div className="space-y-3 pt-2">
+         <div className="flex items-center gap-2 px-1">
+            <IndianRupee className="w-4 h-4 text-indigo-600" />
+            <h2 className="text-sm font-bold text-slate-800">1-on-1 Personal Training</h2>
+         </div>
+         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+               {[
+                  { k: 'oneMonth', l: 'Monthly' },
+                  { k: 'threeMonths', l: 'Quarterly' },
+                  { k: 'sixMonths', l: 'Half-Yearly' },
+                  { k: 'twelveMonths', l: 'Annually' }
+               ].map(t => (
+                  <div key={t.k} className="bg-white p-2 rounded-md border border-slate-200 hover:border-indigo-300 transition-colors shadow-sm">
+                     <div className="text-[9px] font-medium text-slate-500 uppercase tracking-wide mb-1 px-1">{t.l}</div>
+                     <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-xs">₹</span>
+                         <input 
+                           type="text" 
+                           value={personalPricing[t.k] ?? ''} 
+                           onFocus={(e) => { if(e.target.value === '0') setPersonalPricing({ ...personalPricing, [t.k]: '' }); }} 
+                           onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '' || /^[0-9\b]+$/.test(val)) {
+                                setPersonalPricing({ ...personalPricing, [t.k]: val });
+                              }
+                           }} 
+                           className="w-full bg-slate-50 border border-slate-200 rounded pl-5 pr-2 py-1 text-xs font-semibold outline-none focus:ring-1 focus:ring-indigo-500/30" 
+                         />
+                     </div>
+                  </div>
+               ))}
+            </div>
+            <button onClick={handleUpdatePersonalPricing} className="w-full py-2 bg-slate-800 text-white rounded-md font-medium text-xs shadow-sm hover:bg-indigo-600 transition-colors flex items-center justify-center gap-1.5">
+               <CheckCircle2 className="w-3.5 h-3.5" /> Save 1-on-1 Pricing
+            </button>
          </div>
       </div>
     </div>

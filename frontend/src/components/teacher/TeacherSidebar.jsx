@@ -34,6 +34,7 @@ const TeacherSidebar = ({ onClose, isCollapsed, onToggle }) => {
     { icon: BookOpen, label: 'My Classes', path: '/teacher/classes' },
     { icon: FileText, label: 'Notes', path: '/teacher/materials' },
     { icon: Video, label: 'Live Classes', path: '/teacher/live-schedule' },
+    { icon: Video, label: 'Personal Sessions', path: '/teacher/personal-sessions' },
     { icon: History, label: 'Past Sessions', path: '/teacher/past-sessions' },
     { icon: Banknote, label: 'My Earnings', path: '/teacher/earnings' },
     { icon: User, label: 'Profile', path: '/teacher/profile' },

@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
     default: 'Student',
     lowercase: true
   },
-  board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board'] },
+  board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-on-1'] },
   className: { type: String },
   activeSubscriptions: [subscriptionSchema],
   assignedSubjects: [
@@ -38,7 +38,8 @@ const userSchema = new mongoose.Schema({
       pricePerClass: { type: Number, default: 0 }
     }
   ],
-  currentDeviceToken: { type: String, default: null } // for single device login
+  currentDeviceToken: { type: String, default: null }, // for single device login
+  oneOnOneRate: { type: Number, default: 0 }            // Teacher's 1-on-1 personal session rate
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {

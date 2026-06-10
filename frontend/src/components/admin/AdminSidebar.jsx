@@ -14,7 +14,8 @@ import {
   CreditCard,
   FileText,
   User,
-  LogOut
+  LogOut,
+  GraduationCap
 } from 'lucide-react';
 import logoImg from '../../assets/output-onlinepngtools.png';
 
@@ -34,8 +35,9 @@ const AdminSidebar = ({ onClose, isCollapsed, onToggle }) => {
     { icon: UserSquare2, label: 'Teacher Management', path: '/admin/teachers' },
     { icon: Banknote, label: 'Teacher Payroll', path: '/admin/payouts' },
     { icon: Users, label: 'Students', path: '/admin/students' },
-    { icon: Activity, label: 'Live & Schedule Class', path: '/admin/live-monitor' },
-    { icon: CreditCard, label: 'Fee Payments', path: '/admin/transactions' },
+    { icon: Activity,        label: 'Live & Schedule Class', path: '/admin/live-monitor' },
+    { icon: GraduationCap,  label: '1-on-1 Training',        path: '/admin/personal-sessions' },
+    { icon: CreditCard,     label: 'Fee Payments',            path: '/admin/transactions' },
     { icon: FileText, label: 'Study Notes', path: '/admin/notes' },
     { icon: User, label: 'Profile', path: '/admin/settings' },
     { icon: MessageSquare, label: 'Contact Inquiries', path: '/admin/inquiries' },
@@ -48,7 +50,7 @@ const AdminSidebar = ({ onClose, isCollapsed, onToggle }) => {
           <img 
             src={logoImg} 
             alt="Logo" 
-            className={`w-auto object-contain transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-24'}`} 
+            className={`w-auto object-contain transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-20'}`} 
           />
           {!isCollapsed && (
             <div className="bg-[#002147] px-3 py-1 rounded-full shadow-sm mb-2">
@@ -63,7 +65,7 @@ const AdminSidebar = ({ onClose, isCollapsed, onToggle }) => {
         )}
       </div>
 
-      <nav className={`flex-1 p-4 space-y-1 mt-2 overflow-y-auto scrollbar-hide transition-all duration-300 ${isCollapsed ? 'px-2' : 'px-4'}`}>
+      <nav className={`flex-1 p-4 space-y-2 mt-2 overflow-y-auto scrollbar-hide transition-all duration-300 ${isCollapsed ? 'px-2' : 'px-4'}`}>
         {menuItems.map((item, idx) => (
           <NavLink
             key={idx}
@@ -72,7 +74,7 @@ const AdminSidebar = ({ onClose, isCollapsed, onToggle }) => {
             title={isCollapsed ? item.label : ""}
             className={({ isActive }) => `
               flex items-center rounded-xl font-bold transition-all group text-sm
-              ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-5 py-3.5'}
+              ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-2.5'}
               ${isActive 
                 ? 'bg-[#002147] text-white shadow-lg shadow-[#002147]/20' 
                 : 'text-slate-600 hover:text-[#002147] hover:bg-[#002147]/5'}
@@ -84,11 +86,11 @@ const AdminSidebar = ({ onClose, isCollapsed, onToggle }) => {
         ))}
       </nav>
       
-      <div className={`p-4 border-t border-slate-100 shrink-0 mt-auto transition-all duration-300 ${isCollapsed ? 'px-2' : 'px-4'}`}>
+      <div className={`p-3 border-t border-slate-100 shrink-0 mt-auto transition-all duration-300 ${isCollapsed ? 'px-2' : 'px-4'}`}>
         <button 
           onClick={handleLogout}
           title={isCollapsed ? "Sign Out" : ""}
-          className={`w-full flex items-center rounded-xl font-bold text-[#f16126] hover:bg-[#f16126]/5 transition-all text-sm group ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-5 py-3.5'}`}
+          className={`w-full flex items-center rounded-xl font-bold text-[#f16126] hover:bg-[#f16126]/5 transition-all text-sm group ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-2.5'}`}
         >
           <LogOut className={`w-5 h-5 transition-transform group-hover:translate-x-1`} />
           {!isCollapsed && <span>Sign Out</span>}

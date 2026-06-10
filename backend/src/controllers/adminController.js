@@ -8,6 +8,7 @@ const Transaction = require('../models/Transaction');
 const LiveSession = require('../models/LiveSession');
 const RecurringSchedule = require('../models/RecurringSchedule');
 const Payout = require('../models/Payout');
+const PersonalSession = require('../models/PersonalSession');
 const { generateSessionsFromTemplate, getEndOfNextMonth } = require('../cron/recurringScheduler');
 
 exports.updatePricing = async (req, res, next) => {
@@ -374,7 +375,8 @@ exports.assignSubscription = async (req, res, next) => {
 // @access  Admin
 exports.getDashboardStats = async (req, res, next) => {
   try {
-    const studentCount = await User.countDocuments({ role: 'student' });
+    const studentCount = await User.countDocuments({ role: 'student', board: { $ne: '1-on-1' } });
+    const personalStudentCount = await User.countDocuments({ role: 'student', board: '1-on-1' });
     const teacherCount = await User.countDocuments({ role: 'teacher' });
 
     const liveSessions = await LiveSession.find({
@@ -442,6 +444,7 @@ exports.getDashboardStats = async (req, res, next) => {
 
     res.status(200).json({
       totalStudents: studentCount,
+      totalPersonalStudents: personalStudentCount,
       totalTeachers: teacherCount,
       totalRevenue,
       expiringSoon: expiringSoonCount,
@@ -1126,14 +1129,27 @@ exports.getTeacherPayroll = async (req, res, next) => {
   try {
     const teachers = await User.find({ role: 'teacher' }).lean();
     
-    // Get all unpaid ended sessions
-    const unpaidSessions = await LiveSession.find({
+    // Get all unpaid ended live sessions (group classes)
+    const unpaidLiveSessions = await LiveSession.find({
       status: 'ended',
       payoutStatus: 'unpaid'
     }).lean();
 
+    // Get all unpaid completed personal sessions (1-on-1)
+    const unpaidPersonalSessions = await PersonalSession.find({
+      status: 'completed',
+      payoutStatus: 'unpaid'
+    }).lean();
+
     // Group by teacher
-    const sessionsByTeacher = unpaidSessions.reduce((acc, session) => {
+    const liveSessionsByTeacher = unpaidLiveSessions.reduce((acc, session) => {
+      const tId = session.teacherId.toString();
+      if (!acc[tId]) acc[tId] = [];
+      acc[tId].push(session);
+      return acc;
+    }, {});
+
+    const personalSessionsByTeacher = unpaidPersonalSessions.reduce((acc, session) => {
       const tId = session.teacherId.toString();
       if (!acc[tId]) acc[tId] = [];
       acc[tId].push(session);
@@ -1141,10 +1157,11 @@ exports.getTeacherPayroll = async (req, res, next) => {
     }, {});
 
     const payrollData = await Promise.all(teachers.map(async (teacher) => {
-      const teacherSessions = sessionsByTeacher[teacher._id.toString()] || [];
+      const teacherLiveSessions = liveSessionsByTeacher[teacher._id.toString()] || [];
+      const teacherPersonalSessions = personalSessionsByTeacher[teacher._id.toString()] || [];
       
-      let pendingAmount = 0;
-      const sessionDetails = teacherSessions.map(session => {
+      let pendingLiveAmount = 0;
+      const liveSessionDetails = teacherLiveSessions.map(session => {
         // Find assigned subject price
         const assignment = teacher.assignedSubjects.find(a => 
           a.subjectName === session.subjectName && 
@@ -1153,20 +1170,40 @@ exports.getTeacherPayroll = async (req, res, next) => {
         );
         
         const price = assignment ? assignment.pricePerClass : 0;
-        pendingAmount += price;
+        pendingLiveAmount += price;
         return {
           ...session,
           priceApplied: price
         };
       });
 
-      const history = await Payout.find({ teacherId: teacher._id }).sort({ createdAt: -1 }).lean();
+      let pendingPersonalAmount = 0;
+      const personalSessionDetails = teacherPersonalSessions.map(session => {
+        const price = session.price || 0;
+        pendingPersonalAmount += price;
+        return {
+          ...session,
+          priceApplied: price
+        };
+      });
+
+      const history = await Payout.find({ teacherId: teacher._id })
+        .populate('liveSessionIds')
+        .populate('personalSessionIds')
+        .sort({ createdAt: -1 })
+        .lean();
 
       return {
         teacher: { _id: teacher._id, name: teacher.name, email: teacher.email, assignedSubjects: teacher.assignedSubjects },
-        pendingAmount,
-        unpaidSessionsCount: sessionDetails.length,
-        unpaidSessions: sessionDetails,
+        pendingAmount: pendingLiveAmount + pendingPersonalAmount,
+        pendingLiveAmount,
+        pendingPersonalAmount,
+        unpaidSessionsCount: liveSessionDetails.length,
+        unpaidLiveSessionsCount: liveSessionDetails.length,
+        unpaidPersonalSessionsCount: personalSessionDetails.length,
+        unpaidSessions: liveSessionDetails, // for backwards compatibility
+        unpaidLiveSessions: liveSessionDetails,
+        unpaidPersonalSessions: personalSessionDetails,
         history
       };
     }));
@@ -1182,7 +1219,7 @@ exports.getTeacherPayroll = async (req, res, next) => {
 // @access  Admin
 exports.settleTeacherPayment = async (req, res, next) => {
   try {
-    const { teacherId, sessionIds, totalAmount, paymentMode, transactionId, note, month, year } = req.body;
+    const { teacherId, liveSessionIds, personalSessionIds, totalAmount, paymentMode, transactionId, note, month, year } = req.body;
 
     const payout = await Payout.create({
       teacherId,
@@ -1193,14 +1230,25 @@ exports.settleTeacherPayment = async (req, res, next) => {
       paymentMode,
       transactionId,
       note,
-      sessionIds
+      liveSessionIds: liveSessionIds || [],
+      personalSessionIds: personalSessionIds || []
     });
 
-    // Mark sessions as paid
-    await LiveSession.updateMany(
-      { _id: { $in: sessionIds } },
-      { $set: { payoutStatus: 'paid', payoutId: payout._id } }
-    );
+    // Mark live sessions as paid
+    if (liveSessionIds && liveSessionIds.length > 0) {
+      await LiveSession.updateMany(
+        { _id: { $in: liveSessionIds } },
+        { $set: { payoutStatus: 'paid', payoutId: payout._id } }
+      );
+    }
+
+    // Mark personal sessions as paid
+    if (personalSessionIds && personalSessionIds.length > 0) {
+      await PersonalSession.updateMany(
+        { _id: { $in: personalSessionIds } },
+        { $set: { payoutStatus: 'paid', payoutId: payout._id } }
+      );
+    }
 
     res.status(201).json(payout);
   } catch (error) {

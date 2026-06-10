@@ -17,7 +17,10 @@ import {
   ArrowRight,
   ShieldCheck,
   CreditCard,
-  X
+  X,
+  CheckCircle2,
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -38,6 +41,9 @@ const StudentDashboard = () => {
   const [selectedDuration, setSelectedDuration] = useState('oneMonth');
   const [buyLoading, setBuyLoading] = useState(false);
 
+  const [personalSession, setPersonalSession] = useState(null);
+  const [personalLoading, setPersonalLoading] = useState(true);
+
   // Auto-detect if user is an Intermediate student
   const userClassNum = userInfo?.className?.replace(/\D/g, '') || '';
   const isInter = userClassNum === '11' || userClassNum === '12';
@@ -49,18 +55,60 @@ const StudentDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [lRes, aRes, mRes] = await Promise.all([
+      const [lRes, aRes, mRes, pRes] = await Promise.all([
         axios.get('/student/my-learning'),
         axios.get('/student/live-alerts'),
-        axios.get('/student/all-materials')
+        axios.get('/student/all-materials'),
+        axios.get('/student/personal-sessions')
       ]);
       setLearning(lRes.data || []);
       setLiveAlerts(aRes.data || []);
       setMaterialsCount(mRes.data?.length || 0);
+
+      const personalSessions = pRes.data || [];
+      const activeOrAssigned = personalSessions.find(s => ['assigned', 'active', 'pending'].includes(s.status)) || personalSessions[0];
+      setPersonalSession(activeOrAssigned || null);
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching dashboard data');
       setLoading(false);
+    }
+  };
+
+  const handlePayPersonalSession = async (sessionId) => {
+    const loadingToast = toast.loading('Processing payment...');
+    try {
+      const res = await axios.post(`/student/personal-sessions/${sessionId}/pay`);
+      toast.success(res.data?.message || 'Payment successful!', { id: loadingToast });
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Payment failed', { id: loadingToast });
+    }
+  };
+
+  const getNextUpcomingSlot = (session) => {
+    if (!session || !session.scheduledSlots) return null;
+    const upcoming = session.scheduledSlots
+      .filter(s => s.status === 'upcoming')
+      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    return upcoming[0] || null;
+  };
+
+  const isJoinActive = (startTime) => {
+    const now = new Date();
+    const start = new Date(startTime);
+    const diffMinutes = (start - now) / (1000 * 60);
+    return diffMinutes <= 15;
+  };
+
+  const formatPlanType = (plan) => {
+    switch (plan) {
+      case 'oneMonth': return 'Monthly';
+      case 'threeMonths': return 'Quarterly';
+      case 'sixMonths': return 'Half-Yearly';
+      case 'twelveMonths': return 'Annually';
+      default: return plan;
     }
   };
 
@@ -341,6 +389,161 @@ const StudentDashboard = () => {
               )}
             </div>
           </div>
+
+          {/* 1-on-1 PERSONAL SESSIONS WIDGET */}
+          {userInfo?.board === '1-on-1' && (
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                 <div className="flex items-center gap-2">
+                   <Zap className="w-4 h-4 text-indigo-600 animate-pulse" />
+                   <h3 className="text-sm font-bold text-slate-800">1-on-1 Personal Class Status</h3>
+                 </div>
+                 {personalSession && (
+                   <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                     {personalSession.subjectName}
+                   </span>
+                 )}
+              </div>
+
+              {!personalSession || personalSession.status === 'pending' ? (
+                <div className="p-5 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-800">Awaiting Teacher &amp; Schedule Assignment</h4>
+                    <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                      Our administrator is currently assigning a teacher, subject, and class schedule for you. 
+                      You will be notified here once the assignment is done to proceed with the payment.
+                    </p>
+                  </div>
+                </div>
+              ) : personalSession.status === 'assigned' ? (
+                <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-5 rounded-xl border border-orange-100 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800">Class &amp; Schedule Assigned!</h4>
+                      <p className="text-xs text-slate-500 mt-1">Please pay to activate your sessions.</p>
+                    </div>
+                    <span className="px-2.5 py-0.5 bg-orange-100 text-orange-800 text-[10px] font-extrabold rounded uppercase tracking-wider">Awaiting Payment</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs border-t border-orange-200/40 pt-3">
+                    <div>
+                      <span className="text-slate-400 font-medium uppercase tracking-wider text-[9px] block">Subject</span>
+                      <span className="font-bold text-slate-800">{personalSession.subjectName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium uppercase tracking-wider text-[9px] block">Teacher</span>
+                      <span className="font-bold text-slate-800">{personalSession.teacherId?.name || 'Assigned Faculty'}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium uppercase tracking-wider text-[9px] block">Duration / Plan</span>
+                      <span className="font-bold text-slate-800">{formatPlanType(personalSession.planType)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-medium uppercase tracking-wider text-[9px] block">Total Fee</span>
+                      <span className="font-extrabold text-indigo-700">₹{(personalSession.price || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handlePayPersonalSession(personalSession._id)}
+                    className="w-full py-3 bg-[#f16126] hover:bg-[#002147] text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <CreditCard className="w-4 h-4" /> Pay Now to Activate
+                  </button>
+                </div>
+              ) : personalSession.status === 'active' ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                      <div>
+                        <h4 className="text-xs font-bold text-emerald-800">Subscription Active &amp; Verified</h4>
+                        <p className="text-[10px] text-emerald-700 mt-0.5">Payment confirmed successfully</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-extrabold rounded uppercase">Paid</span>
+                  </div>
+
+                  {/* Next Slot details */}
+                  {(() => {
+                    const nextSlot = getNextUpcomingSlot(personalSession);
+                    if (!nextSlot) {
+                      return (
+                        <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl text-center text-xs text-slate-500 font-medium">
+                          No upcoming slots scheduled. All slots completed.
+                        </div>
+                      );
+                    }
+                    
+                    const slotStart = new Date(nextSlot.startTime);
+                    const now = new Date();
+                    const diffMins = (slotStart - now) / (1000 * 60);
+                    const canJoin = diffMins <= 15;
+
+                    return (
+                      <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
+                        <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400 tracking-wider pb-2 border-b border-slate-200/40">
+                          <span>Next Upcoming Session</span>
+                          <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">{nextSlot.platform || 'Google Meet'}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-xs font-semibold text-slate-700">
+                              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                              {slotStart.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs font-semibold text-slate-700">
+                              <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                              {slotStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(nextSlot.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-medium pt-1">
+                              Faculty: <span className="font-bold text-slate-700">{personalSession.teacherId?.name}</span>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            {canJoin ? (
+                              <a
+                                href={nextSlot.meetingLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-md inline-flex items-center gap-1"
+                              >
+                                Join Class <ExternalLink className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <div className="text-center">
+                                <button
+                                  disabled
+                                  className="px-4 py-2 bg-slate-200 text-slate-400 rounded-lg text-xs font-bold cursor-not-allowed"
+                                >
+                                  Join Class
+                                </button>
+                                <span className="text-[9px] text-slate-400 font-medium block mt-1">Active 15m before</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="p-5 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-bold text-blue-800">Training Completed</h4>
+                    <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                      All scheduled sessions for this personal training bundle have been marked as completed. 
+                      Thank you for training with us!
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* UPCOMING CLASSES PREVIEW */}
           <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">

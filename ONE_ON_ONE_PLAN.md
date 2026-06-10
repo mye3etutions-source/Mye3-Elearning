@@ -1,64 +1,72 @@
 # 🎯 1-on-1 Personal Training — Implementation Plan
-> Status: **Pending Approval** — changes cheyyadam ledu, plan only
+> Status: **Approved & Ready to Implement** — All decisions finalized via discussion
 
 ---
 
 ## Overview
 
 Students ki currently only group live classes + recorded content unnai. Ee feature tho:
-- Student oka **personal session request** pampudu (subject, time, notes)
-- Admin **teacher assign** chestadu + **time slot confirm** chestadu (conflict check tho)
-- Student **payment** chestadu (admin assign chesaka)
+- Student register chesappudu **"1-on-1 Personal Class"** select chestadu
+- Admin ki notification vastundi → Admin student tho discuss chesi (outside app) → Teacher + Schedule + Pricing assign chestadu
+- Student **payment** chestadu (Monthly / Quarterly / Half-Yearly / Annually plans)
 - Teacher **meet link** add chestadu before session
 - Session complete → Teacher earnings lo count avutundi
 
 ---
 
-## ✅ Confirmed Design Decisions
+## ✅ All Finalized Design Decisions
 
-| Decision | Choice |
-|----------|--------|
-| **Pricing** | Teacher profile lo 2 rates: `dailyClassRate` (existing) + `oneOnOneRate` (new). Admin assign appudu override cheyagaladu |
-| **Conflict Check** | Admin teacher + time assign chese appudu — teacher's existing LiveSessions tho check |
-| **Payment Timing** | Admin assign chesaka → student notified → student pays → confirmed |
-| **Refund Policy** | Not needed this phase |
-| **Recurring** | Single session only this phase |
+| Decision | Final Choice |
+|----------|-------------|
+| **Register lo Board option** | `TS Board / AP Board / CBSE / ICSE / 1-on-1 Personal Class` |
+| **1-on-1 select → Class dropdown** | **Hide** cheyali — class avasaram ledu |
+| **DB lo board field** | `"1-on-1"` ga store avutundi |
+| **Student register details** | Name, Email, Mobile, Password only |
+| **Admin notification** | New 1-on-1 student joined → Admin ki alert |
+| **Group class access** | ❌ 1-on-1 students ki group classes access ledu |
+| **Pricing location** | **Fees Control page lo** (PricingManagement.jsx) — "1-on-1 Personal Training" section add |
+| **Pricing plans** | Monthly / Quarterly / Half-Yearly / Annually — existing same pattern |
+| **Admin 1-on-1 page** | **Admin Sidebar lo separate** "1-on-1 Training" page |
+| **Conflict check** | Teacher ki group class + personal session both check → conflict unte block |
+| **Meet link** | Teacher dashboard lo add chestadu session mundu |
 
 ---
 
 ## 📌 Complete User Flow
 
 ```
-STEP 1 — STUDENT (Request)
-  Login → Student Dashboard → "Request Personal Class" button
-  → Form: Subject | Class Level | Preferred Date & Time | Notes
-  → Submit → Status: "Pending Review" (no payment yet)
+STEP 1 — STUDENT (Register)
+  Register page → Board dropdown lo "1-on-1 Personal Class" select
+  → Class dropdown hide avutundi
+  → Basic details: Name, Email, Mobile, Password → Register
+  → DB lo board: "1-on-1" store avutundi
+  → Admin ki notification: "New 1-on-1 student joined — [Name, Mobile]"
 
-STEP 2 — ADMIN (Assign)
-  Admin Dashboard → "1-on-1 Requests" tab (new requests visible)
-  → Student request open chestadu
-  → Teacher select chestadu
-  → Time slot enter chestadu → System conflict check runs
-      ✅ Free unte → proceed
-      ❌ Conflict unte → "Teacher ki already 6PM-7PM Class 10 Maths session undi" warning
-  → Amount enter chestadu (teacher's oneOnOneRate auto-fill, override possible)
-  → "Assign & Notify Student" click
-  → Student ki notification: "Teacher assigned! Pay ₹500 to confirm"
+STEP 2 — ADMIN (Discuss & Assign)
+  Admin sidebar → "1-on-1 Training" page
+  → New student notification chusi student details chustadu
+  → Student tho outside app (phone/WhatsApp) discuss chestadu:
+      - Which subject kavali
+      - Preferred timings
+      - Any specific requirements
+  → App lo: Student select → Teacher select → Schedule add
+      (conflict check automatic: group class + existing 1-on-1 check)
+  → Pricing plan set chestadu
 
 STEP 3 — STUDENT (Payment)
-  Dashboard lo status: "Teacher Assigned — Pay Now"
-  → Pay button → Razorpay/Mock payment
-  → Payment success → Status: "Confirmed"
+  Student dashboard lo status: "Session Assigned — Pay Now"
+  → Monthly / Quarterly / Half-Yearly / Annually plan select
+  → Razorpay/Mock payment → Confirmed
 
-STEP 4 — TEACHER (Session Prep)
-  Teacher Dashboard → "Personal Sessions" section
-  → Session 1 day mundu → Meet link add chestadu
-  → Student ki link visible avutundi
+STEP 4 — ADMIN (Meet Link Add)
+  Admin → 1-on-1 session assign chestappudey → Meet link add chestadu (mandatory field)
+  → Exactly like old Live Class lo admin link ivvadaniki same
+  → Student ki link + timing immediately visible avutundi
 
 STEP 5 — SESSION + COMPLETION
-  Session time lo → Both sides "Join" button active
-  → Session ends → Teacher/Admin "Mark Completed"
-  → Teacher 1-on-1 earnings lo count avutundi (separately from group classes)
+  Session time lo → Student + Teacher both "Join" button active (link from admin)
+  → Session ends → Admin/Teacher "Mark Completed"
+  → Teacher 1-on-1 earnings lo count avutundi (group class earnings separate)
 ```
 
 ---
@@ -68,10 +76,12 @@ STEP 5 — SESSION + COMPLETION
 ### Database Models
 
 #### [MODIFY] `User.js`
-Teacher profile lo new field add:
 ```js
+// Board field enum lo "1-on-1" add cheyali
+board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-on-1'] }
+
+// Teacher ki oneOnOneRate field add
 oneOnOneRate: { type: Number, default: 0 }
-// (existing pricePerClass = group class rate, already untundi)
 ```
 
 #### [NEW] `PersonalSession.js`
@@ -80,30 +90,35 @@ oneOnOneRate: { type: Number, default: 0 }
   studentId: ObjectId → User,
   teacherId: ObjectId → User,         // Admin assign chesaka set avutundi
   subjectName: String,
-  classLevel: String,
-  board: String,
-  studentNote: String,                // "Quadratic equations lo doubt undi"
-  preferredSlot: Date,                // Student requested time
-  confirmedSlot: Date,                // Admin confirmed time
-  durationMinutes: Number,            // 60 (default)
-  status: enum [
-    'pending',      // Student submitted, admin yet to assign
-    'assigned',     // Admin assigned teacher, student yet to pay
-    'confirmed',    // Payment done
-    'completed',    // Session finished
-    'cancelled'
+  scheduledSlots: [                   // Array of session dates+times
+    {
+      startTime: Date,
+      endTime: Date,
+      meetingLink: String,            // Admin adds this when assigning (mandatory)
+      platform: enum ['Zoom', 'Google Meet', 'Teams'],
+      status: enum ['upcoming', 'completed', 'missed']
+    }
   ],
-  meetingLink: String,                // Teacher adds before session
-  platform: enum ['Zoom', 'Google Meet', 'Teams'],
-  price: Number,                      // Set by admin during assignment
+  planType: enum ['oneMonth', 'threeMonths', 'sixMonths', 'twelveMonths'],
+  price: Number,                      // Total plan price set by admin
   paymentStatus: enum ['pending', 'paid'],
   razorpayOrderId: String,
   razorpayPaymentId: String,
-  teacherNote: String,                // Teacher's note to student
+  status: enum [
+    'pending',      // Student registered, admin yet to assign
+    'assigned',     // Admin assigned teacher + schedule, student yet to pay
+    'active',       // Payment done, sessions running
+    'completed',    // All sessions finished
+    'cancelled'
+  ],
+  teacherNote: String,
   payoutStatus: enum ['unpaid', 'paid'],
   payoutId: ObjectId → Payout
 }
 ```
+
+#### [MODIFY] `ClassBundle.js` / Pricing Model
+1-on-1 pricing separately store cheyali — new document or existing pricing model lo "1-on-1" section.
 
 ---
 
@@ -113,16 +128,18 @@ oneOnOneRate: { type: Number, default: 0 }
 
 | Method | Endpoint | Who | Action |
 |--------|----------|-----|--------|
-| `POST` | `/student/personal-sessions/request` | Student | New request submit |
-| `GET` | `/student/personal-sessions` | Student | My sessions list |
+| `GET` | `/admin/personal-sessions/students` | Admin | 1-on-1 registered students list |
+| `GET` | `/admin/personal-sessions` | Admin | All sessions list |
+| `PUT` | `/admin/personal-sessions/:id/assign` | Admin | Teacher + schedule + price assign |
+| `GET` | `/admin/personal-sessions/conflict-check` | Admin | Teacher free check |
 | `POST` | `/student/personal-sessions/:id/pay` | Student | Payment initiate |
 | `POST` | `/student/personal-sessions/:id/verify-payment` | Student | Payment verify |
-| `GET` | `/teacher/personal-sessions` | Teacher | My assigned sessions |
-| `PUT` | `/teacher/personal-sessions/:id/add-link` | Teacher | Add meet link |
-| `PUT` | `/teacher/personal-sessions/:id/complete` | Teacher | Mark completed |
-| `GET` | `/admin/personal-sessions` | Admin | All requests list |
-| `PUT` | `/admin/personal-sessions/:id/assign` | Admin | Assign teacher + time + price |
-| `GET` | `/admin/personal-sessions/conflict-check` | Admin | Check teacher free or not |
+| `GET` | `/student/personal-sessions` | Student | My sessions list |
+| `GET` | `/teacher/personal-sessions` | Teacher | Assigned sessions list |
+| `PUT` | `/teacher/personal-sessions/:id/add-link` | Teacher | Add meet link to a slot |
+| `PUT` | `/teacher/personal-sessions/:id/complete` | Teacher | Mark session completed |
+| `GET` | `/admin/personal-sessions/pricing` | Admin | Get 1-on-1 pricing plans |
+| `PUT` | `/admin/personal-sessions/pricing` | Admin | Update 1-on-1 pricing plans |
 
 ---
 
@@ -130,16 +147,15 @@ oneOnOneRate: { type: Number, default: 0 }
 
 #### Conflict Check Logic
 ```
-Input: teacherId + proposedStartTime + proposedEndTime (= start + 60 min)
+Input: teacherId + proposedStartTime + proposedEndTime
 
 Check 1: LiveSession model lo teacherId match +
-         (proposedStart < existingEnd && proposedEnd > existingStart)
-         → Group class conflict
+         time overlap (proposedStart < existingEnd && proposedEnd > existingStart)
+         → Group class conflict → ❌ Block
 
 Check 2: PersonalSession model lo teacherId match +
-         status in ['confirmed'] +
-         same time overlap
-         → Another 1-on-1 conflict
+         status in ['active'] + scheduledSlots lo same time overlap
+         → Another 1-on-1 conflict → ❌ Block
 
 Result: { hasConflict: true/false, conflictDetails: [...] }
 ```
@@ -148,59 +164,64 @@ Result: { hasConflict: true/false, conflictDetails: [...] }
 
 ## 🖥️ Frontend Changes
 
-### [MODIFY] Student Dashboard (`StudentDashboard.jsx`)
-- New widget: "Personal Sessions" section
-  - Status counts: Pending / Confirmed / Completed
-  - "Request New Session" button → redirect to `/student/personal-training`
-  - Latest session card tho status + pay button (if `assigned` status)
+### [MODIFY] `Register.jsx`
+- Board dropdown lo **"1-on-1 Personal Class"** option add
+- "1-on-1 Personal Class" select chesaka **Class dropdown hide** avutundi
+- Submit → `board: "1-on-1"`, `className: ""` ga register
 
-### [NEW] `PersonalTraining.jsx` (Student page — `/student/personal-training`)
+### [MODIFY] `PricingManagement.jsx` (Fees Control page)
+- Page bottom lo **"1-on-1 Personal Training"** section add
+- Same design pattern: Monthly / Quarterly / Half-Yearly / Annually pricing inputs
+- Save button → DB lo 1-on-1 pricing plans store avutundi
+
+### [NEW] `AdminPersonalSessions.jsx` (Admin Sidebar — "1-on-1 Training")
 **Two tabs:**
-1. **Request Session** tab:
-   - Form: Subject (dropdown), Class Level (auto-filled from profile), Preferred Date + Time (date picker), Notes textarea
-   - Submit button
-2. **My Sessions** tab:
-   - Session cards: Status badge + Teacher name + Date/Time + Subject + Price
-   - "Pay Now" button → if status = `assigned`
-   - "Join Session" button → if status = `confirmed` + meetingLink present + within 15 min of start time
+1. **New Students** tab (board = "1-on-1", no session assigned yet):
+   - Student name, Mobile, Registered date
+   - "Assign Teacher & Schedule" button → Assignment modal
+2. **All Sessions** tab:
+   - Table: Student | Teacher | Plan | Status | Payment
+   - Filters: status, date
+
+### [NEW] `AssignPersonalSessionModal.jsx`
+- Student info display (name, mobile)
+- Teacher select dropdown
+- Schedule add: Date + Time inputs (recurring days possible)
+- Conflict check → show result (✅ or ❌ warning with details)
+- **Meet Link field** (mandatory — same as LiveMonitor lo link field)
+- **Platform** select: Zoom / Google Meet / Teams
+- Plan type: Monthly / Quarterly / Half-Yearly / Annually (auto-fill from Fees Control pricing, editable)
+- "Assign & Notify Student" button
+
+### [MODIFY] `StudentDashboard.jsx`
+- Personal Sessions widget:
+  - Status: Pending / Assigned (Pay Now) / Active / Completed
+  - "Pay Now" button if status = `assigned`
+  - Upcoming session card: Teacher name + Date + Time + "Join" button (15 min before)
 
 ### [NEW] `MyPersonalSessions.jsx` (Teacher page — `/teacher/personal-sessions`)
-- **Upcoming Sessions** list (status: confirmed)
-  - Each card: Student name, Subject, Date/Time, "Add Meet Link" button
-- **Completed Sessions** (earnings tracking)
-  - Total 1-on-1 earnings this month
-
-### [NEW] `AdminPersonalSessions.jsx` (Admin page — `/admin/personal-sessions`)
-**Two sections:**
-1. **New Requests** (status: pending) — needs admin action
-   - Student name, Subject, Class Level, Preferred Time, Notes
-   - "Assign Teacher" button → opens assignment modal
-2. **All Sessions** table with filters (status, date, teacher)
-
-### [NEW] `AssignTeacherModal.jsx` (Admin component)
-- Step 1: Teacher dropdown (teachers who teach this subject)
-- Step 2: Confirmed Date + Time input
-- Step 3: Conflict check runs → show result (green tick or red warning)
-- Step 4: Amount field (auto-fill from teacher's `oneOnOneRate`, editable)
-- "Assign & Notify Student" button
+- **Upcoming Sessions** list
+  - Each slot: Student name, Subject, Date/Time, "Add Meet Link" button
+- **Completed Sessions** + earnings tracking
+  - Total 1-on-1 earnings this month (separate from group class earnings)
 
 ---
 
 ## 🗺️ Navigation Updates
 
-### Student Sidebar
+### Admin Sidebar — NEW ITEM
 ```
-+ 1-on-1 Sessions    → /student/personal-training
++ 1-on-1 Training   → /admin/personal-sessions
+```
+
+### Student Dashboard
+```
+Personal Sessions widget → Pay Now / Join buttons
 ```
 
 ### Teacher Sidebar
 ```
 + Personal Sessions  → /teacher/personal-sessions
-```
-
-### Admin Sidebar
-```
-+ 1-on-1 Sessions   → /admin/personal-sessions
 ```
 
 ---
@@ -212,10 +233,9 @@ Result: { hasConflict: true/false, conflictDetails: [...] }
 | `PersonalSession.js` | DB Model | `backend/src/models/` |
 | `personalSessionController.js` | Controller | `backend/src/controllers/` |
 | `personalSessionRoutes.js` | Routes | `backend/src/routes/` |
-| `PersonalTraining.jsx` | Student Page | `frontend/src/pages/student/` |
-| `MyPersonalSessions.jsx` | Teacher Page | `frontend/src/pages/teacher/` |
 | `AdminPersonalSessions.jsx` | Admin Page | `frontend/src/pages/admin/` |
-| `AssignTeacherModal.jsx` | Component | `frontend/src/components/admin/` |
+| `AssignPersonalSessionModal.jsx` | Component | `frontend/src/components/admin/` |
+| `MyPersonalSessions.jsx` | Teacher Page | `frontend/src/pages/teacher/` |
 
 ---
 
@@ -223,16 +243,47 @@ Result: { hasConflict: true/false, conflictDetails: [...] }
 
 | File | Change |
 |------|--------|
-| `backend/src/models/User.js` | `oneOnOneRate` field add (teacher profile) |
+| `backend/src/models/User.js` | `board` enum lo `"1-on-1"` add + `oneOnOneRate` field |
+| `backend/src/models/Payout.js` | `liveSessionIds` + `personalSessionIds` separate arrays (both types track cheyyadam) |
+| `frontend/src/pages/Register.jsx` | Board dropdown lo "1-on-1 Personal Class" + class hide logic |
+| `frontend/src/pages/admin/PricingManagement.jsx` | "1-on-1 Personal Training" pricing section add |
+| `frontend/src/pages/admin/TeacherPayouts.jsx` | 1-on-1 earnings row separately show (Group + Personal breakdown) — same Settle button |
+| `frontend/src/pages/AdminDashboard.jsx` | 1-on-1 students count widget |
+| `frontend/src/pages/student/StudentDashboard.jsx` | Personal sessions widget |
+| `frontend/src/pages/teacher/TeacherDashboard.jsx` | Personal sessions widget |
+| `frontend/src/components/admin/AdminLayout.jsx` | Sidebar: "1-on-1 Training" menu item |
+| `frontend/src/components/teacher/TeacherLayout.jsx` | Sidebar: "Personal Sessions" menu item |
 | `frontend/src/App.jsx` | New routes add |
-| `frontend/src/pages/student/StudentDashboard.jsx` | Personal sessions widget add |
-| `frontend/src/pages/teacher/TeacherDashboard.jsx` | Personal sessions widget add |
-| `frontend/src/components/student/StudentLayout.jsx` | Sidebar menu item add |
-| `frontend/src/components/teacher/TeacherLayout.jsx` | Sidebar menu item add |
-| `frontend/src/components/admin/AdminLayout.jsx` | Sidebar menu item add |
-| `backend/src/routes/teacherRoutes.js` | Personal session routes connect |
-| `backend/src/routes/studentRoutes.js` | Personal session routes connect |
 | `backend/src/routes/adminRoutes.js` | Personal session routes connect |
+| `backend/src/routes/studentRoutes.js` | Personal session routes connect |
+| `backend/src/routes/teacherRoutes.js` | Personal session routes connect |
+
+---
+
+## 💰 Teacher Pay — 1-on-1 Earnings
+
+Existing `TeacherPayouts.jsx` page lo ne — 1-on-1 earnings kuda show avutundi:
+
+```
+Teacher Ravi — Teacher Payroll page:
+  Group Classes:     ₹2,400  (8 sessions ended)
+  1-on-1 Personal:  ₹3,000  (3 sessions completed)   ← NEW
+  ─────────────────────────────────────────────
+  Total Unpaid:      ₹5,400
+  [Settle Payment] button → same modal (Online/Cash/Transaction ID)
+```
+
+**Payout.js model change:**
+```js
+// Old:
+sessionIds: [{ type: ObjectId, ref: 'LiveSession' }]
+
+// New:
+liveSessionIds:     [{ type: ObjectId, ref: 'LiveSession' }],      // group classes
+personalSessionIds: [{ type: ObjectId, ref: 'PersonalSession' }],  // 1-on-1 sessions
+```
+
+**Rate source:** `PersonalSession.price` field (admin assign chestappudu set chesindi) — per session rate kadu, total plan price. Sessions complete avvaganee payoutStatus: 'unpaid' → teacher payroll lo count avutundi.
 
 ---
 
@@ -240,17 +291,18 @@ Result: { hasConflict: true/false, conflictDetails: [...] }
 
 | Phase | Work |
 |-------|------|
-| **Phase 1** | Backend: `PersonalSession.js` model + `User.js` update (`oneOnOneRate` field) |
-| **Phase 2** | Backend: `personalSessionController.js` (all CRUD + conflict check logic) + routes wiring |
-| **Phase 3** | Frontend: Student — `PersonalTraining.jsx` (request form + my sessions tabs) |
-| **Phase 4** | Frontend: Admin — `AdminPersonalSessions.jsx` + `AssignTeacherModal.jsx` |
-| **Phase 5** | Frontend: Teacher — `MyPersonalSessions.jsx` + meet link flow |
-| **Phase 6** | Payment integration (student pay after admin assigns) |
-| **Phase 7** | Dashboard widgets (Student + Teacher dashboards) + Navigation (sidebars) |
-| **Phase 8** | Socket.io notifications (student notify when assigned, teacher notify when paid) |
-| **Phase 9** | Testing + Polish |
+| **Phase 1** | Backend: `PersonalSession.js` model + `User.js` update + `Payout.js` update |
+| **Phase 2** | Backend: `personalSessionController.js` (all CRUD + conflict check) + routes wiring |
+| **Phase 3** | Frontend: Register page — "1-on-1 Personal Class" option + class dropdown hide |
+| **Phase 4** | Frontend: Fees Control page — "1-on-1 Personal Training" pricing section |
+| **Phase 5** | Frontend: Admin — `AdminPersonalSessions.jsx` + `AssignPersonalSessionModal.jsx` + Sidebar item |
+| **Phase 6** | Frontend: Teacher Payouts — 1-on-1 earnings breakdown row add |
+| **Phase 7** | Frontend: Student Dashboard — Personal Sessions widget + Pay Now + Join button |
+| **Phase 8** | Payment integration (student pay after admin assigns) |
+| **Phase 9** | Socket.io notifications (student notify when assigned, teacher notify when confirmed) |
+| **Phase 10** | Testing + Polish |
 
 ---
 
-> **Next Step:** Ee plan review chesaka "Proceed" cheppu — appudu Phase 1 nunchi implement chestamu.
-> Inka ema change kavali ante cheppu — code touch cheyanu.
+> **Status: PLAN FULLY APPROVED — Implement cheyyadam start avutundi.**
+> Anni decisions finalized. No more changes to plan.

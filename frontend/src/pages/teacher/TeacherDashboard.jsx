@@ -16,7 +16,8 @@ import {
   ArrowUpRight,
   MonitorPlay,
   X,
-  LogOut
+  LogOut,
+  ExternalLink
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import socket from '../../socket';
@@ -30,6 +31,7 @@ const TeacherDashboard = () => {
     totalAssigned: 0
   });
   const [sessions, setSessions] = useState([]);
+  const [personalSessions, setPersonalSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedSession, setSelectedSession] = useState(null);
@@ -37,12 +39,14 @@ const TeacherDashboard = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, sessionRes] = await Promise.all([
+      const [statsRes, sessionRes, personalRes] = await Promise.all([
         axios.get('/teacher/dashboard-stats'),
-        axios.get('/teacher/live-sessions')
+        axios.get('/teacher/live-sessions'),
+        axios.get('/teacher/personal-sessions')
       ]);
       setStats(statsRes.data);
       setSessions(sessionRes.data);
+      setPersonalSessions(personalRes.data || []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching dashboard data');
@@ -98,6 +102,32 @@ const TeacherDashboard = () => {
   const activeTodayCount = todaySessions.filter(s => 
     s.status === 'live' || (s.status === 'upcoming' && new Date(s.endTime) > now)
   ).length;
+
+  const getTodayPersonalSlots = () => {
+    const list = [];
+    const todayStr = new Date().toDateString();
+    personalSessions.forEach(session => {
+      if (session.status === 'active') {
+        (session.scheduledSlots || []).forEach(slot => {
+          if (slot.status === 'upcoming' && new Date(slot.startTime).toDateString() === todayStr) {
+            list.push({
+              sessionId: session._id,
+              subjectName: session.subjectName,
+              studentName: session.studentId?.name || 'Student',
+              slotId: slot._id,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              meetingLink: slot.meetingLink,
+              platform: slot.platform
+            });
+          }
+        });
+      }
+    });
+    return list.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+  };
+
+  const todayPersonalSlots = getTodayPersonalSlots();
 
   const statCards = [
     { label: 'Assigned Classes', value: stats.totalAssigned, icon: BookOpen, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/classes', sub: 'All Grades' },
@@ -371,6 +401,75 @@ const TeacherDashboard = () => {
           </div>
         )}
       </AnimatePresence>
+      {/* 1-on-1 Personal Sessions Section */}
+      <div className="space-y-8 pt-6">
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-100 pb-8">
+            <div className="flex items-center gap-4">
+               <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-900/20">
+                  <Video className="w-6 h-6" />
+               </div>
+               <h2 className="text-2xl font-black text-[#002147] tracking-tighter uppercase italic">Today's <span className="text-[#f16126]">1-on-1 Sessions</span></h2>
+            </div>
+            <Link to="/teacher/personal-sessions" className="text-xs font-black text-indigo-600 hover:underline px-4 py-2 bg-indigo-50 rounded-xl transition-all">View All</Link>
+         </div>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {todayPersonalSlots.length === 0 ? (
+               <div className="col-span-full py-12 text-center space-y-4 bg-white rounded-3xl border border-dashed border-slate-200">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
+                     <Clock className="w-8 h-8" />
+                  </div>
+                  <p className="text-slate-400 font-bold uppercase text-xs tracking-widest italic leading-relaxed">
+                     No 1-on-1 sessions scheduled for today.
+                  </p>
+               </div>
+            ) : (
+               todayPersonalSlots.map((slot, i) => {
+                  const startTime = new Date(slot.startTime);
+                  return (
+                     <div 
+                       key={i} 
+                       className="bg-white rounded-3xl border border-slate-100 hover:border-indigo-600 hover:shadow-2xl transition-all relative overflow-hidden flex flex-col min-h-[200px]"
+                     >
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-600" />
+                        <div className="p-5 flex-grow space-y-4">
+                           <div className="flex items-center justify-between">
+                              <span className="px-3 py-1 text-[8px] font-black rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-widest">
+                                 1-ON-1
+                              </span>
+                              <span className="px-2 py-1 bg-orange-100 text-[#f16126] text-[8px] font-black rounded uppercase tracking-widest border border-orange-200">
+                                 {slot.platform}
+                              </span>
+                           </div>
+
+                           <div className="space-y-1">
+                              <h3 className="font-black text-slate-900 text-lg md:text-xl tracking-tighter leading-none uppercase italic">{slot.subjectName}</h3>
+                              <p className="text-xs font-bold text-slate-500 pt-1">Student: {slot.studentName}</p>
+                           </div>
+                        </div>
+
+                        <div className="mt-auto p-4 border-t border-slate-50 flex items-center justify-between bg-slate-50/50">
+                           <div className="flex flex-col">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Scheduled For</span>
+                              <span className="text-[10px] font-black text-[#002147] uppercase italic">
+                                 {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                           </div>
+                           <a 
+                             href={slot.meetingLink}
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-all shadow-md shadow-indigo-100"
+                           >
+                              Join <ExternalLink className="w-3 h-3" />
+                           </a>
+                        </div>
+                     </div>
+                  );
+               })
+            )}
+         </div>
+      </div>
     </div>
   );
 };
