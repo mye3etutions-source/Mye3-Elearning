@@ -12,7 +12,8 @@ import {
   FiBook,
   FiMonitor,
   FiLayers,
-  FiCalendar
+  FiCalendar,
+  FiInfo
 } from 'react-icons/fi';
 import { GraduationCap } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -221,6 +222,10 @@ const StudentStore = () => {
   const [pendingSubject, setPendingSubject] = useState(null);
   const [promptDuration, setPromptDuration] = useState('oneMonth');
   const [activeInterYear, setActiveInterYear] = useState(11);
+  const [personalPricing, setPersonalPricing] = useState(null);
+  const [selected1on1Duration, setSelected1on1Duration] = useState('oneMonth');
+  const [personalSession, setPersonalSession] = useState(null);
+  const [buyingPlan, setBuyingPlan] = useState(null);
 
   const [selectedMobileClass, setSelectedMobileClass] = useState('6');
   const [selectedMobileBoard, setSelectedMobileBoard] = useState('TS Board');
@@ -236,6 +241,21 @@ const StudentStore = () => {
   const fetchCourses = async () => {
     try {
       const board = userInfo?.board || '';
+      if (board === '1-on-1') {
+        try {
+          const [pricingRes, sessionRes] = await Promise.all([
+            axios.get('/student/personal-sessions/pricing'),
+            axios.get('/student/personal-sessions')
+          ]);
+          setPersonalPricing(pricingRes.data);
+          const sessions = sessionRes.data || [];
+          const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
+          setPersonalSession(active);
+        } catch (e) {
+          console.error('Error fetching 1-on-1 data', e);
+        }
+      }
+
       const { data } = await axios.get(`/student/catalog${board ? `?board=${board}` : ''}`);
 
       let baseCourses = data || [];
@@ -253,6 +273,27 @@ const StudentStore = () => {
       setLoading(false);
     }
   };
+
+  const handleBuy1on1 = async (planId) => {
+    if (!personalSession?._id) {
+      toast.error('No active session assigned yet. Please wait for the admin to assign your session.');
+      return;
+    }
+    setBuyingPlan(planId);
+    try {
+      const res = await axios.post(`/student/personal-sessions/${personalSession._id}/pay`, { planType: planId });
+      toast.success(res.data?.message || 'Payment initiated!');
+      const sessionRes = await axios.get('/student/personal-sessions');
+      const sessions = sessionRes.data || [];
+      const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
+      setPersonalSession(active);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Payment failed');
+    } finally {
+      setBuyingPlan(null);
+    }
+  };
+
 
   useEffect(() => { fetchCourses(); }, [userInfo]);
 
@@ -475,17 +516,38 @@ const StudentStore = () => {
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 pt-8 pb-6">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row overflow-hidden">
           <div className="w-full md:w-3/5 p-6 md:p-10 flex flex-col justify-center border-b md:border-b-0 md:border-r border-slate-100">
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">
-              {activeBoardFilter ? `${activeBoardFilter} ` : 'Mye3 Academy '}
-              <span className="text-orange-500">Courses</span>
-            </h1>
-            <p className="text-slate-500 text-sm md:text-base leading-relaxed">
-              Explore our comprehensive online courses tailored for your academic success.
-            </p>
-            <div className="hidden md:flex flex-wrap gap-3 mt-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-md text-xs font-semibold"><FiCheckCircle /> All Subjects</div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-md text-xs font-semibold"><FiCheckCircle /> Live Classes</div>
-            </div>
+            {userInfo?.board === '1-on-1' ? (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center shrink-0 text-indigo-600">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500">1-on-1 Personal Tuition</span>
+                </div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-3 leading-tight">
+                  Personalized <span className="text-orange-500">Live Tuition</span> Plans
+                </h1>
+                <p className="text-slate-500 text-sm leading-relaxed">
+                  Our 1-on-1 sessions are custom tailored to your learning pace and subject requirements.
+                  The administrator will assign your teacher, schedule your timings, and set up your syllabus.
+                  Once assigned, pay &amp; activate directly from your <strong className="text-[#002147]">Dashboard</strong>.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">
+                  {activeBoardFilter ? `${activeBoardFilter} ` : 'Mye3 Academy '}
+                  <span className="text-orange-500">Courses</span>
+                </h1>
+                <p className="text-slate-500 text-sm md:text-base leading-relaxed">
+                  Explore our comprehensive online courses tailored for your academic success.
+                </p>
+                <div className="hidden md:flex flex-wrap gap-3 mt-4">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-md text-xs font-semibold"><FiCheckCircle /> All Subjects</div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-md text-xs font-semibold"><FiCheckCircle /> Live Classes</div>
+                </div>
+              </>
+            )}
           </div>
           <div className="w-full md:w-2/5 bg-slate-50 p-4 flex items-center justify-center">
             <StoreCarousel />
@@ -495,65 +557,308 @@ const StudentStore = () => {
 
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 space-y-8">
         
-        {/* Desktop View */}
-        <div className="hidden md:block space-y-10">
-          {juniorCourses.length > 0 && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-bold text-slate-800">School Tuitions (Class 6 - 10)</h2>
-              {renderBoardGroups(juniorCourses)}
-            </div>
-          )}
+        {userInfo?.board === '1-on-1' ? (
+          <div className="w-full">
+            {(() => {
+              const plans = [
+                { 
+                  id: 'oneMonth',
+                  name: 'Monthly Plan', 
+                  price: personalPricing?.oneMonth || 4500, 
+                  duration: '1 Month', 
+                  color: 'from-[#002147] to-[#003a7a]',
+                  borderColor: 'border-[#002147]/20',
+                  accentBg: 'bg-[#002147]/5',
+                  btnBg: 'bg-[#002147] hover:bg-[#003a7a]',
+                  textColor: 'text-[#002147]',
+                  features: [
+                    '1-on-1 Dedicated Teacher',
+                    'Custom Timetable & Timings',
+                    'Doubt Clearing Sessions',
+                    'Class Notes & Study Material',
+                  ] 
+                },
+                { 
+                  id: 'threeMonths',
+                  name: 'Quarterly Plan', 
+                  price: personalPricing?.threeMonths || 12000, 
+                  duration: '3 Months', 
+                  color: 'from-[#f16126] to-[#f47c47]',
+                  borderColor: 'border-orange-200',
+                  accentBg: 'bg-orange-50',
+                  btnBg: 'bg-[#f16126] hover:bg-[#f47c47]',
+                  textColor: 'text-[#f16126]',
+                  features: [
+                    'Everything in Monthly',
+                    'Priority Timing Slot Selection',
+                    'Dedicated Mentor Support',
+                    'Monthly Progress Reports',
+                  ] 
+                },
+                { 
+                  id: 'sixMonths',
+                  name: 'Half-Yearly Plan', 
+                  price: personalPricing?.sixMonths || 22000, 
+                  duration: '6 Months', 
+                  color: 'from-violet-600 to-indigo-600',
+                  borderColor: 'border-violet-200',
+                  accentBg: 'bg-violet-50',
+                  btnBg: 'bg-violet-600 hover:bg-indigo-600',
+                  textColor: 'text-violet-600',
+                  features: [
+                    'Everything in Quarterly',
+                    'Parent-Teacher Meetings',
+                    'Exam Revision Assistance',
+                    'Practice Mock Papers',
+                  ] 
+                },
+                { 
+                  id: 'twelveMonths',
+                  name: 'Annual Plan', 
+                  price: personalPricing?.twelveMonths || 40000, 
+                  duration: '12 Months', 
+                  color: 'from-amber-500 to-yellow-400',
+                  borderColor: 'border-amber-200',
+                  accentBg: 'bg-amber-50',
+                  btnBg: 'bg-amber-500 hover:bg-amber-600',
+                  textColor: 'text-amber-600',
+                  features: [
+                    'Everything in Half-Yearly',
+                    'Guaranteed Improvement Tracking',
+                    'Direct Coordinator Hotline',
+                    'Custom Study Planner',
+                  ] 
+                }
+              ];
 
-          {(interFirstYear.length > 0 || interSecondYear.length > 0) && (
-            <div className="space-y-6 pt-4 border-t border-slate-200">
-              <div className="flex items-center gap-4">
-                <h2 className="text-xl font-bold text-slate-800">Intermediate</h2>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
-                  <button onClick={() => setActiveInterYear(11)} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${activeInterYear === 11 ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>1st Year</button>
-                  <button onClick={() => setActiveInterYear(12)} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${activeInterYear === 12 ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>2nd Year</button>
+              return (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+
+                  <div className="p-6 md:p-8 space-y-6">
+
+                    {/* Plans Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {plans.map(plan => (
+                        <div
+                          key={plan.id}
+                          className={`rounded-xl border ${plan.borderColor} overflow-hidden flex flex-col`}
+                        >
+                          {/* Plan colour bar */}
+                          <div className={`h-1.5 bg-gradient-to-r ${plan.color}`} />
+
+                          <div className="p-4 flex flex-col gap-3 flex-1">
+                            {/* Name + Duration */}
+                            <div>
+                              <p className={`text-[10px] font-extrabold uppercase tracking-widest ${plan.textColor}`}>{plan.name}</p>
+                              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Duration: {plan.duration}</p>
+                            </div>
+
+                            {/* Price */}
+                            <div className={`${plan.accentBg} rounded-lg px-3 py-2.5`}>
+                              <span className={`text-2xl font-extrabold ${plan.textColor}`}>
+                                ₹{(personalSession && personalSession.planType === plan.id
+                                  ? personalSession.price
+                                  : plan.price
+                                ).toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-bold ml-1">/ package</span>
+                            </div>
+
+                            {/* Features */}
+                            <ul className="space-y-1.5 flex-1">
+                              {plan.features.map((feat, idx) => (
+                                <li key={idx} className="flex items-start gap-2 text-[11px] text-slate-600">
+                                  <FiCheckCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${plan.textColor}`} />
+                                  <span>{feat}</span>
+                                </li>
+                              ))}
+                            </ul>
+
+                            {/* Buy Button */}
+                            <button
+                              onClick={() => handleBuy1on1(plan.id)}
+                              disabled={
+                                !personalSession ||
+                                !['pending', 'assigned'].includes(personalSession.status) ||
+                                personalSession.paymentStatus === 'paid' ||
+                                buyingPlan === plan.id
+                              }
+                              className={`mt-2 w-full py-2 rounded-lg text-white text-xs font-extrabold tracking-wide transition-all ${
+                                personalSession &&
+                                ['pending', 'assigned'].includes(personalSession.status) &&
+                                personalSession.paymentStatus !== 'paid'
+                                  ? `${plan.btnBg} shadow-sm`
+                                  : personalSession?.paymentStatus === 'paid' && personalSession?.planType === plan.id
+                                    ? 'bg-emerald-500 shadow-sm cursor-not-allowed'
+                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                              }`}
+                            >
+                              {buyingPlan === plan.id
+                                ? 'Processing...'
+                                : personalSession?.paymentStatus === 'paid'
+                                  ? personalSession.planType === plan.id
+                                    ? personalSession.status === 'active'
+                                      ? 'Active Plan'
+                                      : 'Paid (Awaiting Teacher)'
+                                    : 'Locked'
+                                  : personalSession
+                                    ? personalSession.planType === plan.id
+                                      ? personalSession.status === 'active'
+                                        ? 'Active Plan'
+                                        : personalSession.status === 'completed'
+                                          ? 'Completed'
+                                          : 'Buy Now'
+                                      : 'Buy Now'
+                                    : 'Buy Now'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Info alert if unpaid yet */}
+                    {personalSession && personalSession.paymentStatus === 'pending' && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 mt-6">
+                        <FiInfo className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <h5 className="text-xs font-bold text-amber-900">
+                            {personalSession.status === 'assigned' 
+                              ? 'Teacher & Schedule Assigned!' 
+                              : 'Select a Plan to Begin'}
+                          </h5>
+                          <p className="text-[11px] text-amber-700 leading-relaxed">
+                            {personalSession.status === 'assigned' 
+                              ? 'Your tutor, curriculum, and schedule have been prepared. Please select a pricing plan below to activate your personal training program.'
+                              : 'Select and buy a plan below to secure your 1-on-1 package. Once purchased, our coordinator will set up your dedicated timings and assign a teacher.'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Success alert if paid but awaiting admin assignment */}
+                    {personalSession && personalSession.paymentStatus === 'paid' && personalSession.status !== 'active' && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3 mt-6">
+                        <FiCheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <h5 className="text-xs font-bold text-emerald-900">
+                            Payment Successful! Awaiting Teacher Assignment
+                          </h5>
+                          <p className="text-[11px] text-emerald-700 leading-relaxed">
+                            Your payment has been received and verified. Our coordinator is currently reviewing your profile to set up dedicated timings and assign the best teacher for you. This usually takes 2-4 hours. You can check your assigned schedule in your dashboard once it's ready.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Current Subscription ── */}
+                    {personalSession ? (
+                      <div className="border-t border-slate-100 mt-6 pt-5 space-y-3">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Your Current Subscription</h4>
+                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-medium mb-1">Status</p>
+                            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                              personalSession.status === 'active'    ? 'bg-emerald-100 text-emerald-700' :
+                              personalSession.status === 'assigned'  ? 'bg-amber-100 text-amber-700' :
+                              personalSession.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                              'bg-slate-100 text-slate-500'
+                            }`}>{personalSession.status}</span>
+                          </div>
+                          {personalSession.subjectName && (
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-medium mb-1">Subject</p>
+                              <p className="text-xs font-bold text-slate-800">{personalSession.subjectName}</p>
+                            </div>
+                          )}
+                          {personalSession.teacherId?.name && (
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-medium mb-1">Teacher</p>
+                              <p className="text-xs font-bold text-slate-800">{personalSession.teacherId.name}</p>
+                            </div>
+                          )}
+                          {personalSession.price > 0 && (
+                            <div>
+                              <p className="text-[10px] text-slate-400 font-medium mb-1">Total Fee</p>
+                              <p className="text-sm font-extrabold text-[#002147]">₹{personalSession.price?.toLocaleString('en-IN')}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-6 text-center p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                          Payable via Dashboard Once Schedule is Assigned
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        ) : (
+          <>
+            {/* Desktop View */}
+            <div className="hidden md:block space-y-10">
+              {juniorCourses.length > 0 && (
+                <div className="space-y-6">
+                  <h2 className="text-xl font-bold text-slate-800">School Tuitions (Class 6 - 10)</h2>
+                  {renderBoardGroups(juniorCourses)}
+                </div>
+              )}
+
+              {(interFirstYear.length > 0 || interSecondYear.length > 0) && (
+                <div className="space-y-6 pt-4 border-t border-slate-200">
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-bold text-slate-800">Intermediate</h2>
+                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                      <button onClick={() => setActiveInterYear(11)} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${activeInterYear === 11 ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>1st Year</button>
+                      <button onClick={() => setActiveInterYear(12)} className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${activeInterYear === 12 ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}>2nd Year</button>
+                    </div>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.div key={activeInterYear} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                      {activeInterYear === 11 ? renderBoardGroups(interFirstYear) : renderBoardGroups(interSecondYear)}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden space-y-6">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">Board</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['TS Board', 'AP Board', 'CBSE Board', 'ICSE Board'].map(b => (
+                      <button key={b} onClick={() => setSelectedMobileBoard(b)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${selectedMobileBoard === b ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}>{b.replace(' Board', '')}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">Class</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['6', '7', '8', '9', '10', '11', '12'].map(cls => (
+                      <button key={cls} onClick={() => setSelectedMobileClass(cls)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${selectedMobileClass === cls ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}>{cls}</button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <AnimatePresence mode="wait">
-                <motion.div key={activeInterYear} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-                  {activeInterYear === 11 ? renderBoardGroups(interFirstYear) : renderBoardGroups(interSecondYear)}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          )}
-        </div>
 
-        {/* Mobile View */}
-        <div className="md:hidden space-y-6">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-500">Board</p>
-              <div className="flex flex-wrap gap-2">
-                {['TS Board', 'AP Board', 'CBSE Board', 'ICSE Board'].map(b => (
-                  <button key={b} onClick={() => setSelectedMobileBoard(b)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${selectedMobileBoard === b ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}>{b.replace(' Board', '')}</button>
+              <div className="grid grid-cols-1 gap-4">
+                {finalFiltered.filter(c => {
+                  const cClass = String(c.classLevel || c.className || '').replace(/\D/g, '');
+                  const cBoard = (c.board || 'TS Board').toUpperCase().trim();
+                  const fBoard = selectedMobileBoard.toUpperCase().trim();
+                  return cClass === selectedMobileClass && (cBoard === fBoard || cBoard === fBoard.replace(' BOARD', ''));
+                }).map(c => (
+                  <CourseCard key={c.id} c={c} selectedItems={selectedItems} setSelectedItems={setSelectedItems} userInfo={userInfo} setPendingSubject={setPendingSubject} />
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-500">Class</p>
-              <div className="flex flex-wrap gap-2">
-                {['6', '7', '8', '9', '10', '11', '12'].map(cls => (
-                  <button key={cls} onClick={() => setSelectedMobileClass(cls)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${selectedMobileClass === cls ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}>{cls}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4">
-            {finalFiltered.filter(c => {
-              const cClass = String(c.classLevel || c.className || '').replace(/\D/g, '');
-              const cBoard = (c.board || 'TS Board').toUpperCase().trim();
-              const fBoard = selectedMobileBoard.toUpperCase().trim();
-              return cClass === selectedMobileClass && (cBoard === fBoard || cBoard === fBoard.replace(' BOARD', ''));
-            }).map(c => (
-              <CourseCard key={c.id} c={c} selectedItems={selectedItems} setSelectedItems={setSelectedItems} userInfo={userInfo} setPendingSubject={setPendingSubject} />
-            ))}
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Floating Cart */}

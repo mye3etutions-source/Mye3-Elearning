@@ -25,6 +25,7 @@ router.get('/admin/personal-sessions',                   protect, authorizeRoles
 router.put('/admin/personal-sessions/:studentId/assign', protect, authorizeRoles('admin'), assignSession);
 
 // ── STUDENT routes ────────────────────────────────────────────────────────────
+router.get('/student/personal-sessions/pricing',      protect, getPersonalPricing);
 router.get('/student/personal-sessions',              protect, getMyPersonalSessions);
 router.post('/student/personal-sessions/:id/pay',     protect, initiatePayment);
 

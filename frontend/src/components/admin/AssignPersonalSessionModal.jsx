@@ -17,23 +17,15 @@ import {
   FileText
 } from 'lucide-react';
 
-const AssignPersonalSessionModal = ({ isOpen, onClose, student, onSuccess }) => {
+const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSuccess }) => {
   const [teachers, setTeachers] = useState([]);
   const [teacherId, setTeacherId] = useState('');
   const [subjectName, setSubjectName] = useState('');
-  const [planType, setPlanType] = useState('oneMonth');
-  const [price, setPrice] = useState(0);
   const [adminNote, setAdminNote] = useState('');
   const [slots, setSlots] = useState([
     { startTime: '', endTime: '', meetingLink: '', platform: 'Google Meet' }
   ]);
   
-  const [pricingPlans, setPricingPlans] = useState({
-    oneMonth: 0,
-    threeMonths: 0,
-    sixMonths: 0,
-    twelveMonths: 0
-  });
   const [loading, setLoading] = useState(false);
   const [slotConflicts, setSlotConflicts] = useState({});
 
@@ -42,19 +34,10 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, onSuccess }) => 
 
     const loadData = async () => {
       try {
-        const [resTeachers, resPricing] = await Promise.all([
-          axios.get('/admin/teachers-list'),
-          axios.get('/admin/personal-sessions/pricing')
-        ]);
+        const resTeachers = await axios.get('/admin/teachers-list');
         setTeachers(resTeachers.data || []);
-        
-        const pricing = resPricing.data || { oneMonth: 0, threeMonths: 0, sixMonths: 0, twelveMonths: 0 };
-        setPricingPlans(pricing);
-        
-        // Default price for default planType (oneMonth)
-        setPrice(pricing.oneMonth || 0);
       } catch (err) {
-        toast.error('Failed to load teachers or pricing information');
+        toast.error('Failed to load teachers list');
       }
     };
 
@@ -63,20 +46,10 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, onSuccess }) => 
     // Reset state
     setTeacherId('');
     setSubjectName('');
-    setPlanType('oneMonth');
     setAdminNote('');
     setSlots([{ startTime: '', endTime: '', meetingLink: '', platform: 'Google Meet' }]);
     setSlotConflicts({});
   }, [isOpen, student]);
-
-  // Handle plan type change to auto-update price
-  const handlePlanTypeChange = (e) => {
-    const selectedPlan = e.target.value;
-    setPlanType(selectedPlan);
-    if (pricingPlans[selectedPlan] !== undefined) {
-      setPrice(pricingPlans[selectedPlan]);
-    }
-  };
 
   // Add a new slot
   const addSlot = () => {
@@ -176,8 +149,6 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, onSuccess }) => 
         teacherId,
         subjectName,
         slots,
-        planType,
-        price: Number(price) || 0,
         adminNote
       };
 
@@ -215,7 +186,7 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, onSuccess }) => 
           
           {/* General Assignment Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 md:col-span-2">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5 text-indigo-600" /> Subject Name
               </label>
@@ -250,34 +221,19 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, onSuccess }) => 
 
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-indigo-600" /> Plan Duration
+                <FileText className="w-3.5 h-3.5 text-indigo-600" /> Plan Purchased
               </label>
-              <select 
-                value={planType}
-                onChange={handlePlanTypeChange}
-                required
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
-              >
-                <option value="oneMonth">Monthly</option>
-                <option value="threeMonths">Quarterly</option>
-                <option value="sixMonths">Half-Yearly</option>
-                <option value="twelveMonths">Annually</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5 text-indigo-600" /> Plan Price (₹)
-              </label>
-              <input 
-                type="number" 
-                placeholder="Plan Price"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-                min="0"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold text-slate-800"
-              />
+              <div className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-700 font-semibold flex items-center justify-between">
+                <span>
+                  {session?.planType === 'oneMonth' ? 'Monthly Plan' : 
+                   session?.planType === 'threeMonths' ? 'Quarterly Plan' :
+                   session?.planType === 'sixMonths' ? 'Half-Yearly Plan' :
+                   session?.planType === 'twelveMonths' ? 'Annual Plan' : 'Not Selected'}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-black">
+                  Paid
+                </span>
+              </div>
             </div>
           </div>
 

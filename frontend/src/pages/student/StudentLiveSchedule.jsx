@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { 
   Video, 
   Clock, 
@@ -15,6 +16,7 @@ import {
 import { Link } from 'react-router-dom';
 
 const StudentLiveSchedule = () => {
+  const { userInfo } = useSelector((state) => state.auth);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const initialSearch = queryParams.get('search') || '';
@@ -26,8 +28,52 @@ const StudentLiveSchedule = () => {
   useEffect(() => {
     const fetchLiveSessions = async () => {
       try {
-        const { data } = await axios.get('/student/live-alerts');
-        setLiveSessions(data || []);
+        let allSessions = [];
+
+        // 1. Fetch regular live alerts
+        const { data: regularData } = await axios.get('/student/live-alerts');
+        if (regularData) {
+          allSessions = [...regularData];
+        }
+
+        // 2. If student is 1-on-1, fetch personal session slots and merge them
+        if (userInfo?.board === '1-on-1') {
+          const { data: personalData } = await axios.get('/student/personal-sessions');
+          const active = (personalData || []).find(s => ['assigned', 'active'].includes(s.status)) || (personalData && personalData[0]) || null;
+          
+          if (active && active.scheduledSlots && active.scheduledSlots.length > 0) {
+            const nowTime = new Date();
+            const personalSlotsMapped = active.scheduledSlots.map((slot, idx) => {
+              const sTime = new Date(slot.startTime);
+              const eTime = new Date(slot.endTime);
+              
+              // 10 minutes before start time is considered LIVE
+              const tenMinsBefore = new Date(sTime.getTime() - 10 * 60000);
+              
+              let slotStatus = 'upcoming';
+              if (nowTime >= tenMinsBefore && nowTime <= eTime) {
+                slotStatus = 'live';
+              } else if (nowTime > eTime) {
+                slotStatus = 'ended';
+              }
+
+              return {
+                _id: slot._id || `personal-${idx}`,
+                title: `${active.subjectName || '1-on-1'} (Personal Class)`,
+                subjectName: active.subjectName || '1-on-1',
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                link: slot.meetingLink,
+                status: slotStatus,
+                teacherId: active.teacherId,
+                isPersonal: true
+              };
+            });
+            allSessions = [...allSessions, ...personalSlotsMapped];
+          }
+        }
+
+        setLiveSessions(allSessions);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching live sessions');
@@ -35,9 +81,20 @@ const StudentLiveSchedule = () => {
       }
     };
     fetchLiveSessions();
-  }, []);
+  }, [userInfo]);
 
   const now = new Date();
+
+  const getTimeUntil = (startTime) => {
+    const diffMs = new Date(startTime) - now;
+    const diffMins = Math.max(0, Math.ceil(diffMs / (1000 * 60)));
+    
+    if (diffMins < 60) return `Starts in ${diffMins} mins`;
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24) return `Starts in ${diffHrs} hrs`;
+    const diffDays = Math.floor(diffHrs / 24);
+    return `Starts in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+  };
 
   // Robust Filtering based on Date + Status
   const liveNow = liveSessions.filter(s => 
@@ -170,14 +227,18 @@ const StudentLiveSchedule = () => {
 
                     <div className="flex-1 min-w-0 space-y-1.5 text-center sm:text-left">
                        <p className="text-xs font-semibold text-indigo-600">
-                          {(() => {
-                             const level = String(session.classLevel || '').replace(/class/gi, '').trim();
-                             if (level === '11') return 'Inter 1st Year';
-                             if (level === '12') return 'Inter 2nd Year';
-                             return `Class ${level}`;
-                          })()} • {session.subjectName || 'Subject'}
+                          {session.isPersonal 
+                            ? '1-on-1 Personal Class'
+                            : (() => {
+                                 const level = String(session.classLevel || '').replace(/class/gi, '').trim();
+                                 if (level === '11') return 'Inter 1st Year';
+                                 if (level === '12') return 'Inter 2nd Year';
+                                 return level ? `Class ${level}` : 'General';
+                              })() + ` • ${session.subjectName || 'Subject'}`}
                        </p>
-                       <h3 className="text-lg font-bold text-slate-800 truncate">{session.title}</h3>
+                       <h3 className="text-lg font-bold text-slate-800 truncate">
+                          {session.isPersonal ? session.subjectName : session.title}
+                       </h3>
                        <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-500">
                           <UserCircle className="w-3.5 h-3.5" />
                           <span>{session.teacherId?.name || 'Teacher'}</span>
@@ -186,7 +247,7 @@ const StudentLiveSchedule = () => {
 
                     <div className="w-full sm:w-auto shrink-0">
                        <div className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-semibold text-xs border border-indigo-100 text-center">
-                          Starts in {Math.max(0, Math.ceil((new Date(session.startTime) - new Date()) / (1000 * 60)))} mins
+                          {getTimeUntil(session.startTime)}
                        </div>
                     </div>
                   </div>

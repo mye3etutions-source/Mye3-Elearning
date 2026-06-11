@@ -73,6 +73,17 @@ const registerUser = async (req, res, next) => {
       user.currentDeviceToken = deviceToken;
       await user.save();
 
+      // Create PersonalSession document if user board is 1-on-1
+      if (board === '1-on-1') {
+        const PersonalSession = require('../models/PersonalSession');
+        const session = new PersonalSession({
+          studentId: user._id,
+          status: 'pending',
+          paymentStatus: 'pending'
+        });
+        await session.save();
+      }
+
       const token = generateToken(user._id, deviceToken);
 
       // Send Welcome Email asynchronously

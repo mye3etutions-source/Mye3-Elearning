@@ -2,6 +2,7 @@ const PersonalSession = require('../models/PersonalSession');
 const LiveSession     = require('../models/LiveSession');
 const User            = require('../models/User');
 const ClassBundle     = require('../models/ClassBundle');
+const Transaction     = require('../models/Transaction');
 
 // ─── Conflict Check Helper ────────────────────────────────────────────────────
 // Returns { hasConflict, conflicts[] } for a teacher at a given time range
@@ -115,16 +116,15 @@ exports.conflictCheck = async (req, res) => {
   }
 };
 
-// ─── ADMIN: Assign teacher + schedule + pricing to a student ─────────────────
 // PUT /admin/personal-sessions/:studentId/assign
 exports.assignSession = async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { teacherId, subjectName, slots, planType, price, adminNote } = req.body;
+    const { teacherId, subjectName, slots, adminNote } = req.body;
     // slots: [{ startTime, endTime, meetingLink, platform }]
 
-    if (!teacherId || !slots?.length || !planType || !price) {
-      return res.status(400).json({ message: 'teacherId, slots, planType, price required' });
+    if (!teacherId || !slots?.length) {
+      return res.status(400).json({ message: 'teacherId, slots required' });
     }
 
     // Conflict check for all slots
@@ -139,7 +139,7 @@ exports.assignSession = async (req, res) => {
     }
 
     // Upsert PersonalSession for this student
-    let session = await PersonalSession.findOne({ studentId, status: 'pending' });
+    let session = await PersonalSession.findOne({ studentId, status: { $nin: ['completed', 'cancelled'] } });
     if (!session) {
       session = new PersonalSession({ studentId });
     }
@@ -153,10 +153,14 @@ exports.assignSession = async (req, res) => {
       platform:    s.platform || 'Google Meet',
       status:      'upcoming'
     }));
-    session.planType  = planType;
-    session.price     = price;
     session.adminNote = adminNote || '';
-    session.status    = 'assigned';
+
+    // Set status based on payment status
+    if (session.paymentStatus === 'paid') {
+      session.status = 'active';
+    } else {
+      session.status = 'assigned';
+    }
 
     await session.save();
 
@@ -218,13 +222,26 @@ exports.updatePersonalPricing = async (req, res) => {
   }
 };
 
-// ─── STUDENT: Get my personal sessions ───────────────────────────────────────
 // GET /student/personal-sessions
 exports.getMyPersonalSessions = async (req, res) => {
   try {
-    const sessions = await PersonalSession.find({ studentId: req.user._id })
+    let sessions = await PersonalSession.find({ studentId: req.user._id })
       .populate('teacherId', 'name email')
       .sort({ createdAt: -1 });
+
+    // Auto-create a pending session document if they are a 1-on-1 student but have none
+    if (sessions.length === 0 && req.user.board === '1-on-1') {
+      const newSession = new PersonalSession({
+        studentId: req.user._id,
+        status: 'pending',
+        paymentStatus: 'pending'
+      });
+      await newSession.save();
+      
+      // Query again to get fully populated document if needed, or just return list with it
+      sessions = [newSession];
+    }
+
     res.json(sessions);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -235,10 +252,12 @@ exports.getMyPersonalSessions = async (req, res) => {
 // POST /student/personal-sessions/:id/pay
 exports.initiatePayment = async (req, res) => {
   try {
+    const { planType } = req.body;
+
     const session = await PersonalSession.findOne({
       _id: req.params.id,
       studentId: req.user._id,
-      status: 'assigned',
+      status: { $in: ['pending', 'assigned'] },
       paymentStatus: 'pending'
     });
 
@@ -246,15 +265,59 @@ exports.initiatePayment = async (req, res) => {
       return res.status(404).json({ message: 'Session not found or already paid' });
     }
 
-    // TODO Phase 8: Create Razorpay order
-    // For now: mock payment — mark directly as paid
+    const finalPlanType = planType || session.planType;
+    if (!finalPlanType) {
+      return res.status(400).json({ message: 'Plan type is required to process payment' });
+    }
+
+    // Resolve price dynamically from global pricing config safely
+    let pricingDoc = await ClassBundle.findOne({ className: '1-on-1', board: '1-on-1' });
+    const resolvedPrice = pricingDoc?.pricing?.[finalPlanType] || session.price || 0;
+
+    session.planType      = finalPlanType;
+    session.price         = resolvedPrice;
     session.paymentStatus = 'paid';
-    session.status        = 'active';
+    
+    // Set status to active if teacher is assigned, else keep as pending
+    if (session.teacherId) {
+      session.status = 'active';
+    } else {
+      session.status = 'pending';
+    }
+    
     await session.save();
 
-    // TODO Phase 9: Notify teacher via socket
+    const formatPlanName = (plan) => {
+      switch (plan) {
+        case 'oneMonth': return 'Monthly';
+        case 'threeMonths': return 'Quarterly';
+        case 'sixMonths': return 'Half-Yearly';
+        case 'twelveMonths': return 'Annually';
+        default: return 'Custom';
+      }
+    };
+
+    // Safely create transaction record
+    try {
+      const tx = new Transaction({
+        studentId: req.user._id,
+        amount: resolvedPrice,
+        status: 'success',
+        packageName: `1-on-1 Personal Class - ${formatPlanName(finalPlanType)}`,
+        referenceId: session._id.toString(),
+        type: '1-on-1',
+        date: new Date()
+      });
+      await tx.save();
+    } catch (txError) {
+      console.error('Error saving 1-on-1 transaction:', txError);
+      // We do not fail the request if transaction history fails to save, 
+      // but we log it. The session is already marked as paid.
+    }
+
     res.json({ message: 'Payment successful. Sessions are now active!', session });
   } catch (err) {
+    console.error('initiatePayment Error:', err);
     res.status(500).json({ message: err.message });
   }
 };

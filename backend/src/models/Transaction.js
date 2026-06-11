@@ -25,7 +25,7 @@ const transactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['bundle', 'subject'],
+    enum: ['bundle', 'subject', '1-on-1'],
     required: true
   },
   date: {

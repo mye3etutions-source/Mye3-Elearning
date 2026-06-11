@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { DollarSign, CheckCircle, Clock, AlertCircle, FileText, User, CreditCard, Wallet, BookOpen, Eye } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, AlertCircle, FileText, User, CreditCard, Wallet, BookOpen, Eye, Video } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import TeacherProfile from './TeacherProfile';
 

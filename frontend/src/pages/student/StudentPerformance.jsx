@@ -10,9 +10,15 @@ import {
   BarChart 
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
+import { Navigate } from 'react-router-dom';
 
 const StudentPerformance = () => {
   const { userInfo } = useSelector((state) => state.auth);
+  
+  if (userInfo?.board === '1-on-1') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
+
   const [loading, setLoading] = useState(true);
 
   // Placeholder data until backend is ready

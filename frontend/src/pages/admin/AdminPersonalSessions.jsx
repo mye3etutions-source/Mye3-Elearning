@@ -30,6 +30,7 @@ const AdminPersonalSessions = () => {
   
   // Modal state
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Expanded slots state for "All Sessions" table
@@ -218,16 +219,17 @@ const AdminPersonalSessions = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider font-bold text-slate-500">
-                  <th className="p-4">Student Name</th>
+                   <th className="p-4">Student Name</th>
                   <th className="p-4">Contact Info</th>
                   <th className="p-4">Registered Date</th>
+                  <th className="p-4">Payment Status</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="text-[13px] divide-y divide-slate-100">
                 {getFilteredNewStudents().length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="p-8 text-center text-slate-400 font-medium">No new 1-on-1 student registrations found.</td>
+                    <td colSpan="5" className="p-8 text-center text-slate-400 font-medium">No new 1-on-1 student registrations found.</td>
                   </tr>
                 ) : (
                   getFilteredNewStudents().map((item) => (
@@ -246,15 +248,30 @@ const AdminPersonalSessions = () => {
                           year: 'numeric'
                         })}
                       </td>
+                      <td className="p-4">
+                        {item.session?.paymentStatus === 'paid' ? (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-[11px] font-extrabold uppercase">Paid</span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded text-[11px] font-extrabold uppercase">Unpaid</span>
+                        )}
+                      </td>
                       <td className="p-4 text-right">
                         <button
+                          disabled={!item.session || item.session.paymentStatus !== 'paid'}
                           onClick={() => {
                             setSelectedStudent(item.student);
+                            setSelectedSession(item.session);
                             setIsModalOpen(true);
                           }}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-all shadow-sm"
+                          className={`px-4 py-2 font-bold text-xs rounded-lg transition-all shadow-sm ${
+                            item.session && item.session.paymentStatus === 'paid'
+                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
+                              : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                          }`}
                         >
-                          Assign Teacher &amp; Schedule
+                          {item.session && item.session.paymentStatus === 'paid' 
+                            ? 'Assign Teacher & Schedule' 
+                            : 'Awaiting Payment'}
                         </button>
                       </td>
                     </tr>
@@ -310,13 +327,15 @@ const AdminPersonalSessions = () => {
                           </td>
                           <td className="p-4">
                             <div className="font-bold text-indigo-700">{session.subjectName}</div>
-                            <div className="text-[11px] text-slate-500">{formatPlanType(session.planType)} Plan</div>
+                            <div className="text-[11px] text-slate-500">
+                              {session.planType ? formatPlanType(session.planType) + ' Plan' : 'Not Selected'}
+                            </div>
                           </td>
                           <td className="p-4 whitespace-nowrap font-medium text-slate-700">
                             {session.scheduledSlots?.length || 0} Slots
                           </td>
                           <td className="p-4 font-bold text-slate-800">
-                            ₹{(session.price || 0).toLocaleString('en-IN')}
+                            {session.price > 0 ? `₹${session.price.toLocaleString('en-IN')}` : '—'}
                           </td>
                           <td className="p-4">
                             {getStatusBadge(session.status)}
@@ -413,6 +432,7 @@ const AdminPersonalSessions = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         student={selectedStudent}
+        session={selectedSession}
         onSuccess={loadData}
       />
     </div>

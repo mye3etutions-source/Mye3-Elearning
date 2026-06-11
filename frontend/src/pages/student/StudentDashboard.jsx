@@ -340,7 +340,7 @@ const StudentDashboard = () => {
         <div className="lg:col-span-8 space-y-6">
           
           {/* SIDE BY SIDE: DASHBOARD BANNER + SUBSCRIPTION CARD */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 ${userInfo?.board === '1-on-1' ? '' : 'md:grid-cols-2'} gap-4`}>
 
             {/* LEFT: DASHBOARD BANNER */}
             <div className="bg-gradient-to-br from-[#002147] to-[#003a7a] rounded-xl p-6 text-white relative overflow-hidden shadow-sm flex flex-col justify-between h-[180px]">
@@ -358,36 +358,38 @@ const StudentDashboard = () => {
             </div>
 
             {/* RIGHT: SUBSCRIPTION STATUS */}
-            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between h-[180px]">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-indigo-500" />
-                  <span className="text-sm font-semibold text-slate-700">Status</span>
+            {userInfo?.board !== '1-on-1' && (
+              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between h-[180px]">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-indigo-500" />
+                    <span className="text-sm font-semibold text-slate-700">Status</span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md ${hasSubscriptions ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                    {hasSubscriptions ? 'Subscribed' : 'Not Subscribed'}
+                  </span>
                 </div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md ${hasSubscriptions ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                  {hasSubscriptions ? 'Subscribed' : 'Not Subscribed'}
-                </span>
-              </div>
 
-              {hasSubscriptions ? (
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500 leading-relaxed">Your account is active. You have full access to curriculum subjects and live faculty support.</p>
-                  <Link to="/student/classes" className="text-sm font-semibold text-[#f16126] hover:underline flex items-center gap-1 w-max">
-                    Go to My Classes <ChevronRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500 leading-relaxed">Unlock all subjects, video lessons, and mock tests for your current grade.</p>
-                  <button 
-                    onClick={openCheckout}
-                    className="w-full py-2 bg-[#002147] text-white rounded-lg font-semibold text-sm hover:bg-[#f16126] transition-colors"
-                  >
-                    Buy Subscription
-                  </button>
-                </div>
-              )}
-            </div>
+                {hasSubscriptions ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-500 leading-relaxed">Your account is active. You have full access to curriculum subjects and live faculty support.</p>
+                    <Link to="/student/classes" className="text-sm font-semibold text-[#f16126] hover:underline flex items-center gap-1 w-max">
+                      Go to My Classes <ChevronRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-500 leading-relaxed">Unlock all subjects, video lessons, and mock tests for your current grade.</p>
+                    <button 
+                      onClick={openCheckout}
+                      className="w-full py-2 bg-[#002147] text-white rounded-lg font-semibold text-sm hover:bg-[#f16126] transition-colors"
+                    >
+                      Buy Subscription
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 1-on-1 PERSONAL SESSIONS WIDGET */}
@@ -398,25 +400,58 @@ const StudentDashboard = () => {
                    <Zap className="w-4 h-4 text-indigo-600 animate-pulse" />
                    <h3 className="text-sm font-bold text-slate-800">1-on-1 Personal Class Status</h3>
                  </div>
-                 {personalSession && (
-                   <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                     {personalSession.subjectName}
-                   </span>
-                 )}
-              </div>
-
-              {!personalSession || personalSession.status === 'pending' ? (
-                <div className="p-5 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-bold text-amber-800">Awaiting Teacher &amp; Schedule Assignment</h4>
-                    <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                      Our administrator is currently assigning a teacher, subject, and class schedule for you. 
-                      You will be notified here once the assignment is done to proceed with the payment.
-                    </p>
-                  </div>
-                </div>
-              ) : personalSession.status === 'assigned' ? (
+                 {personalSession && personalSession.subjectName && (
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                      {personalSession.subjectName}
+                    </span>
+                  )}
+               </div>
+ 
+               {!personalSession ? (
+                 <div className="p-5 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3">
+                   <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                   <div>
+                     <h4 className="text-sm font-bold text-amber-800">Awaiting Teacher &amp; Schedule Assignment</h4>
+                     <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                       Our administrator is currently assigning a teacher, subject, and class schedule for you.
+                     </p>
+                   </div>
+                 </div>
+               ) : personalSession.status === 'pending' && personalSession.paymentStatus === 'pending' ? (
+                 <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-5 rounded-xl border border-orange-100 space-y-4">
+                   <div className="flex justify-between items-start">
+                     <div>
+                       <h4 className="text-sm font-bold text-slate-800">Choose a Plan to Get Started!</h4>
+                       <p className="text-xs text-slate-500 mt-1">Please select and purchase a package to register.</p>
+                     </div>
+                     <span className="px-2.5 py-0.5 bg-orange-100 text-orange-800 text-[10px] font-extrabold rounded uppercase tracking-wider">Awaiting Payment</span>
+                   </div>
+ 
+                   <p className="text-xs text-slate-600 leading-relaxed">
+                     You can purchase any of our 1-on-1 packages (Monthly, Quarterly, Half-Yearly, or Annually). 
+                     Once paid, our coordinator will immediately assign your teacher and set up your personalized class schedule.
+                   </p>
+ 
+                   <button
+                     onClick={() => navigate('/student/courses')}
+                     className="w-full py-3 bg-[#f16126] hover:bg-[#002147] text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors shadow-md flex items-center justify-center gap-1.5"
+                   >
+                     <CreditCard className="w-4 h-4" /> Choose Plan &amp; Pay
+                   </button>
+                 </div>
+               ) : personalSession.status === 'pending' && personalSession.paymentStatus === 'paid' ? (
+                 <div className="p-5 bg-emerald-50 rounded-xl border border-emerald-100 flex items-start gap-3">
+                   <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                   <div>
+                     <h4 className="text-sm font-bold text-emerald-800">Payment Verified!</h4>
+                     <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                       We have received your payment for the <strong>{formatPlanType(personalSession.planType)} Plan</strong>. 
+                       Our coordinator is currently setting up your timetable and assigning your dedicated teacher. 
+                       Your schedule will appear here shortly.
+                     </p>
+                   </div>
+                 </div>
+               ) : personalSession.status === 'assigned' ? (
                 <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-5 rounded-xl border border-orange-100 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -437,19 +472,30 @@ const StudentDashboard = () => {
                     </div>
                     <div>
                       <span className="text-slate-400 font-medium uppercase tracking-wider text-[9px] block">Duration / Plan</span>
-                      <span className="font-bold text-slate-800">{formatPlanType(personalSession.planType)}</span>
+                      <span className="font-bold text-slate-800">
+                        {personalSession.planType ? formatPlanType(personalSession.planType) : 'Select in Store'}
+                      </span>
                     </div>
                     <div>
                       <span className="text-slate-400 font-medium uppercase tracking-wider text-[9px] block">Total Fee</span>
-                      <span className="font-extrabold text-indigo-700">₹{(personalSession.price || 0).toLocaleString('en-IN')}</span>
+                      <span className="font-extrabold text-indigo-700">
+                        {personalSession.price > 0 ? `₹${personalSession.price.toLocaleString('en-IN')}` : 'Varies by Plan'}
+                      </span>
                     </div>
                   </div>
 
                   <button
-                    onClick={() => handlePayPersonalSession(personalSession._id)}
+                    onClick={() => {
+                      if (personalSession.planType) {
+                        handlePayPersonalSession(personalSession._id);
+                      } else {
+                        navigate('/student/courses');
+                      }
+                    }}
                     className="w-full py-3 bg-[#f16126] hover:bg-[#002147] text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors shadow-md flex items-center justify-center gap-1.5"
                   >
-                    <CreditCard className="w-4 h-4" /> Pay Now to Activate
+                    <CreditCard className="w-4 h-4" /> 
+                    {personalSession.planType ? 'Pay Now to Activate' : 'Choose Plan & Pay'}
                   </button>
                 </div>
               ) : personalSession.status === 'active' ? (
@@ -546,40 +592,42 @@ const StudentDashboard = () => {
           )}
 
           {/* UPCOMING CLASSES PREVIEW */}
-          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-               <div className="flex items-center gap-2">
-                 <Clock className="w-4 h-4 text-[#f16126]" />
-                 <h3 className="text-sm font-bold text-slate-800">Upcoming Classes</h3>
-               </div>
-               <Link to="/student/live-schedule" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">View All</Link>
-            </div>
-            
-            <div className="space-y-3">
-              {liveAlerts.filter(s => s.status === 'upcoming').length === 0 ? (
-                <div className="py-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                  <p className="text-sm text-slate-500">No classes scheduled for today</p>
-                </div>
-              ) : (
-                liveAlerts.filter(s => s.status === 'upcoming').slice(0, 3).map((session, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-indigo-100 transition-colors">
-                    <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 bg-white rounded-md flex items-center justify-center font-bold text-[#002147] border border-slate-200">
-                          {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                       </div>
-                       <div>
-                          <p className="text-sm font-semibold text-slate-800">{session.title}</p>
-                          <p className="text-xs text-slate-500">{session.subjectName || 'General'}</p>
-                       </div>
-                    </div>
-                    <Link to="/student/live-schedule" className="p-2 bg-white rounded-md border border-slate-200 text-slate-400 hover:text-indigo-600 transition-colors">
-                       <ChevronRight className="w-4 h-4" />
-                    </Link>
+          {userInfo?.board !== '1-on-1' && (
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                 <div className="flex items-center gap-2">
+                   <Clock className="w-4 h-4 text-[#f16126]" />
+                   <h3 className="text-sm font-bold text-slate-800">Upcoming Classes</h3>
+                 </div>
+                 <Link to="/student/live-schedule" className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">View All</Link>
+              </div>
+              
+              <div className="space-y-3">
+                {liveAlerts.filter(s => s.status === 'upcoming').length === 0 ? (
+                  <div className="py-6 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                    <p className="text-sm text-slate-500">No classes scheduled for today</p>
                   </div>
-                ))
-              )}
+                ) : (
+                  liveAlerts.filter(s => s.status === 'upcoming').slice(0, 3).map((session, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-indigo-100 transition-colors">
+                      <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-white rounded-md flex items-center justify-center font-bold text-[#002147] border border-slate-200">
+                            {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         </div>
+                         <div>
+                            <p className="text-sm font-semibold text-slate-800">{session.title}</p>
+                            <p className="text-xs text-slate-500">{session.subjectName || 'General'}</p>
+                         </div>
+                      </div>
+                      <Link to="/student/live-schedule" className="p-2 bg-white rounded-md border border-slate-200 text-slate-400 hover:text-indigo-600 transition-colors">
+                         <ChevronRight className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN (4) */}
@@ -593,7 +641,7 @@ const StudentDashboard = () => {
                    { label: 'My Classes', path: '/student/classes', icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
                    { label: 'Notes & PDF', path: '/student/notes', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50' },
                    { label: 'Live Schedule', path: '/student/live-schedule', icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                   { label: 'Performance', path: '/student/performance', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' },
+                   ...(userInfo?.board !== '1-on-1' ? [{ label: 'Performance', path: '/student/performance', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' }] : []),
                  ].map((action, i) => (
                    <Link key={i} to={action.path} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group">
                       <div className="flex items-center gap-3">
@@ -609,24 +657,26 @@ const StudentDashboard = () => {
            </div>
 
            {/* FEATURED SUBJECTS */}
-           <div className="bg-[#002147] rounded-xl p-6 text-white relative overflow-hidden shadow-md">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[#f16126] rounded-full blur-[40px] opacity-20 -mr-8 -mt-8" />
-              <div className="relative z-10 space-y-4">
-                 <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#f16126]" />
-                    <span className="text-xs font-semibold text-indigo-100">Featured Subjects</span>
-                 </div>
-                 <div className="space-y-3">
-                    {learning.slice(0, 2).map((sub, i) => (
-                       <div key={i} className="p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
-                          <p className="text-[10px] text-indigo-300 mb-0.5">Active Now</p>
-                          <p className="text-sm font-semibold">{sub.name}</p>
-                       </div>
-                    ))}
-                    <Link to="/courses" className="block text-center py-2.5 bg-[#f16126] rounded-lg font-semibold text-sm hover:bg-white hover:text-[#002147] transition-colors mt-2">Explore Catalogue</Link>
+           {userInfo?.board !== '1-on-1' && (
+              <div className="bg-[#002147] rounded-xl p-6 text-white relative overflow-hidden shadow-md">
+                 <div className="absolute top-0 right-0 w-24 h-24 bg-[#f16126] rounded-full blur-[40px] opacity-20 -mr-8 -mt-8" />
+                 <div className="relative z-10 space-y-4">
+                    <div className="flex items-center gap-2">
+                       <Sparkles className="w-4 h-4 text-[#f16126]" />
+                       <span className="text-xs font-semibold text-indigo-100">Featured Subjects</span>
+                    </div>
+                    <div className="space-y-3">
+                       {learning.slice(0, 2).map((sub, i) => (
+                          <div key={i} className="p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
+                             <p className="text-[10px] text-indigo-300 mb-0.5">Active Now</p>
+                             <p className="text-sm font-semibold">{sub.name}</p>
+                          </div>
+                       ))}
+                       <Link to="/courses" className="block text-center py-2.5 bg-[#f16126] rounded-lg font-semibold text-sm hover:bg-white hover:text-[#002147] transition-colors mt-2">Explore Catalogue</Link>
+                    </div>
                  </div>
               </div>
-           </div>
+           )}
 
         </div>
       </div>
