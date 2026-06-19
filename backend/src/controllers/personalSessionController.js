@@ -91,7 +91,7 @@ exports.getAllPersonalSessions = async (req, res) => {
     if (status) filter.status = status;
 
     const sessions = await PersonalSession.find(filter)
-      .populate('studentId', 'name email mobileNumber')
+      .populate('studentId', 'name email mobileNumber activeSubscriptions')
       .populate('teacherId', 'name email')
       .sort({ createdAt: -1 });
 
@@ -155,12 +155,8 @@ exports.assignSession = async (req, res) => {
     }));
     session.adminNote = adminNote || '';
 
-    // Set status based on payment status
-    if (session.paymentStatus === 'paid') {
-      session.status = 'active';
-    } else {
-      session.status = 'assigned';
-    }
+    // Always set status to active upon assignment by admin
+    session.status = 'active';
 
     await session.save();
 

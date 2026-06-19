@@ -14,7 +14,7 @@ import {
   BarChart3
 } from 'lucide-react';
 
-import logoNavyBlue from '../../assets/logo navy-blue.png';
+import logoImg from '../../assets/output-onlinepngtools.png';
 
 const StudentSidebar = ({ onClose }) => {
   const dispatch = useDispatch();
@@ -43,9 +43,9 @@ const StudentSidebar = ({ onClose }) => {
         <div className="flex items-center justify-between w-full lg:justify-center mb-0">
           <Link to="/" className="group">
             <img 
-              src={logoNavyBlue} 
+              src={logoImg} 
               alt="Logo" 
-              className="h-32 md:h-40 w-auto object-contain transition-transform group-hover:scale-105" 
+              className="h-36 md:h-44 w-auto object-contain transition-transform group-hover:scale-105" 
             />
           </Link>
           {onClose && (

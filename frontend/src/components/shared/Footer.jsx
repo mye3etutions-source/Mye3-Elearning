@@ -99,7 +99,7 @@ const Footer = () => {
             <img
               src={footerLogo}
               alt="e-Tuitions Logo"
-              className="w-[120px] md:w-[240px] h-auto drop-shadow-md hover:scale-[1.03] transition-transform"
+              className="w-[150px] md:w-[280px] h-auto drop-shadow-md hover:scale-[1.03] transition-transform"
             />
           </Link>
           <p className="font-bold text-[10px] md:text-[14px] leading-relaxed text-indigo-100/70 max-w-md text-center md:text-left">
@@ -229,13 +229,13 @@ const Footer = () => {
                 <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center shrink-0 bg-white/10 text-white border border-white/5">
                   <HiOutlinePhone className="text-sm md:text-[15px]" />
                 </div>
-                <span className="text-[11px] md:text-[14px] font-bold text-indigo-100/70 leading-none whitespace-nowrap">+91 99126 71666</span>
+                <span className="text-[11px] md:text-[14px] font-bold text-indigo-100/70 leading-none whitespace-nowrap">+91 90631 47069, 90631 67069</span>
               </li>
               <li className="flex items-center gap-3">
                 <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center shrink-0 bg-white/10 text-white border border-white/5">
                   <HiOutlineMail className="text-sm md:text-[15px]" />
                 </div>
-                <span className="text-[11px] md:text-[14px] font-bold text-indigo-100/70 leading-none break-all">mye3etuitions@gmail.com</span>
+                <span className="text-[11px] md:text-[14px] font-bold text-indigo-100/70 leading-none break-all">admin@mye3etuitions.com</span>
               </li>
               <li className="flex items-center gap-3">
                 <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center shrink-0 bg-white/10 text-white border border-white/5">

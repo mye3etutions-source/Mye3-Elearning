@@ -276,12 +276,12 @@ const ConnectButton = () => {
                 style={{ maxHeight: '260px' }}
               />
               <div className="flex items-center gap-2 text-orange-500 text-[12px] font-bold mt-1">
-                <span>📞</span> +91 99126 71666
+                <span>📞</span> +91 90631 47069, 90631 67069
               </div>
             </div>
             {/* Phone number visible on mobile instead of illustration */}
             <div className="sm:hidden flex items-center justify-center gap-2 text-orange-500 text-[13px] font-bold py-4">
-              <span>📞</span> +91 99126 71666
+              <span>📞</span> +91 90631 47069, 90631 67069
             </div>
           </div>
         </div>
@@ -436,19 +436,19 @@ const Navbar = () => {
           
           {/* Left: contact info */}
           <div className="flex items-center gap-2 md:gap-6 text-[12px] font-medium text-slate-600">
-            <a href="tel:+919311656688" className="flex items-center gap-0 hover:text-orange-600 transition-colors">
+            <a href="tel:+919063147069" className="flex items-center gap-0 hover:text-orange-600 transition-colors">
               <img src="https://img.icons8.com/color/48/teacher.png" alt="headset" className="w-[30px] h-[30px] md:hidden object-contain mr-1" />
               <span className="hidden md:flex w-7 h-7 rounded-full bg-orange-100 items-center justify-center mr-2">
                 <HiOutlinePhone className="text-orange-600 text-[15px] md:text-sm" />
               </span>
-              <span className="hidden md:inline">Talk with us{' '}<span className="font-bold text-slate-900">+91 99126 71666</span></span>
+              <span className="hidden md:inline">Talk with us{' '}<span className="font-bold text-slate-900">+91 90631 47069, 90631 67069</span></span>
             </a>
-            <a href="mailto:mye3etuitions@gmail.com" className="flex items-center gap-0 hover:text-orange-600 transition-colors">
+            <a href="mailto:admin@mye3etuitions.com" className="flex items-center gap-0 hover:text-orange-600 transition-colors">
               <img src="https://img.icons8.com/color/48/gmail-new.png" alt="email" className="w-[28px] h-[28px] md:hidden object-contain mr-1" />
               <span className="hidden md:flex w-7 h-7 rounded-full bg-red-100 items-center justify-center mr-2">
                 <MdEmail className="text-red-500 text-[15px] md:text-sm" />
               </span>
-              <span className="hidden md:inline">Mail Us{' '}<span className="font-bold text-slate-900">mye3etuitions@gmail.com</span></span>
+              <span className="hidden md:inline">Mail Us{' '}<span className="font-bold text-slate-900">admin@mye3etuitions.com</span></span>
             </a>
           </div>
 
@@ -495,7 +495,7 @@ const Navbar = () => {
             <img
               src={logoImg}
               alt="e-Tuitions Logo"
-              className="h-[74px] md:h-20 w-auto object-contain scale-110 md:scale-[1.2] origin-left group-hover:scale-[1.15] md:group-hover:scale-[1.25] transition-transform"
+              className="h-[85px] md:h-24 w-auto object-contain scale-110 md:scale-[1.2] origin-left group-hover:scale-[1.15] md:group-hover:scale-[1.25] transition-transform"
             />
           </Link>
 
@@ -571,11 +571,11 @@ const Navbar = () => {
             <div className="px-4 py-3 space-y-1">
               {/* Contact info */}
               <div className="flex flex-col gap-1 py-3 px-2 bg-slate-50 rounded-lg mb-3">
-                <a href="tel:+919912671666" className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
-                  <HiOutlinePhone className="text-orange-500" /> +91 99126 71666
+                <a href="tel:+919063147069" className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
+                  <HiOutlinePhone className="text-orange-500" /> +91 90631 47069, 90631 67069
                 </a>
-                <a href="mailto:mye3etuitions@gmail.com" className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
-                  <HiOutlineMail className="text-orange-500" /> mye3etuitions@gmail.com
+                <a href="mailto:admin@mye3etuitions.com" className="text-[12px] font-medium text-slate-600 flex items-center gap-2">
+                  <HiOutlineMail className="text-orange-500" /> admin@mye3etuitions.com
                 </a>
               </div>
 

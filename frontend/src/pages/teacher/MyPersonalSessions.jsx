@@ -6,7 +6,6 @@ import {
   Clock, 
   Calendar, 
   CheckCircle2, 
-  DollarSign, 
   User, 
   ExternalLink, 
   TrendingUp, 
@@ -49,11 +48,10 @@ const MyPersonalSessions = () => {
   };
 
   // Calculations
-  const activeSessions = sessions.filter(s => s.status === 'active');
+  const activeSessions = sessions.filter(s => s.status === 'active' || s.status === 'assigned');
   const completedSessions = sessions.filter(s => s.status === 'completed');
   
-  // Total 1-on-1 earnings (completed sessions price sum)
-  const totalEarnings = completedSessions.reduce((sum, s) => sum + (s.price || 0), 0);
+  // Total 1-on-1 earnings removed for teachers
 
   // Extract all upcoming slots across all active sessions
   const getUpcomingSlots = () => {
@@ -101,7 +99,7 @@ const MyPersonalSessions = () => {
         <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
           <Video className="w-7 h-7 text-indigo-600" /> My Personal Sessions
         </h1>
-        <p className="text-slate-500 text-sm font-medium mt-1">Manage assigned 1-on-1 classes, access virtual meets, and track completed session earnings</p>
+        <p className="text-slate-500 text-sm font-medium mt-1">Manage assigned 1-on-1 classes, access virtual meets, and track completed sessions</p>
       </div>
 
       {/* Summary Stat Cards */}
@@ -126,15 +124,7 @@ const MyPersonalSessions = () => {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center">
-            <DollarSign className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">1-on-1 Earnings</span>
-            <span className="text-xl font-black text-slate-900">₹{totalEarnings.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
+        {/* Earnings Card Removed */}
       </div>
 
       {/* Tabs */}
@@ -242,16 +232,13 @@ const MyPersonalSessions = () => {
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider font-bold text-slate-500">
                   <th className="p-4">Student</th>
                   <th className="p-4">Subject</th>
-                  <th className="p-4">Duration Plan</th>
                   <th className="p-4">Completed Date</th>
-                  <th className="p-4">Payout Status</th>
-                  <th className="p-4 text-right">My Earnings</th>
                 </tr>
               </thead>
               <tbody className="text-[13px] divide-y divide-slate-100">
                 {completedSessions.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center text-slate-400 font-medium">No completed 1-on-1 programs yet.</td>
+                    <td colSpan="3" className="p-8 text-center text-slate-400 font-medium">No completed 1-on-1 programs yet.</td>
                   </tr>
                 ) : (
                   completedSessions.map((session) => (
@@ -263,25 +250,12 @@ const MyPersonalSessions = () => {
                       <td className="p-4 font-bold text-slate-700">
                         {session.subjectName}
                       </td>
-                      <td className="p-4 text-slate-600">
-                        {formatPlanType(session.planType)} Plan
-                      </td>
                       <td className="p-4 text-slate-500">
                         {new Date(session.updatedAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric'
                         })}
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                          session.payoutStatus === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {session.payoutStatus === 'paid' ? 'Settled' : 'Unpaid'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right font-black text-slate-800">
-                        ₹{(session.price || 0).toLocaleString('en-IN')}
                       </td>
                     </tr>
                   ))

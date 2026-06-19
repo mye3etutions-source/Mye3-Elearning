@@ -225,7 +225,9 @@ const LiveMonitor = () => {
             }
             
             console.log('LiveMonitor: Final matches:', { sessionsCount: sessions.length, classesCount: combined.length });
-            setAllClasses(combined);
+            // Filter out 1-on-1 classes as requested by user
+            const filteredClasses = combined.filter(c => !String(c).toLowerCase().includes('1-on-1'));
+            setAllClasses(filteredClasses);
         } catch (err) {
             console.error('LiveMonitor: fetchData fatal error:', err);
             alert('Data Fetch Failed! Check Backend Console.');

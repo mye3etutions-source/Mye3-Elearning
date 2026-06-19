@@ -12,7 +12,7 @@ import {
   Plus, 
   Search, 
   Filter, 
-  DollarSign, 
+  Edit2,
   AlertCircle, 
   BookOpen, 
   Video,
@@ -112,7 +112,7 @@ const AdminPersonalSessions = () => {
       case 'pending':
         return <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold uppercase tracking-wider">Pending</span>;
       case 'assigned':
-        return <span className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full text-xs font-bold uppercase tracking-wider">Awaiting Pay</span>;
+        return <span className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full text-xs font-bold uppercase tracking-wider">Assigned</span>;
       case 'active':
         return <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold uppercase tracking-wider">Active</span>;
       case 'completed':
@@ -190,7 +190,7 @@ const AdminPersonalSessions = () => {
               className="pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-sm appearance-none cursor-pointer"
             >
               <option value="">All Statuses</option>
-              <option value="assigned">Awaiting Payment</option>
+              <option value="assigned">Assigned</option>
               <option value="active">Active</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
@@ -291,11 +291,11 @@ const AdminPersonalSessions = () => {
                   <th className="p-4 w-8"></th>
                   <th className="p-4">Student</th>
                   <th className="p-4">Teacher</th>
-                  <th className="p-4">Subject &amp; Plan</th>
+                  <th className="p-4">Subject</th>
                   <th className="p-4">Slots</th>
-                  <th className="p-4">Price</th>
+                  <th className="p-4">Plan Expiry</th>
                   <th className="p-4">Status</th>
-                  <th className="p-4">Payment</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="text-[13px] divide-y divide-slate-100">
@@ -326,22 +326,41 @@ const AdminPersonalSessions = () => {
                             <div className="text-[11px] text-slate-400">{session.teacherId?.email}</div>
                           </td>
                           <td className="p-4">
-                            <div className="font-bold text-indigo-700">{session.subjectName}</div>
-                            <div className="text-[11px] text-slate-500">
-                              {session.planType ? formatPlanType(session.planType) + ' Plan' : 'Not Selected'}
-                            </div>
+                            <div className="font-bold text-indigo-700">{session.subjectName || '—'}</div>
                           </td>
                           <td className="p-4 whitespace-nowrap font-medium text-slate-700">
                             {session.scheduledSlots?.length || 0} Slots
                           </td>
-                          <td className="p-4 font-bold text-slate-800">
-                            {session.price > 0 ? `₹${session.price.toLocaleString('en-IN')}` : '—'}
+                          <td className="p-4 text-slate-600 text-xs font-semibold">
+                            {(() => {
+                              const activeSub = session.studentId?.activeSubscriptions?.find(sub => sub.board === '1-on-1' || sub.name?.includes('1-on-1'));
+                              if (activeSub && activeSub.expiryDate) {
+                                return new Date(activeSub.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              }
+                              if (!session.planType) return '—';
+                              const dt = new Date(session.createdAt);
+                              if (session.planType === 'oneMonth') dt.setMonth(dt.getMonth() + 1);
+                              else if (session.planType === 'threeMonths') dt.setMonth(dt.getMonth() + 3);
+                              else if (session.planType === 'sixMonths') dt.setMonth(dt.getMonth() + 6);
+                              else if (session.planType === 'twelveMonths') dt.setMonth(dt.getMonth() + 12);
+                              return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            })()}
                           </td>
                           <td className="p-4">
                             {getStatusBadge(session.status)}
                           </td>
-                          <td className="p-4">
-                            {getPaymentBadge(session.paymentStatus)}
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => {
+                                setSelectedStudent(session.studentId);
+                                setSelectedSession(session);
+                                setIsModalOpen(true);
+                              }}
+                              className="p-1.5 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                              title="Edit Session"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
                           </td>
                         </tr>
 

@@ -160,7 +160,7 @@ const PaymentHistory = () => {
                await axios.post('/inquiries', {
                  name: userInfo?.name,
                  email: userInfo?.email,
-                 mobile: userInfo?.mobile || '9912671666',
+                 mobile: userInfo?.mobile || '9063147069',
                  message: 'PAYMENT ISSUE: Student is requesting support regarding course access/payment.',
                  source: 'Payment Support',
                  role: 'Student'
@@ -170,7 +170,7 @@ const PaymentHistory = () => {
                console.error("Failed to record inquiry");
              }
 
-             window.open(`https://wa.me/919912671666?text=${encodeURIComponent(msg)}`, '_blank');
+             window.open(`https://wa.me/919063147069?text=${encodeURIComponent(msg)}`, '_blank');
            }}
            className="w-full md:w-auto px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
          >

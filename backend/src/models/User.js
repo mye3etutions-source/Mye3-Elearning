@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
       classLevel: { type: String, required: true },
       subjectName: { type: String, required: true },
       subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
-      board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board'] },
+      board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-on-1'] },
       pricePerClass: { type: Number, default: 0 }
     }
   ],

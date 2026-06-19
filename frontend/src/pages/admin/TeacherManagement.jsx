@@ -220,6 +220,15 @@ const TeacherManagement = () => {
                   });
                }
             });
+         } else {
+            // Allow assigning the bundle itself if it has no subjects (e.g. 1-on-1 generic grade)
+            acc[board][level].push({
+               assignmentType: 'bundle',
+               classLevel: level,
+               subjectName: curr.displayName || level,
+               subjectId: curr._id,
+               board
+            });
          }
       } else {
          if (curr.displayName) {

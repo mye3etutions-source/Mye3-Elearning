@@ -50,7 +50,7 @@ const AdminSidebar = ({ onClose, isCollapsed, onToggle }) => {
           <img 
             src={logoImg} 
             alt="Logo" 
-            className={`w-auto object-contain transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-20'}`} 
+            className={`w-auto object-contain transition-all duration-300 ${isCollapsed ? 'h-8' : 'h-24'}`} 
           />
           {!isCollapsed && (
             <div className="bg-[#002147] px-3 py-1 rounded-full shadow-sm mb-2">

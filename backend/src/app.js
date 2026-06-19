@@ -56,6 +56,7 @@ const studentRoutes = require('./routes/studentRoutes');
 const payrollRoutes         = require('./routes/payrollRoutes');
 const inquiryRoutes         = require('./routes/inquiryRoutes');
 const personalSessionRoutes = require('./routes/personalSessionRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -73,6 +74,7 @@ app.use('/api/student', studentRoutes);
 app.use('/api/admin/payroll', payrollRoutes);
 app.use('/api/inquiries', inquiryRoutes);
 app.use('/api', personalSessionRoutes);
+app.use('/api/public', publicRoutes);
 app.use((err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   res.status(statusCode).json({

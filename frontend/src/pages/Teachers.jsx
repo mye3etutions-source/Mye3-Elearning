@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import axios from 'axios';
 import { 
   FiSearch, 
   FiCheckCircle, 
@@ -13,41 +14,22 @@ import {
   FiTwitter
 } from 'react-icons/fi';
 import { GraduationCap, Users, BookOpen, Clock } from 'lucide-react';
-import teacherMaths from '../assets/teacher-maths.png';
-import teacherPhysics from '../assets/teacher-physics.png';
-import teacherChemistry from '../assets/teacher-chemistry.png';
 
 const Teachers = () => {
   const { userInfo } = useSelector((state) => state.auth);
-  const teachers = [
-    {
-      name: "Dr. Rajesh Kumar",
-      subject: "Mathematics Expert",
-      qualification: "M.Sc, PhD (IIT Madras)",
-      experience: "15+ Years Experience",
-      image: teacherMaths,
-      specialization: "Calculus & Algebra",
-      bio: "Passionate about making complex mathematical concepts simple and intuitive for competitive exams."
-    },
-    {
-      name: "Mrs. Anjali Sharma",
-      subject: "Physics Specialist",
-      qualification: "B.Tech, M.Tech (NIT Warangal)",
-      experience: "10+ Years Experience",
-      image: teacherPhysics,
-      specialization: "Mechanics & Optics",
-      bio: "Expert in visual learning techniques for Physics, helping students ace JEE and NEET with ease."
-    },
-    {
-      name: "Mr. Vikram Singh",
-      subject: "Chemistry Guru",
-      qualification: "M.Sc Chemistry, B.Ed",
-      experience: "12+ Years Experience",
-      image: teacherChemistry,
-      specialization: "Organic & Physical Chemistry",
-      bio: "Dedicated to simplifying chemical equations and reactions through real-world applications."
-    }
-  ];
+  const [teachers, setTeachers] = useState([]);
+
+  useEffect(() => {
+    const fetchTeachers = async () => {
+      try {
+        const { data } = await axios.get('/public/teachers');
+        setTeachers(data);
+      } catch (error) {
+        console.error('Error fetching teachers:', error);
+      }
+    };
+    fetchTeachers();
+  }, []);
 
   return (
     <div className="bg-white min-h-screen font-sans selection:bg-orange-100 selection:text-orange-900">
@@ -143,35 +125,24 @@ const Teachers = () => {
                 className="group relative bg-white rounded-[16px] md:rounded-[24px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col p-2 md:p-4"
               >
                 {/* Image Section - Compact */}
-                <div className="relative h-36 md:h-44 rounded-[12px] md:rounded-[18px] overflow-hidden mb-3 md:mb-6 shadow-inner bg-slate-50">
-                  <img 
-                    src={t.image} 
-                    alt={t.name}
-                    className="w-full h-full object-cover object-top md:grayscale group-hover:grayscale-0 transition-all duration-700 md:group-hover:scale-105"
-                  />
-                  <div className="absolute top-1.5 left-1.5 px-2 py-0.5 bg-[#002147]/90 text-white text-[7px] md:text-[8px] font-black uppercase tracking-wider rounded border border-white/10 backdrop-blur-sm">
-                     {t.subject}
-                  </div>
-                </div>
-
                 {/* Content - Super Compact */}
                 <div className="px-1 space-y-1.5 flex-1">
                    <div>
-                     <p className="text-[7px] md:text-[9px] font-black text-[#f16126] uppercase tracking-wider mb-0">{t.qualification}</p>
+                     <p className="text-[7px] md:text-[9px] font-black text-[#f16126] uppercase tracking-wider mb-0">{t.board || 'All Boards'}</p>
                      <h3 className="text-sm md:text-lg font-black text-[#002147] uppercase italic tracking-tight group-hover:text-[#f16126] transition-colors leading-tight">{t.name}</h3>
                    </div>
                    
                    <div className="flex flex-col gap-1 pt-1.5 border-t border-slate-50">
                       <div className="flex items-center gap-1.5 text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                         <FiCheckCircle className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-emerald-500 shrink-0" /> {t.experience}
+                         <FiCheckCircle className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-emerald-500 shrink-0" /> {t.className || 'All Classes'}
                       </div>
                       <div className="flex items-center gap-1.5 text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                         <FiAward className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-orange-500 shrink-0" /> {t.specialization}
+                         <FiAward className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 text-orange-500 shrink-0" /> {t.assignedSubjects?.length ? t.assignedSubjects.map(s => s.subjectName).join(', ') : 'Various Subjects'}
                       </div>
                    </div>
 
                    <p className="text-slate-400 font-bold italic text-[9px] md:text-[11px] leading-relaxed pt-0.5 line-clamp-2">
-                     "{t.bio}"
+                     "{t.bio || 'Dedicated to simplifying concepts through real-world applications.'}"
                    </p>
                 </div>
 

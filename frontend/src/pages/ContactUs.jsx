@@ -75,7 +75,7 @@ const ContactUs = () => {
                 </div>
                 <div>
                   <h4 className="text-[8px] md:text-[13px] font-black text-[#002147] uppercase tracking-widest mb-0 md:mb-1">Phone</h4>
-                  <p className="text-[11px] md:text-[15px] font-black text-slate-500">+91 99126 71666</p>
+                  <p className="text-[11px] md:text-[15px] font-black text-slate-500">+91 90631 47069, 90631 67069</p>
                 </div>
               </li>
 
@@ -85,7 +85,7 @@ const ContactUs = () => {
                 </div>
                 <div>
                   <h4 className="text-[8px] md:text-[13px] font-black text-[#002147] uppercase tracking-widest mb-0 md:mb-1">Email</h4>
-                  <p className="text-[11px] md:text-[15px] font-black text-slate-500 text-xs md:text-base">mye3etuitions@gmail.com</p>
+                  <p className="text-[11px] md:text-[15px] font-black text-slate-500 text-xs md:text-base">admin@mye3etuitions.com</p>
                 </div>
               </li>
 

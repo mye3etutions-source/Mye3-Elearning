@@ -48,7 +48,7 @@ const TeacherSidebar = ({ onClose, isCollapsed, onToggle }) => {
       <div className={`relative pt-6 pb-4 flex flex-col items-center justify-center gap-4 ${isCollapsed ? 'px-2' : ''}`}>
         <Link to="/" className="flex flex-col items-center gap-3 group">
           <motion.img 
-            animate={{ height: isCollapsed ? 32 : 80 }}
+            animate={{ height: isCollapsed ? 32 : 96 }}
             src={logoImg} 
             alt="Logo" 
             className="w-auto object-contain transition-transform group-hover:scale-105" 

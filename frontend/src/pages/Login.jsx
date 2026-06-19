@@ -47,7 +47,7 @@ const Login = () => {
                 <img 
                   src={logoImg} 
                   alt="e-Tuitions Logo" 
-                  className="h-20 md:h-24 object-contain"
+                  className="h-24 md:h-32 object-contain"
                 />
               </Link>
             </header>
