@@ -36,7 +36,7 @@ const AdminSidebar = ({ onClose, isCollapsed, onToggle }) => {
     { icon: Banknote, label: 'Teacher Payroll', path: '/admin/payouts' },
     { icon: Users, label: 'Students', path: '/admin/students' },
     { icon: Activity,        label: 'Live & Schedule Class', path: '/admin/live-monitor' },
-    { icon: GraduationCap,  label: '1-on-1 Training',        path: '/admin/personal-sessions' },
+    { icon: GraduationCap,  label: '1-on-1 Classes',        path: '/admin/personal-sessions' },
     { icon: CreditCard,     label: 'Fee Payments',            path: '/admin/transactions' },
     { icon: FileText, label: 'Study Notes', path: '/admin/notes' },
     { icon: User, label: 'Profile', path: '/admin/settings' },

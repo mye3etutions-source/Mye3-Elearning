@@ -138,7 +138,7 @@ const AdminPersonalSessions = () => {
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-            <Video className="w-7 h-7 text-indigo-600" /> 1-on-1 Personal Training
+            <Video className="w-7 h-7 text-indigo-600" /> 1-on-1 Classes
           </h1>
           <p className="text-slate-500 text-sm font-medium mt-1">Manage private class assignments, scheduling, pricing, and conflict checks</p>
         </div>

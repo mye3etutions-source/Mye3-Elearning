@@ -97,7 +97,7 @@ const MyPersonalSessions = () => {
       {/* Title Header */}
       <div className="mb-8 border-b border-slate-100 pb-4">
         <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-          <Video className="w-7 h-7 text-indigo-600" /> My Personal Sessions
+          <Video className="w-7 h-7 text-indigo-600" /> My 1-on-1 Classes
         </h1>
         <p className="text-slate-500 text-sm font-medium mt-1">Manage assigned 1-on-1 classes, access virtual meets, and track completed sessions</p>
       </div>
