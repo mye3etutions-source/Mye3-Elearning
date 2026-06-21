@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const subscriptionSchema = new mongoose.Schema({
   type: { type: String, enum: ['bundle', 'subject'], required: true },
@@ -39,7 +40,9 @@ const userSchema = new mongoose.Schema({
     }
   ],
   currentDeviceToken: { type: String, default: null }, // for single device login
-  oneOnOneRate: { type: Number, default: 0 }            // Teacher's 1-on-1 personal session rate
+  oneOnOneRate: { type: Number, default: 0 },            // Teacher's 1-on-1 personal session rate
+  resetPasswordToken: String,
+  resetPasswordExpire: Date
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {
@@ -53,6 +56,23 @@ userSchema.pre('save', async function () {
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Generate and hash password token
+userSchema.methods.getResetPasswordToken = function () {
+  // Generate token
+  const resetToken = crypto.randomBytes(20).toString('hex');
+
+  // Hash token and set to resetPasswordToken field
+  this.resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Set expire time to 10 minutes
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
 };
 
 module.exports = mongoose.model('User', userSchema);

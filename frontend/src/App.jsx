@@ -7,6 +7,8 @@ import Navbar from './components/shared/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import StudentDashboard from './pages/student/StudentDashboard';
 import StudentStore from './pages/student/StudentStore';
 import { Toaster } from 'react-hot-toast';
@@ -73,7 +75,7 @@ function AppContent() {
   React.useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password' || location.pathname.startsWith('/reset-password/');
   const isDashboardRoute =
     location.pathname.startsWith('/admin/') ||
     location.pathname.startsWith('/teacher/') ||
@@ -91,6 +93,8 @@ function AppContent() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
           <Route path="/courses" element={<Store />} />
           <Route path="/courses/board/:boardName" element={<Store />} />
 

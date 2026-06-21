@@ -193,4 +193,89 @@ const updateUserProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { authUser, registerUser, logoutUser, getUserProfile, updateUserProfile };
+const forgotPassword = async (req, res, next) => {
+  try {
+    const email = req.body.email;
+    if (!email) {
+      return res.status(400).json({ message: 'Please provide an email' });
+    }
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: 'There is no user with that email' });
+    }
+
+    const resetToken = user.getResetPasswordToken();
+    await user.save();
+
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+
+    const message = `
+      <div style="font-family: sans-serif; max-w: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <h2 style="color: #002147;">Password Reset Request</h2>
+        <p>You requested a password reset. Please click the button below to reset your password.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" style="background-color: #002147; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+        </div>
+        <p>Or copy and paste this link in your browser:</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p>This link will expire in 10 minutes.</p>
+        <br/>
+        <p>If you did not request a password reset, please ignore this email.</p>
+        <p>Best Regards,</p>
+        <p><strong>Mye3 e-Tuitions Team</strong></p>
+      </div>
+    `;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Password Reset Request',
+        html: message,
+      });
+
+      res.status(200).json({ success: true, message: 'Email sent successfully' });
+    } catch (err) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+      return res.status(500).json({ message: 'Email could not be sent' });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(req.params.resettoken)
+      .digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    if (!req.body.password) {
+      return res.status(400).json({ message: 'Please provide a new password' });
+    }
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    user.currentDeviceToken = null;
+
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { authUser, registerUser, logoutUser, getUserProfile, updateUserProfile, forgotPassword, resetPassword };
