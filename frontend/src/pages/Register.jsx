@@ -28,7 +28,9 @@ const Register = () => {
         const { data } = await axios.get('/student/catalog');
         // Extract unique classNames from the returned items and sort them
         const classNames = data.map(item => item.className);
-        const uniqueClasses = [...new Set(classNames)].filter(Boolean).sort((a, b) => {
+        const uniqueClasses = [...new Set(classNames)].filter(Boolean)
+          .filter(name => name.toLowerCase() !== '1-on-1' && !name.toLowerCase().includes('1 on 1'))
+          .sort((a, b) => {
           const numA = parseInt(a.replace(/\D/g, '')) || 0;
           const numB = parseInt(b.replace(/\D/g, '')) || 0;
           return numA - numB;

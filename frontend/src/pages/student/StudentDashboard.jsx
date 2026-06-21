@@ -45,7 +45,7 @@ const StudentDashboard = () => {
   const [personalLoading, setPersonalLoading] = useState(true);
 
   // Auto-detect if user is an Intermediate student
-  const userClassNum = userInfo?.className?.replace(/\D/g, '') || '';
+  const userClassNum = userInfo?.className?.toLowerCase().includes('1-on-1') ? '' : userInfo?.className?.replace(/\D/g, '') || '';
   const isInter = userClassNum === '11' || userClassNum === '12';
 
   // State for Intermediate filtering

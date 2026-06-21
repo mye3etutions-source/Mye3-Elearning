@@ -73,8 +73,8 @@ const CourseCard = ({ c, selectedItems, setSelectedItems, userInfo, setPendingSu
     }
   };
 
-  const userClass = userInfo?.className?.replace(/\D/g, '') || '';
-  const courseClass = String(c.classLevel || c.className || '').replace(/\D/g, '') || '';
+  const userClass = userInfo?.className?.toLowerCase().includes('1-on-1') ? '' : userInfo?.className?.replace(/\D/g, '') || '';
+  const courseClass = String(c.classLevel || c.className || '').toLowerCase().includes('1-on-1') ? '' : String(c.classLevel || c.className || '').replace(/\D/g, '') || '';
   const userBoard = userInfo?.board?.toUpperCase().trim() || '';
   const courseBoard = c.board?.toUpperCase().trim() || '';
 
@@ -299,7 +299,7 @@ const StudentStore = () => {
 
   useEffect(() => {
     if (userInfo?.role?.toLowerCase() === 'student' && userInfo.className) {
-      const userClassNum = userInfo.className.replace(/\D/g, '');
+      const userClassNum = userInfo.className.toLowerCase().includes('1-on-1') ? '' : userInfo.className.replace(/\D/g, '');
       const level = parseInt(userClassNum);
       if (level === 11 || level === 12) setActiveInterYear(level);
       setSelectedMobileClass(userClassNum || '6');
@@ -438,8 +438,8 @@ const StudentStore = () => {
   const isStudentFiltered = userInfo?.role?.toLowerCase() === 'student' && (userInfo?.className || userInfo?.board);
 
   const finalFiltered = (isStudentFiltered ? filteredCourses.filter(c => {
-    const courseClass = String(c.classLevel || c.className || '').replace(/\D/g, '') || '';
-    const userClass = userInfo?.className?.replace(/\D/g, '') || '';
+    const courseClass = String(c.classLevel || c.className || '').toLowerCase().includes('1-on-1') ? '' : String(c.classLevel || c.className || '').replace(/\D/g, '') || '';
+    const userClass = userInfo?.className?.toLowerCase().includes('1-on-1') ? '' : userInfo?.className?.replace(/\D/g, '') || '';
     const courseBoard = c.board?.toUpperCase().trim() || '';
     const userBoard = userInfo?.board?.toUpperCase().trim() || '';
     return userClass === courseClass && (!courseBoard || !userBoard || courseBoard === userBoard);
