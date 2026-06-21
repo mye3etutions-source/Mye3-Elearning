@@ -8,7 +8,7 @@ const paymentSchema = new mongoose.Schema({
   razorpayPaymentId: { type: String },
   razorpaySignature: { type: String },
   subscriptionDetails: {
-    type: { type: String, enum: ['bundle', 'subject'], required: true },
+    type: { type: String, enum: ['bundle', 'subject', '1-on-1'], required: true },
     referenceIds: [{ type: mongoose.Schema.Types.ObjectId }],
     selectedDuration: { type: String, default: 'oneMonth' },
     names: [String] // Store names to fulfill subscriptionSchema requirements
