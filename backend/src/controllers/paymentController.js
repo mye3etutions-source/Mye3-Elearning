@@ -17,7 +17,8 @@ exports.getPaymentConfig = async (req, res, next) => {
   try {
     const keyId = process.env.RAZORPAY_KEY_ID;
     const isMock = !keyId || keyId === 'testmode' || keyId.includes('YOUR_');
-    const enableReal = String(process.env.ENABLE_REAL_PAYMENT || '').toLowerCase().trim() === 'true';
+    const envValue = String(process.env.ENABLE_REAL_PAYMENT || '').toLowerCase().trim();
+    const enableReal = envValue === 'true' || envValue === 'ture';
     
     console.log('--- Payment Config Debug ---');
     console.log('RAZORPAY_KEY_ID:', keyId ? 'FOUND' : 'MISSING');
