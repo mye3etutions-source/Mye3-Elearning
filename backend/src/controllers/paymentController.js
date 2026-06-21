@@ -96,34 +96,39 @@ exports.verifyPayment = async (req, res, next) => {
         const user = await User.findById(req.user._id);
         const { type, referenceIds, selectedDuration } = paymentRecord.subscriptionDetails;
         
-        const now = new Date();
-        const durationMap = { oneMonth: 30, threeMonths: 90, sixMonths: 180, twelveMonths: 365 };
-        const days = durationMap[selectedDuration] || 30;
-        const expiryDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        if (type !== '1-on-1') {
+          const now = new Date();
+          const durationMap = { oneMonth: 30, threeMonths: 90, sixMonths: 180, twelveMonths: 365 };
+          const days = durationMap[selectedDuration] || 30;
+          const expiryDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
-        referenceIds.forEach((id, index) => {
-          user.activeSubscriptions.push({
-            type,
-            referenceId: id,
-            name: paymentRecord.subscriptionDetails.names[index] || 'Class Subscription',
-            subscriptionType: selectedDuration,
-            expiryDate,
-            purchaseDate: now
+          referenceIds.forEach((id, index) => {
+            user.activeSubscriptions.push({
+              type,
+              referenceId: id,
+              name: paymentRecord.subscriptionDetails.names[index] || 'Class Subscription',
+              subscriptionType: selectedDuration,
+              expiryDate,
+              purchaseDate: now
+            });
           });
-        });
 
-        await user.save();
+          await user.save();
+        }
 
-        // Create Transaction History Record
-        await Transaction.create({
-          studentId: req.user._id,
-          amount: paymentRecord.amount,
-          status: 'success',
-          packageName: type === 'bundle' ? 'Class Bundle Subscription' : 'Individual Subject Access',
-          referenceId: referenceIds[0],
-          type: type,
-          date: now
-        });
+        if (type !== '1-on-1') {
+          // Create Transaction History Record
+          const now = new Date();
+          await Transaction.create({
+            studentId: req.user._id,
+            amount: paymentRecord.amount,
+            status: 'success',
+            packageName: type === 'bundle' ? 'Class Bundle Subscription' : 'Individual Subject Access',
+            referenceId: referenceIds[0],
+            type: type,
+            date: now
+          });
+        }
 
         return res.status(200).json({ status: 'ok', user });
       }

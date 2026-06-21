@@ -281,15 +281,98 @@ const StudentStore = () => {
     }
     setBuyingPlan(planId);
     try {
-      const res = await axios.post(`/student/personal-sessions/${personalSession._id}/pay`, { planType: planId });
-      toast.success(res.data?.message || 'Payment initiated!');
-      const sessionRes = await axios.get('/student/personal-sessions');
-      const sessions = sessionRes.data || [];
-      const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
-      setPersonalSession(active);
+      const configRes = await axios.get('/payment/config');
+      const { enableRealPayment, keyId } = configRes.data;
+
+      const planPrices = {
+        oneMonth: personalPricing?.oneMonth || 4500,
+        threeMonths: personalPricing?.threeMonths || 12000,
+        sixMonths: personalPricing?.sixMonths || 22000,
+        twelveMonths: personalPricing?.twelveMonths || 40000
+      };
+      const amount = personalSession.planType === planId ? personalSession.price : planPrices[planId];
+
+      if (enableRealPayment && keyId) {
+        const loadRazorpayScript = () => {
+          return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+          });
+        };
+        
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          toast.error('Failed to load payment gateway. Check your connection.');
+          setBuyingPlan(null);
+          return;
+        }
+
+        const orderRes = await axios.post('/payments/orders', {
+          amount: amount,
+          type: '1-on-1',
+          referenceIds: [personalSession._id],
+          selectedDuration: planId,
+          names: ['1-on-1 Personal Class']
+        });
+
+        const order = orderRes.data;
+
+        const options = {
+          key: keyId,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'Mye3 Academy',
+          description: '1-on-1 Personal Class',
+          order_id: order.id,
+          handler: async function (response) {
+            try {
+              toast.success('Payment Received! Verifying Access...');
+              const verifyRes = await axios.post('/payments/verify', {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              });
+
+              if (verifyRes.data.status === 'ok') {
+                const res = await axios.post(`/student/personal-sessions/${personalSession._id}/pay`, { planType: planId });
+                toast.success('Tuition Activated Successfully!');
+                const sessionRes = await axios.get('/student/personal-sessions');
+                const sessions = sessionRes.data || [];
+                const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
+                setPersonalSession(active);
+              }
+            } catch (err) {
+              toast.error('Verification failed.');
+            } finally {
+              setBuyingPlan(null);
+            }
+          },
+          prefill: { name: userInfo?.name || '', email: userInfo?.email || '' },
+          theme: { color: '#002147' },
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+        rzp.on('payment.failed', (err) => {
+          toast.error('Payment failed: ' + err.error.description);
+          setBuyingPlan(null);
+        });
+      } else {
+        toast.success(`Processing Mock Payment...`);
+        const res = await axios.post(`/student/personal-sessions/${personalSession._id}/pay`, { planType: planId });
+        setTimeout(async () => {
+          toast.success(res.data?.message || 'Payment successful!');
+          const sessionRes = await axios.get('/student/personal-sessions');
+          const sessions = sessionRes.data || [];
+          const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
+          setPersonalSession(active);
+          setBuyingPlan(null);
+        }, 1500);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Payment failed');
-    } finally {
       setBuyingPlan(null);
     }
   };
