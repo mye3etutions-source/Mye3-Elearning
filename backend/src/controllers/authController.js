@@ -207,7 +207,8 @@ const forgotPassword = async (req, res, next) => {
     const resetToken = user.getResetPasswordToken();
     await user.save();
 
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    const clientUrl = req.headers.origin || process.env.CLIENT_URL || 'https://mye3etuitions.com';
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     const message = `
       <div style="font-family: sans-serif; max-w: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
