@@ -469,8 +469,7 @@ const Navbar = () => {
               to={userInfo ? (userInfo?.role?.toLowerCase() === 'teacher' ? '/teacher/dashboard' : '/student/dashboard') : '/register'} 
               className="hover:text-orange-600 transition-colors flex flex-col items-center md:flex-row leading-[1.2] md:leading-normal mr-2"
             >
-              <span className="whitespace-nowrap">Book a Free Demo</span>
-              <span className="md:ml-1">class</span>
+              <span className="whitespace-nowrap">Enroll Now</span>
             </Link>
             <span className="text-slate-300 md:font-normal font-light">|</span>
             {userInfo ? (
@@ -638,7 +637,7 @@ const Navbar = () => {
                   onClick={() => setMobileOpen(false)}
                   className="block w-full text-center py-3 text-orange-600 font-bold text-[13px] rounded-lg border-2 border-orange-200 hover:bg-orange-50"
                 >
-                  Book Free Demo
+                  Enroll Now
                 </Link>
                 {userInfo ? (
                   <button
