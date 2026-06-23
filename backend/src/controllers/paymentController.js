@@ -322,7 +322,6 @@ exports.razorpayWebhook = async (req, res, next) => {
             date: now
           });
         }
-        }
 
         const courseName = names && names.length > 0 ? names.join(', ') : (type === '1-on-1' ? '1-on-1 Personal Tuition' : 'Course Subscription');
 
