@@ -35,6 +35,100 @@ const PaymentHistory = () => {
     fetchTransactions();
   }, []);
 
+  const handleDownloadReceipt = (tx) => {
+    const date = new Date(tx.date || tx.createdAt).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
+    
+    const receiptHtml = `
+      <html>
+        <head>
+          <title>Receipt - #${tx._id.slice(-8).toUpperCase()}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; max-width: 800px; margin: 0 auto; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #002147; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo { font-size: 24px; font-weight: bold; color: #002147; }
+            .receipt-title { font-size: 28px; color: #666; text-transform: uppercase; letter-spacing: 2px; }
+            .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+            .detail-box { background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+            .label { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 600; margin-bottom: 5px; }
+            .value { font-size: 16px; font-weight: 600; color: #0f172a; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+            th, td { padding: 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+            th { background: #f8fafc; font-weight: 600; color: #475569; }
+            .total-row { font-size: 18px; font-weight: bold; background: #002147; color: white; }
+            .footer { text-align: center; font-size: 14px; color: #64748b; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">Mye3 Academy</div>
+            <div class="receipt-title">Payment Receipt</div>
+          </div>
+          
+          <div class="details-grid">
+            <div class="detail-box">
+              <div class="label">Billed To</div>
+              <div class="value">${userInfo?.name || 'Student'}</div>
+              <div style="color: #64748b; font-size: 14px; margin-top: 4px;">${userInfo?.email || ''}</div>
+            </div>
+            <div class="detail-box">
+              <div class="label">Receipt Details</div>
+              <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <span class="label">Receipt No:</span>
+                <span class="value">#${tx._id.slice(-8).toUpperCase()}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <span class="label">Date:</span>
+                <span class="value">${date}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <span class="label">Status:</span>
+                <span class="value" style="color: #059669;">PAID</span>
+              </div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${tx.packageName}</td>
+                <td style="text-align: right;">₹${tx.amount?.toLocaleString()}</td>
+              </tr>
+              <tr class="total-row">
+                <td>Total Paid</td>
+                <td style="text-align: right;">₹${tx.amount?.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>Thank you for choosing Mye3 Academy.</p>
+            <p>This is a computer-generated receipt and does not require a physical signature.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '', 'height=800,width=800');
+    if (printWindow) {
+      printWindow.document.write(receiptHtml);
+      printWindow.document.close();
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 250);
+    } else {
+      toast.error("Please allow popups to download the receipt.");
+    }
+  };
+
   const filteredTransactions = transactions.filter(t => 
     t.packageName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -220,7 +314,7 @@ const PaymentHistory = () => {
                  </div>
                  
                  <button 
-                  onClick={() => toast.success('Syncing with billing system...')}
+                  onClick={() => handleDownloadReceipt(selectedTx)}
                   className="w-full py-3 bg-slate-900 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:bg-indigo-600 transition-colors shadow-sm"
                  >
                    Download Receipt <Download className="w-4 h-4" />
