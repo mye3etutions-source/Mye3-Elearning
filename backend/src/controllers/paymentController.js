@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Payment = require('../models/Payment');
 const Transaction = require('../models/Transaction');
 const PersonalSession = require('../models/PersonalSession');
+const { sendEmail } = require('../utils/mailer');
 
 if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
     console.warn("WARN: Razorpay keys are missing from environment variables.");
@@ -219,6 +220,26 @@ exports.verifyPayment = async (req, res, next) => {
       }
 
       const user = await User.findById(req.user._id);
+      const { type, names } = paymentRecord.subscriptionDetails;
+      const courseName = names && names.length > 0 ? names.join(', ') : (type === '1-on-1' ? '1-on-1 Personal Tuition' : 'Course Subscription');
+
+      sendEmail({
+        to: user.email,
+        subject: 'Payment Successful - Course Activated',
+        html: `
+          <div style="font-family: sans-serif; max-w: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #002147;">Payment Successful! 🎉</h2>
+            <p>Dear ${user.name},</p>
+            <p>Your payment of <strong>₹${paymentRecord.amount}</strong> was successful.</p>
+            <p><strong>Course/Item:</strong> ${courseName}</p>
+            <p>Your course access has been activated immediately. You can now login to your dashboard and start learning!</p>
+            <br/>
+            <p>Best Regards,</p>
+            <p><strong>Mye3 e-Tuitions Team</strong></p>
+          </div>
+        `
+      }).catch(err => console.error("Payment Success Email Error:", err));
+
       return res.status(200).json({ status: 'ok', user });
     } else {
       return res.status(400).json({ message: 'Invalid payment signature' });
@@ -301,6 +322,26 @@ exports.razorpayWebhook = async (req, res, next) => {
             date: now
           });
         }
+        }
+
+        const courseName = names && names.length > 0 ? names.join(', ') : (type === '1-on-1' ? '1-on-1 Personal Tuition' : 'Course Subscription');
+
+        sendEmail({
+          to: user.email,
+          subject: 'Payment Successful - Course Activated',
+          html: `
+            <div style="font-family: sans-serif; max-w: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+              <h2 style="color: #002147;">Payment Successful! 🎉</h2>
+              <p>Dear ${user.name},</p>
+              <p>Your payment of <strong>₹${paymentRecord.amount}</strong> was successful.</p>
+              <p><strong>Course/Item:</strong> ${courseName}</p>
+              <p>Your course access has been activated immediately. You can now login to your dashboard and start learning!</p>
+              <br/>
+              <p>Best Regards,</p>
+              <p><strong>Mye3 e-Tuitions Team</strong></p>
+            </div>
+          `
+        }).catch(err => console.error("Payment Success Webhook Email Error:", err));
       }
 
       res.status(200).json({ status: 'ok' });
