@@ -22,6 +22,7 @@ const personalSessionSchema = new mongoose.Schema({
     enum: ['oneMonth', 'threeMonths', 'sixMonths', 'twelveMonths'],
     default: null
   },
+  expiryDate: { type: Date, default: null },
   price: { type: Number, default: 0 }, // Total plan price set by admin
 
   // Status flow: pending → assigned → active → completed / cancelled

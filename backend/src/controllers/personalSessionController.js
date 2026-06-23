@@ -144,6 +144,11 @@ exports.assignSession = async (req, res) => {
       session = new PersonalSession({ studentId });
     }
 
+    // Check if plan has expired
+    if (session.expiryDate && new Date() > new Date(session.expiryDate)) {
+      return res.status(403).json({ message: 'Cannot assign slots: Student plan has expired.' });
+    }
+
     session.teacherId      = teacherId;
     session.subjectName    = subjectName || '';
     session.scheduledSlots = slots.map(s => ({
@@ -225,17 +230,26 @@ exports.getMyPersonalSessions = async (req, res) => {
       .populate('teacherId', 'name email')
       .sort({ createdAt: -1 });
 
-    // Auto-create a pending session document if they are a 1-on-1 student but have none
-    if (sessions.length === 0 && req.user.board === '1-on-1') {
+    // Mark expired sessions as completed
+    let hasChanges = false;
+    for (let session of sessions) {
+      if (session.expiryDate && new Date() > new Date(session.expiryDate) && !['completed', 'cancelled'].includes(session.status)) {
+         session.status = 'completed';
+         await session.save();
+         hasChanges = true;
+      }
+    }
+
+    // Auto-create a pending session document if they have no active sessions
+    const activeSession = sessions.find(s => !['completed', 'cancelled'].includes(s.status));
+    if (!activeSession && req.user.board === '1-on-1') {
       const newSession = new PersonalSession({
         studentId: req.user._id,
         status: 'pending',
         paymentStatus: 'pending'
       });
       await newSession.save();
-      
-      // Query again to get fully populated document if needed, or just return list with it
-      sessions = [newSession];
+      sessions.unshift(newSession); // Put at top for UI
     }
 
     res.json(sessions);

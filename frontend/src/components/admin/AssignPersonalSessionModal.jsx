@@ -179,6 +179,18 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
           </button>
         </div>
 
+        {session?.expiryDate && new Date() > new Date(session.expiryDate) && (
+          <div className="bg-red-50 border-b border-red-200 p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+            <div>
+              <h4 className="text-sm font-bold text-red-800">Plan Expired</h4>
+              <p className="text-xs text-red-600 mt-0.5">
+                This student's plan expired on {new Date(session.expiryDate).toLocaleDateString()}. You cannot assign new slots.
+              </p>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
           
           <div className="space-y-4">
@@ -363,7 +375,7 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
             </button>
             <button 
               type="submit" 
-              disabled={loading}
+              disabled={loading || (session?.expiryDate && new Date() > new Date(session.expiryDate))}
               className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}

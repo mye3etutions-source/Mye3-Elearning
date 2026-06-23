@@ -182,8 +182,15 @@ exports.verifyPayment = async (req, res, next) => {
         
         if (type === '1-on-1') {
           const sessionId = referenceIds[0];
+          
+          const durationMap = { oneMonth: 30, threeMonths: 90, sixMonths: 180, twelveMonths: 365 };
+          const days = durationMap[selectedDuration] || 30;
+          const expiryDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
           await PersonalSession.findByIdAndUpdate(sessionId, {
-            paymentStatus: 'paid'
+            paymentStatus: 'paid',
+            planType: selectedDuration,
+            expiryDate: expiryDate
           });
 
           await Transaction.create({
