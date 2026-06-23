@@ -226,6 +226,8 @@ const StudentStore = () => {
   const [selected1on1Duration, setSelected1on1Duration] = useState('oneMonth');
   const [personalSession, setPersonalSession] = useState(null);
   const [buyingPlan, setBuyingPlan] = useState(null);
+  const [mockConfirm, setMockConfirm] = useState(null); // { amount, type, items, planId, sessionId }
+  const [mockPaying, setMockPaying] = useState(false);
 
   const [selectedMobileClass, setSelectedMobileClass] = useState('6');
   const [selectedMobileBoard, setSelectedMobileBoard] = useState('TS Board');
@@ -284,15 +286,8 @@ const StudentStore = () => {
       const configRes = await axios.get('/payment/config');
       const { enableRealPayment, keyId } = configRes.data;
 
-      const planPrices = {
-        oneMonth: personalPricing?.oneMonth || 4500,
-        threeMonths: personalPricing?.threeMonths || 12000,
-        sixMonths: personalPricing?.sixMonths || 22000,
-        twelveMonths: personalPricing?.twelveMonths || 40000
-      };
-      const amount = personalSession.planType === planId ? personalSession.price : planPrices[planId];
-
       if (enableRealPayment && keyId) {
+        // --- REAL RAZORPAY FLOW ---
         const loadRazorpayScript = () => {
           return new Promise((resolve) => {
             const script = document.createElement('script');
@@ -311,7 +306,7 @@ const StudentStore = () => {
         }
 
         const orderRes = await axios.post('/payments/orders', {
-          amount: amount,
+          amount: personalSession.price,
           type: '1-on-1',
           referenceIds: [personalSession._id],
           selectedDuration: planId,
@@ -337,7 +332,6 @@ const StudentStore = () => {
               });
 
               if (verifyRes.data.status === 'ok') {
-                const res = await axios.post(`/student/personal-sessions/${personalSession._id}/pay`, { planType: planId });
                 toast.success('Tuition Activated Successfully!');
                 const sessionRes = await axios.get('/student/personal-sessions');
                 const sessions = sessionRes.data || [];
@@ -360,16 +354,20 @@ const StudentStore = () => {
           setBuyingPlan(null);
         });
       } else {
-        toast.success(`Processing Mock Payment...`);
-        const res = await axios.post(`/student/personal-sessions/${personalSession._id}/pay`, { planType: planId });
-        setTimeout(async () => {
-          toast.success(res.data?.message || 'Payment successful!');
-          const sessionRes = await axios.get('/student/personal-sessions');
-          const sessions = sessionRes.data || [];
-          const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
-          setPersonalSession(active);
-          setBuyingPlan(null);
-        }, 1500);
+        // --- MOCK FLOW: Fetch DB price and show confirmation modal ---
+        const priceRes = await axios.post('/payments/mock-price', {
+          type: '1-on-1',
+          referenceIds: [personalSession._id],
+          selectedDuration: planId
+        });
+        setMockConfirm({
+          amount: priceRes.data.actualAmount,
+          type: '1-on-1',
+          planId,
+          sessionId: personalSession._id,
+          label: '1-on-1 Personal Tuition'
+        });
+        setBuyingPlan(null);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Payment failed');
@@ -433,7 +431,7 @@ const StudentStore = () => {
         const totalAmount = itemsPayload.reduce((acc, i) => acc + i.amount, 0);
         const orderRes = await axios.post('/payments/orders', {
           amount: totalAmount,
-          type: selectedItems.length > 1 ? 'bundle' : 'subject',
+          type: selectedItems.length > 1 ? 'bundle' : (selectedItems[0]?.type || 'subject'),
           referenceIds: itemsPayload.map(i => i.referenceId),
           selectedDuration: itemsPayload[0]?.subscriptionType || 'oneMonth',
           names: itemsPayload.map(i => i.courseName)
@@ -482,34 +480,23 @@ const StudentStore = () => {
           setBuyLoading(false);
         });
       } else {
-        toast.success(`Processing Mock Payment for ${selectedItems.length} items...`);
-        try {
-            await axios.post('/student/mock-payment-success', { items: itemsPayload });
-        } catch (e) {}
-
-        const addedSubs = itemsPayload.map(payload => ({
-          name: payload.courseName || payload.packageName.split(' - ')[0],
-          type: payload.type,
-          subscriptionType: payload.subscriptionType,
-          expiryDate: new Date(Date.now() + 30 * 86400000).toISOString(),
-          referenceId: payload.referenceId,
-          purchaseDate: new Date().toISOString()
-        }));
-
-        dispatch(setCredentials({
-          ...userInfo,
-          activeSubscriptions: [...(userInfo.activeSubscriptions || []), ...addedSubs]
-        }));
-
-        setTimeout(() => {
-          setBuyLoading(false);
-          setShowCheckout(false);
-          setSelectedItems([]);
-          navigate('/student/dashboard');
-        }, 1500);
+        // --- MOCK FLOW: Fetch DB price and show confirmation modal ---
+        const firstItem = selectedItems[0];
+        const priceRes = await axios.post('/payments/mock-price', {
+          type: selectedItems.length > 1 ? 'bundle' : (firstItem?.type || 'subject'),
+          referenceIds: itemsPayload.map(i => i.referenceId),
+          selectedDuration: firstItem?.selectedDuration || 'oneMonth'
+        });
+        setMockConfirm({
+          amount: priceRes.data.actualAmount,
+          type: selectedItems.length > 1 ? 'bundle' : (firstItem?.type || 'subject'),
+          items: itemsPayload,
+          label: itemsPayload.map(i => i.courseName).join(', ')
+        });
+        setBuyLoading(false);
       }
     } catch (error) {
-      toast.error('Payment processing failed');
+      toast.error(error.response?.data?.message || 'Payment processing failed');
       setBuyLoading(false);
     }
   };
@@ -1061,6 +1048,102 @@ const StudentStore = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* MOCK PAYMENT CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {mockConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 16 }}
+              className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
+            >
+              {/* Header */}
+              <div className="bg-[#002147] px-6 py-4 flex items-center gap-3">
+                <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
+                  <FiCreditCard className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">Mye3 Academy</p>
+                  <p className="text-indigo-200 text-[10px]">TEST MODE • No real money charged</p>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Course Name */}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Paying for</p>
+                  <p className="text-sm font-semibold text-slate-700 leading-snug">{mockConfirm.label}</p>
+                </div>
+
+                {/* Amount (DB verified) */}
+                <div className="bg-[#002147]/5 border border-[#002147]/10 rounded-xl px-4 py-4 text-center">
+                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">Amount (Admin Verified)</p>
+                  <p className="text-3xl font-extrabold text-[#002147]">
+                    ₹{mockConfirm.amount?.toLocaleString('en-IN')}
+                  </p>
+                  <p className="text-[10px] text-emerald-600 font-semibold mt-1">✓ Price verified from database</p>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setMockConfirm(null)}
+                    disabled={mockPaying}
+                    className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={mockPaying}
+                    onClick={async () => {
+                      setMockPaying(true);
+                      try {
+                        if (mockConfirm.type === '1-on-1') {
+                          await axios.post(`/student/personal-sessions/${mockConfirm.sessionId}/pay`, { planType: mockConfirm.planId });
+                          toast.success('Tuition Activated Successfully!');
+                          const sessionRes = await axios.get('/student/personal-sessions');
+                          const sessions = sessionRes.data || [];
+                          const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
+                          setPersonalSession(active);
+                        } else {
+                          await axios.post('/student/mock-payment-success', { items: mockConfirm.items });
+                          const updatedUser = await axios.get('/auth/me').catch(() => null);
+                          if (updatedUser?.data) dispatch(setCredentials(updatedUser.data));
+                          toast.success('Course Activated Successfully!');
+                          setTimeout(() => {
+                            setShowCheckout(false);
+                            setSelectedItems([]);
+                            navigate('/student/dashboard');
+                          }, 1000);
+                        }
+                      } catch (err) {
+                        toast.error(err.response?.data?.message || 'Payment failed');
+                      } finally {
+                        setMockPaying(false);
+                        setMockConfirm(null);
+                      }
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-[#002147] text-white font-bold text-sm hover:bg-[#f16126] transition-colors flex items-center justify-center gap-2"
+                  >
+                    {mockPaying ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <><FiCreditCard className="w-4 h-4" /> Pay ₹{mockConfirm.amount?.toLocaleString('en-IN')}</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

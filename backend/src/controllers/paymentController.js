@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const Transaction = require('../models/Transaction');
+const PersonalSession = require('../models/PersonalSession');
 
 if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
     console.warn("WARN: Razorpay keys are missing from environment variables.");
@@ -35,31 +36,104 @@ exports.getPaymentConfig = async (req, res, next) => {
   }
 };
 
+// Fetch DB price for mock payment confirmation — same logic as createOrder but no Razorpay call
+exports.getMockOrderPrice = async (req, res, next) => {
+  try {
+    const { type, referenceIds, selectedDuration } = req.body;
+    let actualAmount = 0;
+
+    if (type === '1-on-1') {
+      const session = await PersonalSession.findById(referenceIds[0]);
+      if (!session) return res.status(404).json({ message: 'Personal session not found' });
+      actualAmount = session.price;
+    } else if (type === 'bundle') {
+      const ClassBundle = require('../models/ClassBundle');
+      const bundle = await ClassBundle.findById(referenceIds[0]);
+      if (!bundle) return res.status(404).json({ message: 'Course not found' });
+      actualAmount = bundle.pricing?.[selectedDuration] || bundle.price || 0;
+    } else if (type === 'subject') {
+      const Subject = require('../models/Subject');
+      const subjects = await Subject.find({ _id: { $in: referenceIds } });
+      actualAmount = subjects.reduce((sum, s) => sum + (s.pricing?.[selectedDuration] || 0), 0);
+    } else {
+      return res.status(400).json({ message: 'Invalid payment type.' });
+    }
+
+    if (!actualAmount || actualAmount <= 0) {
+      return res.status(400).json({ message: 'Price not set by admin yet.' });
+    }
+
+    res.status(200).json({ actualAmount });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 exports.createOrder = async (req, res, next) => {
   try {
-    const { amount, type, referenceIds, selectedDuration, names } = req.body; 
+    const { amount, type, referenceIds, selectedDuration, names } = req.body;
 
     if (!process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID.includes('YOUR_')) {
-        return res.status(400).json({ 
-            message: "Razorpay keys are not configured properly. Please add your real Key ID to the .env file." 
+        return res.status(400).json({
+            message: "Razorpay keys are not configured properly. Please add your real Key ID to the .env file."
         });
     }
 
+    // ✅ SECURITY: Fetch actual price from DB and verify it matches what frontend sent
+    let actualAmount = 0;
+
+    if (type === '1-on-1') {
+      const session = await PersonalSession.findById(referenceIds[0]);
+      if (!session) return res.status(404).json({ message: 'Personal session not found' });
+      actualAmount = session.price;
+      if (!actualAmount || actualAmount <= 0) {
+        return res.status(400).json({ message: 'Session price not set by admin yet.' });
+      }
+    } else if (type === 'bundle') {
+      const ClassBundle = require('../models/ClassBundle');
+      const bundle = await ClassBundle.findById(referenceIds[0]);
+      if (!bundle) return res.status(404).json({ message: 'Course not found' });
+      actualAmount = bundle.pricing?.[selectedDuration] || bundle.price || 0;
+      if (!actualAmount || actualAmount <= 0) {
+        return res.status(400).json({ message: 'Course pricing not set. Please contact admin.' });
+      }
+    } else if (type === 'subject') {
+      const Subject = require('../models/Subject');
+      const subjects = await Subject.find({ _id: { $in: referenceIds } });
+      if (subjects.length === 0) return res.status(404).json({ message: 'Subject(s) not found' });
+      actualAmount = subjects.reduce((sum, s) => sum + (s.pricing?.[selectedDuration] || 0), 0);
+      if (!actualAmount || actualAmount <= 0) {
+        return res.status(400).json({ message: 'Subject pricing not set. Please contact admin.' });
+      }
+    } else {
+      return res.status(400).json({ message: 'Invalid payment type.' });
+    }
+
+    // ✅ VERIFY: Frontend price must match DB price exactly
+    if (Number(amount) !== actualAmount) {
+      console.warn(`PRICE MISMATCH: user=${req.user._id}, frontend sent ₹${amount}, DB has ₹${actualAmount}`);
+      return res.status(400).json({
+        message: `Price mismatch! The price may have been updated by admin. Please refresh the page and try again.`,
+        actualAmount
+      });
+    }
+
     const options = {
-      amount: amount * 100, // smallest unit
+      amount: actualAmount * 100, // Razorpay expects paise
       currency: 'INR',
-      receipt: `rcpt_${Date.now()}_${req.user._id.toString().substring(0,5)}`
+      receipt: `rcpt_${Date.now()}_${req.user._id.toString().substring(0, 5)}`
     };
 
     const order = await razorpay.orders.create(options);
 
     await Payment.create({
       userId: req.user._id,
-      amount,
+      amount: actualAmount,
       razorpayOrderId: order.id,
-      subscriptionDetails: { 
-        type, 
-        referenceIds, 
+      subscriptionDetails: {
+        type,
+        referenceIds,
         selectedDuration: selectedDuration || 'oneMonth',
         names: names || []
       }
@@ -70,6 +144,7 @@ exports.createOrder = async (req, res, next) => {
     next(error);
   }
 };
+
 
 exports.verifyPayment = async (req, res, next) => {
   try {
@@ -94,10 +169,26 @@ exports.verifyPayment = async (req, res, next) => {
         await paymentRecord.save();
 
         const user = await User.findById(req.user._id);
-        const { type, referenceIds, selectedDuration } = paymentRecord.subscriptionDetails;
+        const { type, referenceIds, selectedDuration, names } = paymentRecord.subscriptionDetails;
+        const now = new Date();
         
-        if (type !== '1-on-1') {
-          const now = new Date();
+        if (type === '1-on-1') {
+          const sessionId = referenceIds[0];
+          await PersonalSession.findByIdAndUpdate(sessionId, {
+            paymentStatus: 'paid',
+            status: 'active'
+          });
+
+          await Transaction.create({
+            studentId: req.user._id,
+            amount: paymentRecord.amount,
+            status: 'success',
+            packageName: '1-on-1 Personal Tuition',
+            referenceId: sessionId,
+            type: '1-on-1',
+            date: now
+          });
+        } else {
           const durationMap = { oneMonth: 30, threeMonths: 90, sixMonths: 180, twelveMonths: 365 };
           const days = durationMap[selectedDuration] || 30;
           const expiryDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -106,7 +197,7 @@ exports.verifyPayment = async (req, res, next) => {
             user.activeSubscriptions.push({
               type,
               referenceId: id,
-              name: paymentRecord.subscriptionDetails.names[index] || 'Class Subscription',
+              name: names[index] || 'Class Subscription',
               subscriptionType: selectedDuration,
               expiryDate,
               purchaseDate: now
@@ -114,11 +205,7 @@ exports.verifyPayment = async (req, res, next) => {
           });
 
           await user.save();
-        }
 
-        if (type !== '1-on-1') {
-          // Create Transaction History Record
-          const now = new Date();
           await Transaction.create({
             studentId: req.user._id,
             amount: paymentRecord.amount,
@@ -129,8 +216,6 @@ exports.verifyPayment = async (req, res, next) => {
             date: now
           });
         }
-
-        return res.status(200).json({ status: 'ok', user });
       }
 
       const user = await User.findById(req.user._id);
@@ -160,38 +245,62 @@ exports.razorpayWebhook = async (req, res, next) => {
         const paymentRecord = await Payment.findOne({ razorpayOrderId: orderId });
         if (!paymentRecord) return res.status(404).send('Payment record not found');
 
+        if (paymentRecord.status === 'captured') {
+           return res.status(200).json({ status: 'ok' }); // Already processed by verifyPayment
+        }
+
         paymentRecord.status = 'captured';
         paymentRecord.razorpayPaymentId = paymentData.id;
         await paymentRecord.save();
 
         const user = await User.findById(paymentRecord.userId);
-        const { type, referenceIds } = paymentRecord.subscriptionDetails;
-        
-        // Expiration Logic: 30 days for subject (11-12) OR standard mapping for bundles
+        const { type, referenceIds, selectedDuration, names } = paymentRecord.subscriptionDetails;
         const now = new Date();
-        const expiryDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 Days default for all
 
-        referenceIds.forEach(id => {
-          // ensure no duplicate active subjects overlapping if they renew early?
-          user.activeSubscriptions.push({
-            type,
-            referenceId: id,
-            expiryDate
+        if (type === '1-on-1') {
+          const sessionId = referenceIds[0];
+          await PersonalSession.findByIdAndUpdate(sessionId, {
+            paymentStatus: 'paid',
+            status: 'active'
           });
-        });
 
-        await user.save();
+          await Transaction.create({
+            studentId: paymentRecord.userId,
+            amount: paymentRecord.amount,
+            status: 'success',
+            packageName: '1-on-1 Personal Tuition',
+            referenceId: sessionId,
+            type: '1-on-1',
+            date: now
+          });
+        } else {
+          const durationMap = { oneMonth: 30, threeMonths: 90, sixMonths: 180, twelveMonths: 365 };
+          const days = durationMap[selectedDuration] || 30;
+          const expiryDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
-        // Create Transaction History Record
-        await Transaction.create({
-          studentId: paymentRecord.userId,
-          amount: paymentRecord.amount,
-          status: 'success',
-          packageName: type === 'bundle' ? 'Class Bundle Subscription' : 'Individual Subject Access',
-          referenceId: referenceIds[0], // First ID as primary reference
-          type: type,
-          date: now
-        });
+          referenceIds.forEach((id, index) => {
+            user.activeSubscriptions.push({
+              type,
+              referenceId: id,
+              name: names[index] || 'Class Subscription',
+              subscriptionType: selectedDuration,
+              expiryDate,
+              purchaseDate: now
+            });
+          });
+
+          await user.save();
+
+          await Transaction.create({
+            studentId: paymentRecord.userId,
+            amount: paymentRecord.amount,
+            status: 'success',
+            packageName: type === 'bundle' ? 'Class Bundle Subscription' : 'Individual Subject Access',
+            referenceId: referenceIds[0],
+            type: type,
+            date: now
+          });
+        }
       }
 
       res.status(200).json({ status: 'ok' });

@@ -77,14 +77,8 @@ const StudentDashboard = () => {
   };
 
   const handlePayPersonalSession = async (sessionId) => {
-    const loadingToast = toast.loading('Processing payment...');
-    try {
-      const res = await axios.post(`/student/personal-sessions/${sessionId}/pay`);
-      toast.success(res.data?.message || 'Payment successful!', { id: loadingToast });
-      fetchData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Payment failed', { id: loadingToast });
-    }
+    // Redirect to Store for payment — Razorpay handles activation now
+    navigate('/student/courses');
   };
 
   const getNextUpcomingSlot = (session) => {
