@@ -183,8 +183,7 @@ exports.verifyPayment = async (req, res, next) => {
         if (type === '1-on-1') {
           const sessionId = referenceIds[0];
           await PersonalSession.findByIdAndUpdate(sessionId, {
-            paymentStatus: 'paid',
-            status: 'active'
+            paymentStatus: 'paid'
           });
 
           await Transaction.create({
@@ -288,8 +287,7 @@ exports.razorpayWebhook = async (req, res, next) => {
         if (type === '1-on-1') {
           const sessionId = referenceIds[0];
           await PersonalSession.findByIdAndUpdate(sessionId, {
-            paymentStatus: 'paid',
-            status: 'active'
+            paymentStatus: 'paid'
           });
 
           await Transaction.create({

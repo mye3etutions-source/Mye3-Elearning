@@ -272,14 +272,14 @@ const ManageStudents = () => {
                             </div>
                          </td>
                          <td className="px-5 py-6">
-                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase border ${
-                              status.label === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                              status.label === 'Expired' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
-                              'bg-slate-50 text-slate-500 border-slate-200'
-                            }`}>
-                               {status.icon}
-                               {status.label}
-                            </div>
+                             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold uppercase border ${
+                               status.label === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                               status.label === 'Expired' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
+                               'bg-slate-50 text-slate-500 border-slate-200'
+                             }`}>
+                                {status.icon}
+                                {board === '1-on-1' && status.label === 'No Access' ? '1-ON-1 TRACK' : status.label}
+                             </div>
                          </td>
                          <td className="px-5 py-6 text-right">
                             <div className="flex items-center justify-end gap-2 px-1">
@@ -290,12 +290,21 @@ const ManageStudents = () => {
                                >
                                   <Eye className="w-5 h-5" />
                                </button>
-                               <button 
-                                 onClick={() => { setSelectedStudent(student); setShowGrantModal(true); }}
-                                 className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-md text-[11px] font-black uppercase tracking-wider hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm"
-                               >
-                                 Grant Access
-                               </button>
+                               {board === '1-on-1' ? (
+                                 <button 
+                                   onClick={() => window.location.href = '/admin/personal-sessions'}
+                                   className="px-4 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-md text-[11px] font-black uppercase tracking-wider hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                 >
+                                   Assign 1-on-1
+                                 </button>
+                               ) : (
+                                 <button 
+                                   onClick={() => { setSelectedStudent(student); setShowGrantModal(true); }}
+                                   className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-md text-[11px] font-black uppercase tracking-wider hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm"
+                                 >
+                                   Grant Access
+                                 </button>
+                               )}
                                <button 
                                  onClick={() => handleDeleteStudent(student._id)}
                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white border border-transparent hover:border-slate-200 rounded-md transition-all shadow-hover"
