@@ -488,7 +488,23 @@ exports.getMaterialsByAssignment = async (req, res, next) => {
 exports.getMyTransactions = async (req, res, next) => {
   try {
     const transactions = await Transaction.find({ studentId: req.user._id }).sort({ createdAt: -1 });
-    res.status(200).json(transactions);
+    
+    const txs = transactions.map(tx => tx.toObject());
+    const PersonalSession = require('../models/PersonalSession');
+    const personalSessions = await PersonalSession.find({ studentId: req.user._id });
+    const durationMap = { oneMonth: 30, threeMonths: 90, sixMonths: 180, twelveMonths: 365 };
+
+    for (let tx of txs) {
+      if (tx.type === '1-on-1') {
+        const session = personalSessions.find(s => s._id.toString() === tx.referenceId);
+        if (session && session.planType) {
+           const days = durationMap[session.planType] || 30;
+           tx.expiryDate = new Date(new Date(tx.date).getTime() + days * 24 * 60 * 60 * 1000);
+        }
+      }
+    }
+
+    res.status(200).json(txs);
   } catch (error) {
     next(error);
   }

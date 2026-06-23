@@ -45,10 +45,17 @@ const PaymentHistory = () => {
     });
 
     // Find expiry if applicable
-    const sub = userInfo?.activeSubscriptions?.find(s => s.name === tx.packageName);
-    const expiryDateString = sub ? new Date(sub.expiryDate).toLocaleDateString('en-IN', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    }) : null;
+    let expiryDateString = null;
+    if (tx.expiryDate) {
+      expiryDateString = new Date(tx.expiryDate).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
+    } else {
+      const sub = userInfo?.activeSubscriptions?.find(s => s.name === tx.packageName);
+      expiryDateString = sub ? new Date(sub.expiryDate).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      }) : null;
+    }
     
     const receiptHtml = `
       <html>
