@@ -281,7 +281,7 @@ exports.removeAssignmentFromTeacher = async (req, res, next) => {
 exports.getStudentsList = async (req, res, next) => {
   try {
     const students = await User.find({
-      $or: [{ role: 'student' }, { _id: req.user._id }]
+      role: 'student'
     }).select('-password').sort({ createdAt: -1 });
     res.status(200).json(students);
   } catch (error) {
