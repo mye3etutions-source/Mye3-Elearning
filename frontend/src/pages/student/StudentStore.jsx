@@ -306,7 +306,7 @@ const StudentStore = () => {
         }
 
         const orderRes = await axios.post('/payments/orders', {
-          amount: personalSession.price,
+          amount: personalPricing?.[planId] || 0,
           type: '1-on-1',
           referenceIds: [personalSession._id],
           selectedDuration: planId,
