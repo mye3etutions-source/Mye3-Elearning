@@ -20,6 +20,7 @@ import LegalPage from './pages/LegalPage';
 import Teachers from './pages/Teachers';
 import Store from './pages/student/StudentStore'; // Unified Store
 import Footer from './components/shared/Footer';
+import FloatingWhatsApp from './components/shared/FloatingWhatsApp';
 import AdminLayout from './components/admin/AdminLayout';
 import PricingManagement from './pages/admin/PricingManagement';
 import TeacherManagement from './pages/admin/TeacherManagement';
@@ -174,6 +175,7 @@ function AppContent() {
         </Routes>
       </main>
       {!isDashboardRoute && !isAuthPage && <Footer />}
+      <FloatingWhatsApp />
       <ViewSwitcher />
     </div>
   );
