@@ -46,9 +46,9 @@ const PaymentHistory = () => {
 
     // Find expiry if applicable
     const sub = userInfo?.activeSubscriptions?.find(s => s.name === tx.packageName);
-    const expiry = sub ? new Date(sub.expiryDate).toLocaleDateString('en-IN', {
+    const expiryDateString = sub ? new Date(sub.expiryDate).toLocaleDateString('en-IN', {
       day: 'numeric', month: 'long', year: 'numeric'
-    }) : (tx.type === '1-on-1' ? 'Valid per plan validity' : 'N/A');
+    }) : null;
     
     const receiptHtml = `
       <html>
@@ -97,10 +97,11 @@ const PaymentHistory = () => {
                 <span class="label">Date & Time:</span>
                 <span class="value">${date} at ${time}</span>
               </div>
+              ${expiryDateString ? `
               <div style="display: flex; justify-content: space-between; margin-top: 8px;">
                 <span class="label">Plan Expiry:</span>
-                <span class="value" style="font-size: 12px;">${expiry}</span>
-              </div>
+                <span class="value" style="font-size: 12px;">${expiryDateString}</span>
+              </div>` : ''}
               <div style="display: flex; justify-content: space-between; margin-top: 8px;">
                 <span class="label">Status:</span>
                 <span class="value" style="color: #059669;">PAID</span>
