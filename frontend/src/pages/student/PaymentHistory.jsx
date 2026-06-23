@@ -36,9 +36,19 @@ const PaymentHistory = () => {
   }, []);
 
   const handleDownloadReceipt = (tx) => {
-    const date = new Date(tx.date || tx.createdAt).toLocaleDateString('en-IN', {
+    const dateObj = new Date(tx.date || tx.createdAt);
+    const date = dateObj.toLocaleDateString('en-IN', {
       day: 'numeric', month: 'long', year: 'numeric'
     });
+    const time = dateObj.toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    // Find expiry if applicable
+    const sub = userInfo?.activeSubscriptions?.find(s => s.name === tx.packageName);
+    const expiry = sub ? new Date(sub.expiryDate).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    }) : (tx.type === '1-on-1' ? 'Valid per plan validity' : 'N/A');
     
     const receiptHtml = `
       <html>
@@ -62,7 +72,7 @@ const PaymentHistory = () => {
         </head>
         <body>
           <div class="header">
-            <div class="logo">Mye3 Academy</div>
+            <div class="logo">Mye3 e-Tuitions</div>
             <div class="receipt-title">Payment Receipt</div>
           </div>
           
@@ -71,16 +81,25 @@ const PaymentHistory = () => {
               <div class="label">Billed To</div>
               <div class="value">${userInfo?.name || 'Student'}</div>
               <div style="color: #64748b; font-size: 14px; margin-top: 4px;">${userInfo?.email || ''}</div>
+              <div style="color: #64748b; font-size: 14px; margin-top: 4px;">Mobile: ${userInfo?.mobileNumber || 'N/A'}</div>
             </div>
             <div class="detail-box">
               <div class="label">Receipt Details</div>
               <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                <span class="label">Receipt No:</span>
-                <span class="value">#${tx._id.slice(-8).toUpperCase()}</span>
+                <span class="label">Invoice No:</span>
+                <span class="value">INV-${tx._id.slice(-8).toUpperCase()}</span>
               </div>
               <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                <span class="label">Date:</span>
-                <span class="value">${date}</span>
+                <span class="label">Transaction ID:</span>
+                <span class="value" style="font-size: 12px; word-break: break-all;">${tx._id}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <span class="label">Date & Time:</span>
+                <span class="value">${date} at ${time}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                <span class="label">Plan Expiry:</span>
+                <span class="value" style="font-size: 12px;">${expiry}</span>
               </div>
               <div style="display: flex; justify-content: space-between; margin-top: 8px;">
                 <span class="label">Status:</span>
@@ -109,7 +128,7 @@ const PaymentHistory = () => {
           </table>
 
           <div class="footer">
-            <p>Thank you for choosing Mye3 Academy.</p>
+            <p>Thank you for choosing Mye3 e-Tuitions.</p>
             <p>This is a computer-generated receipt and does not require a physical signature.</p>
           </div>
         </body>
