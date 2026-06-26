@@ -19,7 +19,7 @@ const TeacherLayout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-50 flex overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -41,9 +41,9 @@ const TeacherLayout = ({ children }) => {
         />
       </div>
 
-      <div className="flex-1 flex flex-col min-h-screen w-full transition-all duration-300">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden overflow-y-auto w-full transition-all duration-300">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 md:px-10 sticky top-0 z-40 shadow-sm">
+        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-4 md:px-10 sticky top-0 z-40 shrink-0 shadow-sm">
            <div className="flex items-center gap-4">
               <button 
                 onClick={() => setIsSidebarOpen(true)}
