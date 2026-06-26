@@ -150,7 +150,7 @@ const Teachers = () => {
                   to={userInfo ? (userInfo?.role?.toLowerCase() === 'teacher' ? '/teacher/dashboard' : '/student/dashboard') : '/register'}
                   className="mt-3 md:mt-6 w-full py-2 md:py-3 bg-[#002147] text-white rounded-lg md:rounded-xl font-black text-[8px] md:text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 hover:bg-[#f16126] transition-all shadow active:scale-95 group/btn"
                 >
-                   Book Free Demo <FiArrowRight className="w-3 h-3 md:w-3.5 md:h-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                   Enroll Now <FiArrowRight className="w-3 h-3 md:w-3.5 md:h-3.5 group-hover/btn:translate-x-1 transition-transform" />
                 </Link>
               </motion.div>
             ))}

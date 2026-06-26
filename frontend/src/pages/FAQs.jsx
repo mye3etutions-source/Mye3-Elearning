@@ -41,8 +41,8 @@ const FAQs = () => {
         answer: "Click on the 'Enrol Now' button at the top header or visit the 'Register' page. Fill in your details, select your grade and subjects, and you'll be ready to start your learning journey."
       },
       {
-        question: "Is there a free demo class available?",
-        answer: "Yes, we offer a complimentary demo class for all new students. This helps you understand the platform and choose the right teacher for your learning needs."
+        question: "Can I join directly without a demo class?",
+        answer: "Yes! You can enroll and start learning with our expert teachers immediately. Simply click on 'Enroll Now' to get started."
       }
     ],
     Enrollment: [

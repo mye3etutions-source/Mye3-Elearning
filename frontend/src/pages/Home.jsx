@@ -65,7 +65,7 @@ const SLIDES = [
       'IIT JEE & NEET Coaching',
       'Coding & Tech Courses',
       'Language Classes',
-      'Free Demo Available',
+      'Live Classes Available',
     ],
   },
   {
@@ -450,7 +450,7 @@ const Home = () => {
               className="inline-flex items-center gap-2 px-7 py-3 text-white font-black text-[14px] rounded-xl hover:opacity-90 transition-all shadow-lg"
               style={{ background: 'linear-gradient(135deg,#f97316,#ea580c)', boxShadow: '0 4px 16px rgba(249,115,22,0.35)' }}
             >
-              Book Free Demo <HiArrowRight />
+              Enroll Now <HiArrowRight />
             </Link>
           </div>
         </div>
@@ -740,7 +740,7 @@ const Home = () => {
                     Start Your <span className="text-orange-500 italic">Success</span> Journey Today
                   </h2>
                   <p className="text-blue-100/70 text-[13px] md:text-base leading-relaxed max-w-lg">
-                    Experience the precision of 1-on-1 personalized mentorship. Join e-Tuitions and unlock your full academic potential with a free demo session.
+                    Experience the precision of 1-on-1 personalized mentorship. Join e-Tuitions and unlock your full academic potential with our expert teachers.
                   </p>
                   
                   <div className="flex flex-wrap gap-3 pt-1 md:pt-2">
@@ -748,7 +748,7 @@ const Home = () => {
                       to={userInfo ? (userInfo?.role?.toLowerCase() === 'teacher' ? '/teacher/dashboard' : '/student/dashboard') : '/register'}
                       className="px-6 py-2.5 md:px-8 md:py-3.5 bg-orange-600 hover:bg-orange-500 text-white font-black text-[12px] md:text-[14px] uppercase tracking-widest rounded-xl transition-all shadow-[0_10px_25px_rgba(234,88,12,0.3)]"
                     >
-                      Book Free Demo
+                      Enroll Now
                     </Link>
                     <Link
                       to="/login"

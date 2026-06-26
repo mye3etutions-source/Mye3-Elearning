@@ -86,7 +86,7 @@ function AppContent() {
     location.pathname === '/student';
 
   return (
-    <div className={isAuthPage ? '' : 'min-h-screen bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-900'}>
+    <div className={`overflow-x-hidden ${isAuthPage ? '' : 'min-h-screen bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-900'}`}>
       {!isDashboardRoute && !isAuthPage && <Navbar />}
       <main>
         <Routes>
