@@ -792,14 +792,28 @@ exports.getAllTransactions = async (req, res, next) => {
       studentId: p.userId,
       amount: p.amount,
       status: 'success', // 'captured' means success
-      packageName: p.subscriptionDetails.type === 'bundle' ? 'Class Bundle' : 'Individual Subject',
-      type: p.subscriptionDetails.type,
-      referenceId: p.subscriptionDetails.referenceIds[0],
+      packageName: p.subscriptionDetails?.type === '1-on-1' ? '1-on-1 Personal Tuition' : (p.subscriptionDetails?.type === 'bundle' ? 'Class Bundle' : 'Individual Subject'),
+      type: p.subscriptionDetails?.type,
+      referenceId: p.subscriptionDetails?.referenceIds?.[0],
       date: p.createdAt,
       isLegacy: true
     }));
 
-    const allTransactions = [...txs, ...normalizedPayments].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const allTransactions = [...txs];
+    
+    // Deduplicate: only add normalized payment if a matching Transaction doesn't already exist
+    for (const p of normalizedPayments) {
+      const isDuplicate = txs.some(tx => 
+        tx.studentId?._id?.toString() === p.studentId?._id?.toString() &&
+        tx.amount === p.amount &&
+        Math.abs(new Date(tx.date) - new Date(p.date)) < 60000 // within 1 minute
+      );
+      if (!isDuplicate) {
+        allTransactions.push(p);
+      }
+    }
+
+    allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     res.status(200).json(allTransactions);
   } catch (error) {
@@ -890,6 +904,7 @@ exports.createLiveSession = async (req, res, next) => {
       // 1. Teacher Conflict
       const teacherConflict = await LiveSession.findOne({
         teacherId: s.teacherId,
+        status: { $nin: ['ended', 'cancelled'] },
         $or: [
           { startTime: { $lt: newEnd }, endTime: { $gt: newStart } }
         ],
@@ -904,6 +919,7 @@ exports.createLiveSession = async (req, res, next) => {
       // 2. Class Level Conflict
       const classLevelConflict = await LiveSession.findOne({
         classLevel: s.classLevel,
+        status: { $nin: ['ended', 'cancelled'] },
         $or: [
           { startTime: { $lt: newEnd }, endTime: { $gt: newStart } }
         ],
@@ -972,10 +988,11 @@ exports.updateLiveSession = async (req, res, next) => {
     const proposedClassLevel = classLevel || session.classLevel;
     const proposedTeacherId = teacherId || session.teacherId;
 
-    // Conflict Check (excluding current session)
+    // 1. Teacher Conflict
     const teacherConflict = await LiveSession.findOne({
-      _id: { $ne: session._id },
+      _id: { $ne: req.params.id },
       teacherId: proposedTeacherId,
+      status: { $nin: ['ended', 'cancelled'] },
       $or: [
         { startTime: { $lt: newEnd }, endTime: { $gt: newStart } }
       ]
@@ -985,9 +1002,11 @@ exports.updateLiveSession = async (req, res, next) => {
       return res.status(409).json({ message: `Teacher is already booked for another session during this time.` });
     }
 
+    // 2. Class Level Conflict
     const classLevelConflict = await LiveSession.findOne({
-      _id: { $ne: session._id },
+      _id: { $ne: req.params.id },
       classLevel: proposedClassLevel,
+      status: { $nin: ['ended', 'cancelled'] },
       $or: [
         { startTime: { $lt: newEnd }, endTime: { $gt: newStart } }
       ]
