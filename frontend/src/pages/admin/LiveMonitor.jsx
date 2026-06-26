@@ -903,7 +903,7 @@ const LiveMonitor = () => {
                                                                                                     </div>
                                                                                                 )}
                                                                                                 {isLive ? (
-                                                                                                    <a href={s.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 w-full py-1 bg-rose-600 text-white rounded text-[10px] font-semibold hover:bg-rose-700 transition-colors">
+                                                                                                    <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 w-full py-1 bg-rose-600 text-white rounded text-[10px] font-semibold hover:bg-rose-700 transition-colors">
                                                                                                         <Video className="w-3 h-3" /> Join Now
                                                                                                     </a>
                                                                                                 ) : (
@@ -1196,7 +1196,7 @@ const LiveMonitor = () => {
                                             <span className={`ml-auto text-xs font-semibold ${isMissed ? 'text-orange-600' : 'text-indigo-600'}`}>{fmtTime(s.startTime)}</span>
                                         </div>
                                         {!isEnded && !isMissed ? (
-                                            <a href={s.link} target="_blank" rel="noreferrer"
+                                            <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noreferrer"
                                                 className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-md text-xs font-semibold transition-colors ${isLive ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-900 text-white hover:bg-indigo-600'}`}>
                                                 <Video className="w-4 h-4" /> Join Classroom
                                             </a>

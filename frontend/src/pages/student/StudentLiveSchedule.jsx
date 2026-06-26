@@ -191,7 +191,7 @@ const StudentLiveSchedule = () => {
                        </div>
                        
                        <a 
-                         href={session.link}
+                         href={session.link?.startsWith('http') ? session.link : `https://${session.link}`}
                          target="_blank"
                          rel="noopener noreferrer"
                          className="px-6 py-2.5 bg-rose-600 text-white rounded-lg font-semibold text-sm shadow-md flex items-center justify-center gap-2 hover:bg-rose-700 transition-colors shrink-0"

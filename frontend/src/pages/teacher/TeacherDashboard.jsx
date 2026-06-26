@@ -375,7 +375,7 @@ const TeacherDashboard = () => {
                     {selectedSession.status === 'live' && (
                         <div className="flex flex-col gap-4">
                             <a 
-                                href={selectedSession.link} target="_blank" rel="noopener noreferrer"
+                                href={selectedSession.link?.startsWith('http') ? selectedSession.link : `https://${selectedSession.link}`} target="_blank" rel="noopener noreferrer"
                                 className="w-full bg-[#f16126] text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-orange-600/20 hover:scale-[1.02] transition-all"
                             >
                                 <Play className="w-4 h-4 fill-white" /> JOIN CLASS
@@ -456,7 +456,7 @@ const TeacherDashboard = () => {
                               </span>
                            </div>
                            <a 
-                             href={slot.meetingLink}
+                             href={slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`}
                              target="_blank"
                              rel="noopener noreferrer"
                              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-all shadow-md shadow-indigo-100"

@@ -224,7 +224,7 @@ const LiveSchedule = () => {
             <div className="mt-2">
               {isLive ? (
                 <div className="flex gap-1">
-                  <a href={s.link} target="_blank" rel="noopener noreferrer"
+                  <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noopener noreferrer"
                     className="flex-1 text-center py-1 bg-red-600 text-white rounded-lg text-[9px] font-bold hover:bg-red-700 transition-colors">
                     Join
                   </a>
@@ -488,7 +488,7 @@ const LiveSchedule = () => {
                               </button>
                             ) : (
                               <div className="flex w-full sm:w-auto items-center gap-2">
-                                <a href={s.link} target="_blank" rel="noopener noreferrer"
+                                <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noopener noreferrer"
                                   className="flex-1 sm:flex-none px-5 py-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold text-center">
                                   Join Call
                                 </a>

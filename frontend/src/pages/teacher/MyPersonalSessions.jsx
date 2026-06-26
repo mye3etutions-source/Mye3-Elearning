@@ -203,7 +203,7 @@ const MyPersonalSessions = () => {
                   <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
                     {slot.meetingLink && (
                       <a
-                        href={slot.meetingLink}
+                        href={slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider text-center transition-colors flex items-center justify-center gap-1 shadow-sm"

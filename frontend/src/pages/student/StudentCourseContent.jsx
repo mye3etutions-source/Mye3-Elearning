@@ -186,7 +186,7 @@ const StudentCourseContent = () => {
 
                            {session.status === 'live' ? (
                                <a 
-                                 href={session.link}
+                                 href={session.link?.startsWith('http') ? session.link : `https://${session.link}`}
                                  target="_blank"
                                  rel="noopener noreferrer"
                                  className="w-full mt-2 py-2 bg-rose-600 text-white rounded-lg font-semibold text-xs text-center hover:bg-rose-700 transition-colors flex items-center justify-center gap-1.5"

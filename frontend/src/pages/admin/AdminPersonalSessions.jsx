@@ -413,7 +413,7 @@ const AdminPersonalSessions = () => {
                                         </div>
                                         {slot.meetingLink && (
                                           <a 
-                                            href={slot.meetingLink}
+                                            href={slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5"

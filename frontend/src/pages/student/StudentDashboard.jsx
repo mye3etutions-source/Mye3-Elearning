@@ -546,7 +546,7 @@ const StudentDashboard = () => {
                           <div className="text-right">
                             {canJoin ? (
                               <a
-                                href={nextSlot.meetingLink}
+                                href={nextSlot.meetingLink?.startsWith('http') ? nextSlot.meetingLink : `https://${nextSlot.meetingLink}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-md inline-flex items-center gap-1"
