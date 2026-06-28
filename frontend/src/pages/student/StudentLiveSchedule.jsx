@@ -104,7 +104,7 @@ const StudentLiveSchedule = () => {
 
   const upcoming = liveSessions.filter(s => 
     s.status === 'upcoming' && 
-    new Date(s.startTime) > now &&
+    new Date(s.endTime) > now &&
     (s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
      s.subjectName?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -114,7 +114,7 @@ const StudentLiveSchedule = () => {
   yesterday.setHours(0, 0, 0, 0);
 
   const filteredPast = liveSessions.filter(s => 
-    (s.status === 'ended' || (s.status === 'upcoming' && new Date(s.startTime) < now)) &&
+    s.status === 'ended' &&
     new Date(s.startTime) >= yesterday &&
     (s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
      s.subjectName?.toLowerCase().includes(searchTerm.toLowerCase()))

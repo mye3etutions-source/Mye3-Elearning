@@ -84,7 +84,7 @@ const StudentDashboard = () => {
   const getNextUpcomingSlot = (session) => {
     if (!session || !session.scheduledSlots) return null;
     const upcoming = session.scheduledSlots
-      .filter(s => s.status === 'upcoming')
+      .filter(s => s.status === 'upcoming' || s.status === 'live')
       .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
     return upcoming[0] || null;
   };
@@ -295,9 +295,11 @@ const StudentDashboard = () => {
            <Link to="/student/profile" className="p-2.5 bg-slate-50 text-[#002147] rounded-lg hover:bg-[#002147] hover:text-white transition-colors border border-slate-200">
              <Users className="w-5 h-5" />
            </Link>
-           <button onClick={() => navigate('/student/classes')} className="px-5 py-2.5 bg-[#f16126] text-white rounded-lg font-semibold text-sm hover:bg-[#002147] transition-colors shadow-sm active:scale-95">
-             My Classes
-           </button>
+           {!userInfo?.isOneOnOne && (
+             <button onClick={() => navigate('/student/classes')} className="px-5 py-2.5 bg-[#f16126] text-white rounded-lg font-semibold text-sm hover:bg-[#002147] transition-colors shadow-sm active:scale-95">
+               My Classes
+             </button>
+           )}
         </div>
       </div>
 
@@ -543,8 +545,8 @@ const StudentDashboard = () => {
                             </div>
                           </div>
 
-                          <div className="text-right">
-                            {canJoin ? (
+                          <div className="text-right flex items-center justify-end">
+                            {nextSlot.status === 'live' ? (
                               <a
                                 href={nextSlot.meetingLink?.startsWith('http') ? nextSlot.meetingLink : `https://${nextSlot.meetingLink}`}
                                 target="_blank"
@@ -555,13 +557,13 @@ const StudentDashboard = () => {
                               </a>
                             ) : (
                               <div className="text-center">
-                                <button
-                                  disabled
-                                  className="px-4 py-2 bg-slate-200 text-slate-400 rounded-lg text-xs font-bold cursor-not-allowed"
+                                <Link
+                                  to="/student/live-schedule"
+                                  className="px-4 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors"
                                 >
-                                  Join Class
-                                </button>
-                                <span className="text-[9px] text-slate-400 font-medium block mt-1">Active 15m before</span>
+                                  View Schedule <ChevronRight className="w-3 h-3" />
+                                </Link>
+                                <span className="text-[9px] text-slate-400 font-medium block mt-1">Waiting for teacher</span>
                               </div>
                             )}
                           </div>
@@ -632,7 +634,7 @@ const StudentDashboard = () => {
               <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-3">Quick Navigation</h3>
               <div className="space-y-2">
                  {[
-                   { label: 'My Classes', path: '/student/classes', icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                   ...(!userInfo?.isOneOnOne ? [{ label: 'My Classes', path: '/student/classes', icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' }] : []),
                    { label: 'Notes & PDF', path: '/student/notes', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50' },
                    { label: 'Live Schedule', path: '/student/live-schedule', icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                    ...(!userInfo?.isOneOnOne ? [{ label: 'Performance', path: '/student/performance', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' }] : []),

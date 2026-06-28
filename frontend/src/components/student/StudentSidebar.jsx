@@ -29,10 +29,10 @@ const StudentSidebar = ({ onClose }) => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/student/dashboard' },
-    { icon: BookOpen, label: 'My Classes', path: '/student/classes' },
+    ...(!userInfo?.isOneOnOne ? [{ icon: BookOpen, label: 'My Classes', path: '/student/classes' }] : []),
     { icon: Video, label: 'Live & Schedule Class', path: '/student/live-schedule' },
     { icon: FileText, label: 'Notes', path: '/student/notes' },
-    ...(userInfo?.board !== '1-on-1' ? [{ icon: BarChart3, label: 'Performance', path: '/student/performance' }] : []),
+    ...(!userInfo?.isOneOnOne && userInfo?.board !== '1-on-1' ? [{ icon: BarChart3, label: 'Performance', path: '/student/performance' }] : []),
     { icon: CreditCard, label: 'Fee Payments', path: '/student/payments' },
   ];
 
