@@ -1254,14 +1254,23 @@ exports.getTeacherPayroll = async (req, res, next) => {
       
       let pendingLiveAmount = 0;
       const liveSessionDetails = teacherLiveSessions.map(session => {
-        // Find assigned subject price
-        const assignment = teacher.assignedSubjects.find(a => 
-          a.subjectName === session.subjectName && 
-          (a.board === session.board || (!a.board && !session.board)) &&
-          (a.classLevel === session.classLevel)
-        );
+        // Find assigned subject price — case-insensitive board & classLevel match
+        const sessionBoard = (session.board || '').toLowerCase().trim();
+        const sessionClass = (session.classLevel || '').toLowerCase().trim();
+        const sessionSubject = (session.subjectName || '').toLowerCase().trim();
+
+        const assignment = (teacher.assignedSubjects || []).find(a => {
+          const aBoard = (a.board || '').toLowerCase().trim();
+          const aClass = (a.classLevel || '').toLowerCase().trim();
+          const aSubject = (a.subjectName || '').toLowerCase().trim();
+          return (
+            aSubject === sessionSubject &&
+            aClass === sessionClass &&
+            (aBoard === sessionBoard || !a.board || !session.board)
+          );
+        });
         
-        const price = assignment ? assignment.pricePerClass : 0;
+        const price = assignment ? (assignment.pricePerClass || 0) : 0;
         pendingLiveAmount += price;
         return {
           ...session,
@@ -1271,11 +1280,30 @@ exports.getTeacherPayroll = async (req, res, next) => {
 
       let pendingPersonalAmount = 0;
       const personalSessionDetails = teacherPersonalSessions.map(session => {
-        const price = session.price || 0;
+        // Count completed slots and apply teacher's per-class rate
+        const completedSlots = (session.scheduledSlots || []).filter(s => s.status === 'completed').length;
+
+        // Try to find teacher's rate from assignedSubjects (1-on-1 assignment)
+        let assignment = (teacher.assignedSubjects || []).find(a =>
+          a.subjectName?.toLowerCase() === '1-on-1' ||
+          a.board?.toLowerCase() === '1-on-1' ||
+          a.classLevel?.toLowerCase() === '1-on-1'
+        );
+        // Fallback: match by subject name
+        if (!assignment && session.subjectName) {
+          assignment = (teacher.assignedSubjects || []).find(a =>
+            (a.subjectName || '').toLowerCase() === (session.subjectName || '').toLowerCase()
+          );
+        }
+
+        const ratePerClass = assignment ? (assignment.pricePerClass || 0) : 0;
+        const price = ratePerClass * completedSlots;
         pendingPersonalAmount += price;
         return {
           ...session,
-          priceApplied: price
+          priceApplied: price,
+          completedSlots,
+          ratePerClass
         };
       });
 

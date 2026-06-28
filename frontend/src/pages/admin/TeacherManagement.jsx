@@ -541,6 +541,15 @@ const TeacherManagement = () => {
                                     >
                                        <Plus className="w-3 h-3" /> Assign
                                     </button>
+                                    <button
+                                       onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDetailedTeacher(teacher);
+                                       }}
+                                       className="flex items-center justify-center gap-1 w-[90px] py-1.5 bg-[#002147] text-white rounded-lg font-bold text-[10px] hover:bg-[#f16126] transition-all shadow-sm uppercase"
+                                    >
+                                       <Award className="w-3 h-3" /> Profile
+                                    </button>
                                  </div>
                               </div>
                            )}

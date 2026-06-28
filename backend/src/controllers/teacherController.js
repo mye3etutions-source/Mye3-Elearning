@@ -386,13 +386,23 @@ exports.getEarnings = async (req, res, next) => {
 
     let pendingAmount = 0;
     const sessionDetails = unpaidSessions.map(session => {
-      const assignment = teacher.assignedSubjects.find(a => 
-        a.subjectName === session.subjectName && 
-        (a.board === session.board || (!a.board && !session.board)) &&
-        (a.classLevel === session.classLevel)
-      );
+      // Case-insensitive match for board, classLevel, subjectName
+      const sessionBoard   = (session.board       || '').toLowerCase().trim();
+      const sessionClass   = (session.classLevel  || '').toLowerCase().trim();
+      const sessionSubject = (session.subjectName || '').toLowerCase().trim();
+
+      const assignment = (teacher.assignedSubjects || []).find(a => {
+        const aBoard   = (a.board       || '').toLowerCase().trim();
+        const aClass   = (a.classLevel  || '').toLowerCase().trim();
+        const aSubject = (a.subjectName || '').toLowerCase().trim();
+        return (
+          aSubject === sessionSubject &&
+          aClass   === sessionClass &&
+          (aBoard === sessionBoard || !a.board || !session.board)
+        );
+      });
       
-      const price = assignment ? assignment.pricePerClass : 0;
+      const price = assignment ? (assignment.pricePerClass || 0) : 0;
       pendingAmount += price;
       return {
         ...session,
@@ -408,22 +418,21 @@ exports.getEarnings = async (req, res, next) => {
 
     const personalSessionDetails = [];
     unpaidPersonalSessions.forEach(session => {
-      let assignment = teacher.assignedSubjects.find(a => 
-        a.subjectName === session.subjectName && 
-        (a.board === session.board || (!a.board && !session.board)) &&
-        (a.classLevel === session.classLevel)
+      // Try 1-on-1 specific assignment first
+      let assignment = (teacher.assignedSubjects || []).find(a =>
+        a.subjectName?.toLowerCase() === '1-on-1' ||
+        a.board?.toLowerCase() === '1-on-1' ||
+        a.classLevel?.toLowerCase() === '1-on-1'
       );
 
-      if (!assignment) {
-        // Fallback to generic 1-on-1 rate if assigned by admin
-        assignment = teacher.assignedSubjects.find(a => 
-          a.subjectName?.toLowerCase() === '1-on-1' || 
-          a.board?.toLowerCase() === '1-on-1' ||
-          a.classLevel?.toLowerCase() === '1-on-1'
+      // Fallback: match by subject name (case-insensitive)
+      if (!assignment && session.subjectName) {
+        assignment = (teacher.assignedSubjects || []).find(a =>
+          (a.subjectName || '').toLowerCase() === (session.subjectName || '').toLowerCase()
         );
       }
 
-      const price = assignment ? assignment.pricePerClass : 0;
+      const price = assignment ? (assignment.pricePerClass || 0) : 0;
 
       (session.scheduledSlots || []).forEach(slot => {
         if (slot.status === 'completed') {
