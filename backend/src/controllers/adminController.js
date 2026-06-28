@@ -1227,10 +1227,13 @@ exports.getTeacherPayroll = async (req, res, next) => {
       payoutStatus: 'unpaid'
     }).lean();
 
-    // Get all unpaid completed personal sessions (1-on-1)
+    // Get all unpaid personal sessions (1-on-1) that have at least one completed slot
+    // NOTE: status can be 'active' (ongoing plan) or 'completed' (all slots done)
+    // We must include BOTH — a slot can be completed while the plan is still 'active'
     const unpaidPersonalSessions = await PersonalSession.find({
-      status: 'completed',
-      payoutStatus: 'unpaid'
+      status: { $in: ['active', 'completed'] },
+      payoutStatus: 'unpaid',
+      'scheduledSlots.status': 'completed'  // at least one completed slot
     }).lean();
 
     // Group by teacher

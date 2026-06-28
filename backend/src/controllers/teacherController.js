@@ -413,7 +413,9 @@ exports.getEarnings = async (req, res, next) => {
     const PersonalSession = require('../models/PersonalSession');
     const unpaidPersonalSessions = await PersonalSession.find({
       teacherId,
-      payoutStatus: 'unpaid'
+      status: { $in: ['active', 'completed'] },
+      payoutStatus: 'unpaid',
+      'scheduledSlots.status': 'completed'
     }).lean();
 
     const personalSessionDetails = [];
