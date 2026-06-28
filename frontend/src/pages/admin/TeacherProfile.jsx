@@ -132,14 +132,18 @@ const TeacherProfile = ({ teacher, onBack }) => {
     const performanceScore = completedClasses > 0 ? Math.min(100, 75 + (completedClasses * 2)) : 0; 
     const totalEarnings = payouts.filter(p => p.status === 'Paid' || p.status === 'Settled').reduce((acc, curr) => acc + curr.totalAmount, 0);
 
-    // Calculate Daily Earnings dynamically from past sessions
+    // Calculate session rate — case-insensitive match for board, classLevel, subjectName
     const getSessionRate = (session) => {
         if (!teacher.assignedSubjects) return 0;
-        const assignment = teacher.assignedSubjects.find(a =>
-            a.classLevel === session.classLevel &&
-            a.subjectName === session.subjectName &&
-            (a.board === session.board || !a.board)
-        );
+        const sClass   = (session.classLevel  || '').toLowerCase().trim();
+        const sSubject = (session.subjectName || '').toLowerCase().trim();
+        const sBoard   = (session.board       || '').toLowerCase().trim();
+        const assignment = teacher.assignedSubjects.find(a => {
+            const aClass   = (a.classLevel  || '').toLowerCase().trim();
+            const aSubject = (a.subjectName || '').toLowerCase().trim();
+            const aBoard   = (a.board       || '').toLowerCase().trim();
+            return aClass === sClass && aSubject === sSubject && (aBoard === sBoard || !a.board || !session.board);
+        });
         return assignment ? (assignment.pricePerClass || 0) : 0;
     };
 
