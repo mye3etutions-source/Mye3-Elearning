@@ -5,7 +5,7 @@ const slotSchema = new mongoose.Schema({
   endTime:     { type: Date, required: true },
   meetingLink: { type: String, required: true }, // Admin adds when assigning
   platform:    { type: String, enum: ['Zoom', 'Google Meet', 'Teams'], default: 'Google Meet' },
-  status:      { type: String, enum: ['upcoming', 'completed', 'missed'], default: 'upcoming' }
+  status:      { type: String, enum: ['upcoming', 'live', 'completed', 'missed'], default: 'upcoming' }
 }, { _id: true });
 
 const personalSessionSchema = new mongoose.Schema({
