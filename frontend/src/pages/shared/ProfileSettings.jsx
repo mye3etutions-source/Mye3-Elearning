@@ -28,22 +28,29 @@ const ProfileSettings = ({ role }) => {
   const [subscriptions, setSubscriptions] = useState([]);
   const [subsLoading, setSubsLoading] = useState(false);
 
+  const isOneOnOne = userInfo?.isOneOnOne || userInfo?.board === '1-on-1';
+
   useEffect(() => {
     if (role?.toLowerCase() === 'student') {
-      const fetchSubs = async () => {
+      const fetchData = async () => {
         setSubsLoading(true);
         try {
-          const { data } = await axios.get('/student/subscriptions');
-          setSubscriptions(data || []);
+          if (isOneOnOne) {
+            const { data } = await axios.get('/student/personal-sessions');
+            setSubscriptions(data || []);
+          } else {
+            const { data } = await axios.get('/student/subscriptions');
+            setSubscriptions(data || []);
+          }
         } catch (err) {
-          console.error('Failed to fetch subscriptions');
+          console.error('Failed to fetch data');
         } finally {
           setSubsLoading(false);
         }
       };
-      fetchSubs();
+      fetchData();
     }
-  }, [role]);
+  }, [role, isOneOnOne]);
 
   const theme = {
     student: 'indigo',
@@ -186,7 +193,7 @@ const ProfileSettings = ({ role }) => {
                        </div>
                     </div>
 
-                    {role?.toLowerCase() === 'student' && (
+                    {role?.toLowerCase() === 'student' && !isOneOnOne && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                          <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Board</label>
@@ -217,40 +224,78 @@ const ProfileSettings = ({ role }) => {
                                <p className="font-black uppercase tracking-widest text-xs text-slate-400">No records</p>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-1 gap-3">
-                               {subscriptions.map((sub, idx) => {
-                                 const daysLeft = Math.ceil((new Date(sub.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
-                                 const isNearExpiry = daysLeft <= 7 && daysLeft > 0;
-                                 const isExpired = daysLeft <= 0;
+                             <div className="grid grid-cols-1 gap-3">
+                                {subscriptions.map((sub, idx) => {
+                                  if (isOneOnOne) {
+                                    // Handle Personal Session rendering
+                                    const daysLeft = sub.expiryDate ? Math.ceil((new Date(sub.expiryDate) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
+                                    const isNearExpiry = daysLeft <= 7 && daysLeft > 0;
+                                    const isExpired = sub.expiryDate && daysLeft <= 0;
+                                    const formatPlanType = (t) => ({ 'oneMonth': 'Monthly', 'threeMonths': 'Quarterly', 'sixMonths': 'Half-Yearly', 'twelveMonths': 'Annually' }[t] || t);
 
-                                 return (
-                                   <div key={idx} className={`p-4 rounded-2xl border-2 transition-all group ${isNearExpiry ? 'border-orange-100 bg-orange-50/50' : isExpired ? 'border-rose-100 bg-rose-50/50' : 'border-slate-50 bg-white shadow-sm hover:shadow-md'}`}>
-                                      <div className="flex items-center justify-between gap-4">
-                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md ${isExpired ? 'bg-rose-100 text-rose-600' : isNearExpiry ? 'bg-orange-100 text-orange-600' : 'bg-indigo-600 text-white'}`}>
-                                               <GraduationCap className="w-6 h-6" />
+                                    return (
+                                      <div key={idx} className={`p-4 rounded-2xl border-2 transition-all group ${isNearExpiry ? 'border-orange-100 bg-orange-50/50' : isExpired ? 'border-rose-100 bg-rose-50/50' : 'border-slate-50 bg-white shadow-sm hover:shadow-md'}`}>
+                                         <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4">
+                                               <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md ${isExpired ? 'bg-rose-100 text-rose-600' : isNearExpiry ? 'bg-orange-100 text-orange-600' : 'bg-indigo-600 text-white'}`}>
+                                                  <GraduationCap className="w-6 h-6" />
+                                               </div>
+                                               <div>
+                                                  <h4 className="font-black text-slate-900 uppercase text-base md:text-lg italic leading-tight">1-ON-1 TRAINING</h4>
+                                                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">{sub.subjectName || 'Awaiting Subject'}</p>
+                                                  <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">PLAN: {formatPlanType(sub.planType) || 'N/A'}</p>
+                                               </div>
                                             </div>
-                                            <div>
-                                               <h4 className="font-black text-slate-900 uppercase text-base md:text-lg italic leading-tight">{sub.name}</h4>
-                                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">{sub.subscriptionType}</p>
-                                            </div>
-                                         </div>
 
-                                         <div className="text-right">
-                                            <p className={`text-[10px] font-black uppercase tracking-widest ${isExpired ? 'text-rose-600' : isNearExpiry ? 'text-orange-600' : 'text-slate-400'}`}>
-                                               {isExpired ? 'EXPIRED' : 'VALID'}
-                                            </p>
-                                            <p className="font-black text-slate-900 text-sm md:text-base tabular-nums tracking-tighter">
-                                               {new Date(sub.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                            </p>
-                                            {isNearExpiry && <Link to="/student/courses" className="mt-1 inline-block text-[10px] font-black text-orange-600 uppercase underline">Renew</Link>}
+                                            <div className="text-right">
+                                               <p className={`text-[10px] font-black uppercase tracking-widest ${isExpired ? 'text-rose-600' : isNearExpiry ? 'text-orange-600' : 'text-slate-400'}`}>
+                                                  {sub.status === 'active' ? (isExpired ? 'EXPIRED' : 'VALID') : sub.status.toUpperCase()}
+                                               </p>
+                                               {sub.expiryDate && (
+                                                 <p className="font-black text-slate-900 text-sm md:text-base tabular-nums tracking-tighter">
+                                                    {new Date(sub.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                 </p>
+                                               )}
+                                               {isNearExpiry && <Link to="/student/courses" className="mt-1 inline-block text-[10px] font-black text-orange-600 uppercase underline">Renew</Link>}
+                                            </div>
                                          </div>
                                       </div>
-                                   </div>
-                                 );
-                               })}
-                            </div>
-                          )}
+                                    );
+                                  }
+
+                                  // Handle Standard Subscription rendering
+                                  const daysLeft = Math.ceil((new Date(sub.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+                                  const isNearExpiry = daysLeft <= 7 && daysLeft > 0;
+                                  const isExpired = daysLeft <= 0;
+
+                                  return (
+                                    <div key={idx} className={`p-4 rounded-2xl border-2 transition-all group ${isNearExpiry ? 'border-orange-100 bg-orange-50/50' : isExpired ? 'border-rose-100 bg-rose-50/50' : 'border-slate-50 bg-white shadow-sm hover:shadow-md'}`}>
+                                       <div className="flex items-center justify-between gap-4">
+                                          <div className="flex items-center gap-4">
+                                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md ${isExpired ? 'bg-rose-100 text-rose-600' : isNearExpiry ? 'bg-orange-100 text-orange-600' : 'bg-indigo-600 text-white'}`}>
+                                                <GraduationCap className="w-6 h-6" />
+                                             </div>
+                                             <div>
+                                                <h4 className="font-black text-slate-900 uppercase text-base md:text-lg italic leading-tight">{sub.name}</h4>
+                                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">{sub.subscriptionType}</p>
+                                             </div>
+                                          </div>
+
+                                          <div className="text-right">
+                                             <p className={`text-[10px] font-black uppercase tracking-widest ${isExpired ? 'text-rose-600' : isNearExpiry ? 'text-orange-600' : 'text-slate-400'}`}>
+                                                {isExpired ? 'EXPIRED' : 'VALID'}
+                                             </p>
+                                             <p className="font-black text-slate-900 text-sm md:text-base tabular-nums tracking-tighter">
+                                                {new Date(sub.expiryDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                             </p>
+                                             {isNearExpiry && <Link to="/student/courses" className="mt-1 inline-block text-[10px] font-black text-orange-600 uppercase underline">Renew</Link>}
+                                          </div>
+                                       </div>
+                                    </div>
+                                  );
+                                })}
+                             </div>
+                           )}
                        </div>
                     </div>
                   )}
