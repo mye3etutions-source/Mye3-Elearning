@@ -20,31 +20,56 @@ const TeacherProfile = ({ teacher, onBack }) => {
 
     const fetchData = async () => {
         try {
-            const [sessionsRes, payoutsRes] = await Promise.all([
+            const [sessionsRes, payoutsRes, personalRes] = await Promise.all([
                 axios.get('/admin/live-sessions'),
-                axios.get('/admin/payroll')
+                axios.get('/admin/payroll'),
+                axios.get('/admin/personal-sessions')
             ]);
             
             const now = new Date();
-            // Filter sessions for this teacher
+            // Filter regular live sessions for this teacher
             const teacherSessions = (sessionsRes.data || []).filter(s => 
                 String(s.teacherId?._id || s.teacherId) === String(teacher._id)
             ).map(s => {
                 const startTime = new Date(s.startTime);
-                const endTime = new Date(s.endTime);
                 let status = s.status;
-                
-                // Real-time status override for display logic
                 if (status !== 'ended' && status !== 'live') {
                     if (startTime > now) status = 'upcoming';
                     else if (startTime < now) status = 'missed';
                 }
-                return { ...s, displayStatus: status };
+                return { ...s, displayStatus: status, sessionType: 'group' };
             });
-            
-            const past = teacherSessions.filter(s => s.displayStatus === 'ended' || s.displayStatus === 'missed');
-            const present = teacherSessions.filter(s => s.displayStatus === 'live');
-            const future = teacherSessions.filter(s => s.displayStatus === 'upcoming');
+
+            // Filter personal sessions for this teacher and extract individual slots
+            const teacherPersonal = (personalRes.data || []).filter(ps =>
+                String(ps.teacherId?._id || ps.teacherId) === String(teacher._id)
+            );
+
+            const personalCompletedSlots = [];
+            const personalUpcomingSlots = [];
+            const personalLiveSlots = [];
+
+            teacherPersonal.forEach(ps => {
+                (ps.scheduledSlots || []).forEach(slot => {
+                    const entry = {
+                        _id: slot._id,
+                        title: `1-on-1: ${ps.subjectName || 'Personal Class'}`,
+                        subjectName: ps.subjectName || '',
+                        classLevel: '1-on-1',
+                        startTime: slot.startTime,
+                        endTime: slot.endTime,
+                        sessionType: '1on1',
+                        studentName: ps.studentId?.name || ''
+                    };
+                    if (slot.status === 'completed') personalCompletedSlots.push(entry);
+                    else if (slot.status === 'live') personalLiveSlots.push(entry);
+                    else if (slot.status === 'upcoming' && new Date(slot.startTime) > now) personalUpcomingSlots.push(entry);
+                });
+            });
+
+            const past    = [...teacherSessions.filter(s => s.displayStatus === 'ended' || s.displayStatus === 'missed'), ...personalCompletedSlots];
+            const present = [...teacherSessions.filter(s => s.displayStatus === 'live'), ...personalLiveSlots];
+            const future  = [...teacherSessions.filter(s => s.displayStatus === 'upcoming'), ...personalUpcomingSlots];
 
             setSessions({ past, present, future });
 
@@ -289,10 +314,13 @@ const TeacherProfile = ({ teacher, onBack }) => {
                          <div>
                             <h3 className="text-xs font-black text-[#002147]/50 uppercase tracking-widest mb-3 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Completed</h3>
                             {sessions.past.length > 0 ? sessions.past.map(s => (
-                                <div key={s._id} className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex flex-col gap-1 mb-3 opacity-70">
-                                    <span className="text-[10px] font-black text-[#002147] tracking-widest uppercase">{s.classLevel} • {s.subjectName}</span>
+                                <div key={s._id} className={`p-4 rounded-xl border flex flex-col gap-1 mb-3 ${s.sessionType === '1on1' ? 'border-purple-100 bg-purple-50/40' : 'border-slate-100 bg-slate-50 opacity-70'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black tracking-widest uppercase" style={{color: s.sessionType === '1on1' ? '#7c3aed' : '#002147'}}>{s.classLevel} • {s.subjectName}</span>
+                                        {s.sessionType === '1on1' && <span className="text-[8px] font-black bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full uppercase">1-on-1</span>}
+                                    </div>
                                     <p className="text-sm font-bold text-slate-800">{s.title}</p>
-                                    <span className="text-xs font-semibold text-slate-500 mt-1">Ended: {new Date(s.endTime).toLocaleString()}</span>
+                                    <span className="text-xs font-semibold text-slate-500 mt-1">{new Date(s.startTime).toLocaleString()}</span>
                                 </div>
                             )) : <p className="text-xs text-slate-400 font-bold">No completed sessions</p>}
                         </div>
