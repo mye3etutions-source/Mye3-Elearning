@@ -498,16 +498,7 @@ const StudentDashboard = () => {
                 </div>
               ) : personalSession.status === 'active' ? (
                 <div className="space-y-4">
-                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                      <div>
-                        <h4 className="text-xs font-bold text-emerald-800">Subscription Active &amp; Verified</h4>
-                        <p className="text-[10px] text-emerald-700 mt-0.5">Payment confirmed successfully</p>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-extrabold rounded uppercase">Paid</span>
-                  </div>
+
 
                   {/* Next Slot details */}
                   {(() => {
