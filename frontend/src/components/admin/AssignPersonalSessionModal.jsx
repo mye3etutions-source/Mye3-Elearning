@@ -35,8 +35,8 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
   const selectedTeacherObj = teachers.find(t => t._id === teacherId);
   const isOneOnOneCapable = selectedTeacherObj 
     ? (selectedTeacherObj.assignedSubjects || []).some(sub => 
-        (sub.board && sub.board.includes('1-ON-1')) || 
-        (sub.classLevel && sub.classLevel.includes('1-ON-1'))
+        (sub.board && sub.board.toUpperCase().includes('1-ON-1')) || 
+        (sub.classLevel && sub.classLevel.toUpperCase().includes('1-ON-1'))
       )
     : false;
 
