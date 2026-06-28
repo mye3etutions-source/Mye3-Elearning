@@ -10,6 +10,7 @@ const {
   getMyPersonalSessions,
   initiatePayment,
   getTeacherPersonalSessions,
+  markSlotStarted,
   markSlotCompleted
 } = require('../controllers/personalSessionController');
 
@@ -31,6 +32,7 @@ router.post('/student/personal-sessions/:id/pay',     protect, initiatePayment);
 
 // ── TEACHER routes ────────────────────────────────────────────────────────────
 router.get('/teacher/personal-sessions',                                   protect, authorizeRoles('teacher'), getTeacherPersonalSessions);
+router.put('/teacher/personal-sessions/:sessionId/slots/:slotId/start',    protect, authorizeRoles('teacher'), markSlotStarted);
 router.put('/teacher/personal-sessions/:sessionId/slots/:slotId/complete', protect, authorizeRoles('teacher'), markSlotCompleted);
 
 module.exports = router;

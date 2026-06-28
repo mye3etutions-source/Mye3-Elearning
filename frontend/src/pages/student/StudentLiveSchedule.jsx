@@ -47,13 +47,12 @@ const StudentLiveSchedule = () => {
               const sTime = new Date(slot.startTime);
               const eTime = new Date(slot.endTime);
               
-              // 10 minutes before start time is considered LIVE
-              const tenMinsBefore = new Date(sTime.getTime() - 10 * 60000);
+              let slotStatus = slot.status || 'upcoming';
               
-              let slotStatus = 'upcoming';
-              if (nowTime >= tenMinsBefore && nowTime <= eTime) {
-                slotStatus = 'live';
+              if (slotStatus === 'completed' || slotStatus === 'cancelled') {
+                slotStatus = 'ended';
               } else if (nowTime > eTime) {
+                // Safety fallback: if it's way past end time and the teacher forgot to complete it
                 slotStatus = 'ended';
               }
 

@@ -47,6 +47,17 @@ const MyPersonalSessions = () => {
     }
   };
 
+  const handleStartSlot = async (sessionId, slotId) => {
+    const loadingToast = toast.loading('Starting class...');
+    try {
+      await axios.put(`/teacher/personal-sessions/${sessionId}/slots/${slotId}/start`);
+      toast.success('Class started successfully!', { id: loadingToast });
+      fetchSessions();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to start class', { id: loadingToast });
+    }
+  };
+
   // Calculations
   const activeSessions = sessions.filter(s => s.status === 'active' || s.status === 'assigned');
   const completedSessions = sessions.filter(s => s.status === 'completed');
@@ -58,7 +69,7 @@ const MyPersonalSessions = () => {
     const list = [];
     activeSessions.forEach(session => {
       (session.scheduledSlots || []).forEach(slot => {
-        if (slot.status === 'upcoming') {
+        if (slot.status === 'upcoming' || slot.status === 'live') {
           list.push({
             sessionId: session._id,
             subjectName: session.subjectName,
@@ -70,7 +81,8 @@ const MyPersonalSessions = () => {
             startTime: slot.startTime,
             endTime: slot.endTime,
             meetingLink: slot.meetingLink,
-            platform: slot.platform
+            platform: slot.platform,
+            status: slot.status
           });
         }
       });
@@ -223,46 +235,45 @@ const MyPersonalSessions = () => {
                   </div>
 
                   <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-                    {slot.meetingLink && (
-                      <a
-                        href={new Date() >= new Date(start.getTime() - 5 * 60000) ? (slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`) : '#'}
-                        target={new Date() >= new Date(start.getTime() - 5 * 60000) ? "_blank" : "_self"}
-                        rel="noopener noreferrer"
+                    {slot.status === 'upcoming' ? (
+                      <button
                         onClick={(e) => {
                           if (new Date() < new Date(start.getTime() - 5 * 60000)) {
                             e.preventDefault();
-                            toast.error('You can only join 5 minutes before the class starts.');
+                            toast.error('You can only start the class 5 minutes before the scheduled time.');
+                            return;
                           }
+                          handleStartSlot(slot.sessionId, slot.slotId);
                         }}
+                        disabled={new Date() < new Date(start.getTime() - 5 * 60000)}
                         className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider text-center transition-colors flex items-center justify-center gap-1 shadow-sm ${
                           new Date() >= new Date(start.getTime() - 5 * 60000) 
-                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white' 
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                         }`}
                       >
-                        Join Class <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                         <Video className="w-4 h-4" /> Start Class
+                      </button>
+                    ) : (
+                      <>
+                        {slot.meetingLink && (
+                          <a
+                            href={slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider text-center transition-colors flex items-center justify-center gap-1 shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+                          >
+                            Join Class <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleCompleteSlot(slot.sessionId, slot.slotId)}
+                          className="w-full py-2 border rounded-lg font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1 border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Mark Completed
+                        </button>
+                      </>
                     )}
-                    <button
-                      onClick={(e) => {
-                        if (new Date() < new Date(start.getTime() - 5 * 60000)) {
-                          e.preventDefault();
-                          toast.error('You cannot mark a class as completed before it starts.');
-                          return;
-                        }
-                        handleCompleteSlot(slot.sessionId, slot.slotId);
-                      }}
-                      disabled={new Date() < new Date(start.getTime() - 5 * 60000)}
-                      className={`w-full py-2 border rounded-lg font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1 ${
-                        new Date() >= new Date(start.getTime() - 5 * 60000)
-                          ? 'border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700'
-                          : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
-                      }`}
-                    >
-                      <CheckCircle2 className={`w-3.5 h-3.5 ${
-                        new Date() >= new Date(start.getTime() - 5 * 60000) ? 'text-emerald-500' : 'text-slate-300'
-                      }`} /> Mark Completed
-                    </button>
                   </div>
                 </div>
               );

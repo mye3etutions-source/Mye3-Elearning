@@ -3,8 +3,9 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { 
   X, Plus, Trash2, AlertTriangle, Check, Loader2, Calendar, 
-  Clock, Video, User, BookOpen, DollarSign, FileText, Link as LinkIcon
+  Clock, Video, User, BookOpen, DollarSign, FileText, Link as LinkIcon, UserPlus
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const DAYS_META = [
     { label: 'S', value: 0 }, { label: 'M', value: 1 }, { label: 'T', value: 2 },
@@ -29,6 +30,15 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
   const [subjectName, setSubjectName] = useState('');
   const [adminNote, setAdminNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const selectedTeacherObj = teachers.find(t => t._id === teacherId);
+  const isOneOnOneCapable = selectedTeacherObj 
+    ? (selectedTeacherObj.assignedSubjects || []).some(sub => 
+        (sub.board && sub.board.includes('1-ON-1')) || 
+        (sub.classLevel && sub.classLevel.includes('1-ON-1'))
+      )
+    : false;
 
   const [scheduleData, setScheduleData] = useState({
     time: '10:00',
@@ -290,6 +300,30 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
                 })()}
               </select>
 
+              {teacherId && !isOneOnOneCapable && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3 animate-in slide-in-from-top-2">
+                      <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                          <div>
+                              <h4 className="text-sm font-bold text-amber-800">1-on-1 Payment Setup Required</h4>
+                              <p className="text-xs text-amber-700 mt-1 font-medium leading-relaxed">
+                                  This teacher does not have a 1-ON-1 subject assigned, so their payment price is unknown. Please assign 1-ON-1 to this teacher first.
+                              </p>
+                          </div>
+                      </div>
+                      <button 
+                          type="button"
+                          onClick={() => {
+                              onClose();
+                              navigate('/admin/teachers', { state: { expandTeacherId: teacherId } });
+                          }}
+                          className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs uppercase tracking-wider py-2.5 rounded-lg transition-colors shadow-sm"
+                      >
+                          <UserPlus className="w-4 h-4" /> Go to Teacher Profile
+                      </button>
+                  </div>
+              )}
+
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
                   <div className="flex gap-1.5 items-center">
                       <span className="text-[10px] font-bold text-slate-500 uppercase w-10 tracking-widest">Start</span>
@@ -450,7 +484,7 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
             </button>
             <button 
               type="submit" 
-              disabled={loading || (session?.expiryDate && new Date() > new Date(session.expiryDate))}
+              disabled={loading || !isOneOnOneCapable || (session?.expiryDate && new Date() > new Date(session.expiryDate))}
               className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}

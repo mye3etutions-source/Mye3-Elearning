@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Plus, Search, Edit2, Trash2, User, Mail, Shield, Save, X, Loader2, BookOpen, GraduationCap, CheckCircle, ChevronLeft, ChevronRight, AlertCircle, Award, DollarSign } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 import TeacherProfile from './TeacherProfile';
 
 const TeacherManagement = () => {
@@ -27,6 +28,7 @@ const TeacherManagement = () => {
    const [assignmentSearch, setAssignmentSearch] = useState('');
    const [activeBoard, setActiveBoard] = useState(null);
    const [activeClasses, setActiveClasses] = useState([]);
+   const location = useLocation();
 
    const fetchTeachers = async () => {
       try {
@@ -58,6 +60,17 @@ const TeacherManagement = () => {
       fetchTeachers();
       fetchClassesAndSubjects();
    }, []);
+
+   useEffect(() => {
+      if (teachers.length > 0 && location.state?.expandTeacherId) {
+         const t = teachers.find(teacher => teacher._id === location.state.expandTeacherId);
+         if (t) {
+            setDetailedTeacher(t);
+            // Optionally clear the state so it doesn't re-trigger on reload
+            window.history.replaceState({}, document.title);
+         }
+      }
+   }, [teachers, location.state]);
 
    const handleSubmit = async (e) => {
       e.preventDefault();

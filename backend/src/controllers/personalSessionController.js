@@ -371,6 +371,34 @@ exports.getTeacherPersonalSessions = async (req, res) => {
   }
 };
 
+// ─── TEACHER/ADMIN: Mark a slot as started ───────────────────────────────────
+// PUT /teacher/personal-sessions/:sessionId/slots/:slotId/start
+exports.markSlotStarted = async (req, res) => {
+  try {
+    const session = await PersonalSession.findById(req.params.sessionId);
+    if (!session) return res.status(404).json({ message: 'Session not found' });
+
+    const slot = session.scheduledSlots.id(req.params.slotId);
+    if (!slot) return res.status(404).json({ message: 'Slot not found' });
+
+    // Validate that it's within the allowed 5 minute window
+    const nowTime = new Date();
+    const sTime = new Date(slot.startTime);
+    const fiveMinsBefore = new Date(sTime.getTime() - 5 * 60000);
+    
+    if (nowTime < fiveMinsBefore) {
+      return res.status(403).json({ message: 'Cannot start class more than 5 minutes early' });
+    }
+
+    slot.status = 'live';
+    await session.save();
+    
+    res.json({ message: 'Slot started successfully', session });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // ─── TEACHER/ADMIN: Mark a slot as completed ─────────────────────────────────
 // PUT /teacher/personal-sessions/:sessionId/slots/:slotId/complete
 exports.markSlotCompleted = async (req, res) => {
@@ -384,7 +412,7 @@ exports.markSlotCompleted = async (req, res) => {
     slot.status = 'completed';
 
     // If all slots completed → mark overall session completed
-    const allDone = session.scheduledSlots.every(s => s.status !== 'upcoming');
+    const allDone = session.scheduledSlots.every(s => s.status === 'completed' || s.status === 'cancelled');
     if (allDone) {
       session.status = 'completed';
       session.payoutStatus = 'unpaid'; // Ready for payroll
@@ -396,3 +424,4 @@ exports.markSlotCompleted = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
