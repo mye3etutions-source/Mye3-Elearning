@@ -39,6 +39,10 @@ const {
   getRecurringSchedules,
   updateRecurringSchedule,
   stopRecurringSchedule,
+  getOneOnOneCategories,
+  createOneOnOneCategory,
+  updateOneOnOneCategory,
+  deleteOneOnOneCategory,
   removeSubscription
 } = require('../controllers/adminController');
 const { protect } = require('../middleware/authMiddleware');
@@ -91,5 +95,11 @@ router.get('/transactions', protect, authorizeRoles('admin'), getAllTransactions
 // Teacher Payroll Routes
 router.get('/teacher-payroll', protect, authorizeRoles('admin'), getTeacherPayroll);
 router.post('/teacher-payroll/settle', protect, authorizeRoles('admin'), settleTeacherPayment);
+
+// 1-on-1 Category Routes (Phase 3)
+router.get('/1on1-categories', protect, authorizeRoles('admin'), getOneOnOneCategories);
+router.post('/1on1-categories', protect, authorizeRoles('admin'), createOneOnOneCategory);
+router.put('/1on1-categories/:id', protect, authorizeRoles('admin'), updateOneOnOneCategory);
+router.delete('/1on1-categories/:id', protect, authorizeRoles('admin'), deleteOneOnOneCategory);
 
 module.exports = router;

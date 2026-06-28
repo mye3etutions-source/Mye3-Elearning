@@ -18,6 +18,12 @@ const ManageStudents = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  // Filter & Sort state
+  const [studentTypeFilter, setStudentTypeFilter] = useState('all'); // 'all' | 'regular' | '1on1'
+  const [statusFilter, setStatusFilter]           = useState('all'); // 'all' | 'active' | 'expired' | 'noaccess'
+  const [boardFilter, setBoardFilter]             = useState('all'); // 'all' | 'AP' | 'TS' | 'CBSE' | 'ICSE'
+  const [sortBy, setSortBy]                       = useState('newest'); // 'newest' | 'oldest' | 'name_az' | 'name_za' | 'expiry'
+
   // Form States
   const [studentForm, setStudentForm] = useState({ name: '', email: '', password: '' });
   const [grantForm, setGrantForm] = useState({
@@ -128,10 +134,50 @@ const ManageStudents = () => {
     return { label: 'Expired', color: 'bg-rose-50 text-rose-600', icon: <AlertCircle className="w-3 h-3" /> };
   };
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    s.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStudents = students
+    .filter(s => {
+      // Search: name, email, mobile
+      const q = searchQuery.toLowerCase();
+      if (q && !s.name.toLowerCase().includes(q) &&
+                !s.email.toLowerCase().includes(q) &&
+                !(s.mobileNumber || '').toLowerCase().includes(q) &&
+                !(s.className || '').toLowerCase().includes(q)) return false;
+
+      // Student Type
+      if (studentTypeFilter === 'regular' && s.isOneOnOne) return false;
+      if (studentTypeFilter === '1on1'    && !s.isOneOnOne) return false;
+
+      // Status
+      if (statusFilter !== 'all') {
+        const status = getStatus(s.activeSubscriptions);
+        if (statusFilter === 'active'   && status.label !== 'Active')    return false;
+        if (statusFilter === 'expired'  && status.label !== 'Expired')   return false;
+        if (statusFilter === 'noaccess' && status.label !== 'No Access' && !(s.isOneOnOne)) return false;
+        if (statusFilter === '1on1'     && !s.isOneOnOne)                return false;
+      }
+
+      // Board
+      if (boardFilter !== 'all') {
+        const board = s.board || s.activeSubscriptions?.[0]?.board || '';
+        if (!board.toUpperCase().includes(boardFilter.toUpperCase())) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name_az') return a.name.localeCompare(b.name);
+      if (sortBy === 'name_za') return b.name.localeCompare(a.name);
+      if (sortBy === 'oldest')  return new Date(a.createdAt) - new Date(b.createdAt);
+      if (sortBy === 'expiry') {
+        const aExp = a.activeSubscriptions?.[0]?.expiryDate;
+        const bExp = b.activeSubscriptions?.[0]?.expiryDate;
+        if (!aExp && !bExp) return 0;
+        if (!aExp) return 1;
+        if (!bExp) return -1;
+        return new Date(aExp) - new Date(bExp);
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt); // newest first (default)
+    });
 
   // Pagination logic
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
@@ -139,10 +185,10 @@ const ManageStudents = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredStudents.slice(indexOfFirstItem, indexOfLastItem);
 
-  // Reset to page 1 when searching
+  // Reset to page 1 when any filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, studentTypeFilter, statusFilter, boardFilter, sortBy]);
 
   if (loading) return (
     <div className="flex h-[60vh] items-center justify-center">
@@ -155,28 +201,83 @@ const ManageStudents = () => {
       <Toaster position="top-right" />
       
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-         <div className="space-y-1">
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Student Enrollment</h1>
-            <p className="text-sm font-medium text-slate-500">Manage learner accounts and manual course permissions</p>
-         </div>
-         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-            <div className="relative group w-full sm:w-64">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-               <input 
-                 type="text" 
-                 placeholder="Search by name or email..." 
-                 value={searchQuery}
-                 onChange={(e) => setSearchQuery(e.target.value)}
-                 className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-md w-full outline-none font-medium text-slate-700 focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-sm"
-               />
+      <div className="flex flex-col gap-4 pb-4 border-b border-slate-100">
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+               <h1 className="text-xl font-bold text-slate-800 tracking-tight">Student Enrollment</h1>
+               <p className="text-sm font-medium text-slate-500">Manage learner accounts and manual course permissions</p>
             </div>
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-1.5 rounded-md font-medium shadow-sm hover:bg-indigo-700 transition-colors text-sm w-full sm:w-auto"
-            >
-               <Plus className="w-4 h-4" /> New Student
-            </button>
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+               <div className="relative group w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                  <input 
+                    type="text" 
+                    placeholder="Search name, email, mobile, class..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-md w-full outline-none font-medium text-slate-700 focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-sm text-sm"
+                  />
+               </div>
+               <button 
+                 onClick={() => setShowAddModal(true)}
+                 className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-1.5 rounded-md font-medium shadow-sm hover:bg-indigo-700 transition-colors text-sm w-full sm:w-auto"
+               >
+                  <Plus className="w-4 h-4" /> New Student
+               </button>
+            </div>
+         </div>
+
+         {/* Filter Bar */}
+         <div className="flex flex-wrap gap-2 items-center">
+
+           {/* Student Type Tabs */}
+           <div className="flex rounded-lg border border-slate-200 overflow-hidden shadow-sm text-xs font-bold">
+             {[{v:'all',l:'All Students'},{v:'regular',l:'📚 Daily Tuitions'},{v:'1on1',l:'🎯 1-on-1'}].map(opt => (
+               <button key={opt.v} onClick={() => setStudentTypeFilter(opt.v)}
+                 className={`px-3 py-1.5 transition-colors ${
+                   studentTypeFilter === opt.v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                 }`}>{opt.l}</button>
+             ))}
+           </div>
+
+           {/* Status Filter */}
+           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none focus:border-indigo-500 shadow-sm cursor-pointer">
+             <option value="all">⚡ All Status</option>
+             <option value="active">✅ Active</option>
+             <option value="expired">🔴 Expired</option>
+             <option value="noaccess">⏳ No Access</option>
+           </select>
+
+           {/* Board Filter */}
+           <select value={boardFilter} onChange={e => setBoardFilter(e.target.value)}
+             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none focus:border-indigo-500 shadow-sm cursor-pointer">
+             <option value="all">🗂 All Boards</option>
+             <option value="AP">AP Board</option>
+             <option value="TS">TS Board</option>
+             <option value="CBSE">CBSE</option>
+             <option value="ICSE">ICSE</option>
+           </select>
+
+           {/* Sort */}
+           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 outline-none focus:border-indigo-500 shadow-sm cursor-pointer">
+             <option value="newest">🕐 Newest First</option>
+             <option value="oldest">🕐 Oldest First</option>
+             <option value="name_az">A → Z</option>
+             <option value="name_za">Z → A</option>
+             <option value="expiry">⏳ Expiring Soon</option>
+           </select>
+
+           {/* Active Filter Count + Clear */}
+           {(studentTypeFilter !== 'all' || statusFilter !== 'all' || boardFilter !== 'all' || sortBy !== 'newest' || searchQuery) && (
+             <button onClick={() => { setStudentTypeFilter('all'); setStatusFilter('all'); setBoardFilter('all'); setSortBy('newest'); setSearchQuery(''); }}
+               className="px-3 py-1.5 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors">
+               ✕ Clear Filters
+             </button>
+           )}
+
+           <span className="text-xs text-slate-400 font-medium ml-auto">{filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''} found</span>
          </div>
       </div>
 
@@ -187,6 +288,7 @@ const ManageStudents = () => {
                <thead className="bg-slate-50/50 border-b border-slate-100">
                   <tr className="text-sm font-semibold text-slate-600">
                      <th className="px-5 py-3">Student Information</th>
+                     <th className="px-5 py-3">Contact</th>
                      <th className="px-5 py-3">Current Access</th>
                      <th className="px-5 py-3">Status</th>
                      <th className="px-5 py-3 text-right pr-10">Administrative Actions</th>
@@ -195,7 +297,7 @@ const ManageStudents = () => {
                <tbody className="divide-y divide-slate-100">
                   {filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="px-5 py-12 text-center text-slate-400">
+                      <td colSpan="5" className="px-5 py-12 text-center text-slate-400">
                         <div className="flex flex-col items-center gap-3">
                           <User className="w-8 h-8" />
                           <p className="font-medium text-sm">No students found</p>
@@ -216,22 +318,42 @@ const ManageStudents = () => {
                                <div>
                                   <p className="font-bold text-slate-800 text-lg leading-tight mb-1.5">{student.name}</p>
                                   <div className="flex flex-wrap items-center gap-2">
-                                     <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded border shadow-sm flex items-center gap-1.5 ${
-                                        board.includes('TS') ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 
-                                        board.includes('AP') ? 'bg-orange-50 text-orange-700 border-orange-200' : 
-                                        'bg-purple-50 text-purple-700 border-purple-200'
-                                     }`}>
-                                        <div className={`w-1.5 h-1.5 rounded-full ${board.includes('TS') ? 'bg-indigo-500' : board.includes('AP') ? 'bg-orange-500' : 'bg-purple-500'}`}></div>
-                                        {board}
-                                     </span>
-                                     <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 uppercase tracking-tight shadow-sm">
-                                        {className}
-                                     </span>
-                                     <span className="text-xs text-slate-500 font-bold ml-1.5 truncate max-w-[220px]">
-                                        {student.email}
-                                     </span>
+                                     {student.isOneOnOne ? (
+                                       <span className="px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded border shadow-sm flex items-center gap-1.5 bg-blue-50 text-blue-700 border-blue-200">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                          {student.oneOnOneCategory?.name || '1-ON-1 TRACK'}
+                                       </span>
+                                     ) : (
+                                       <>
+                                         <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded border shadow-sm flex items-center gap-1.5 ${
+                                            board.includes('TS') ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 
+                                            board.includes('AP') ? 'bg-orange-50 text-orange-700 border-orange-200' : 
+                                            'bg-purple-50 text-purple-700 border-purple-200'
+                                         }`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${board.includes('TS') ? 'bg-indigo-500' : board.includes('AP') ? 'bg-orange-500' : 'bg-purple-500'}`}></div>
+                                            {board}
+                                         </span>
+                                         <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 uppercase tracking-tight shadow-sm">
+                                            {className}
+                                         </span>
+                                       </>
+                                     )}
                                   </div>
                                </div>
+                            </div>
+                         </td>
+                         <td className="px-5 py-6 align-middle">
+                            <div className="flex flex-col gap-1">
+                               {student.mobileNumber ? (
+                                  <span className="text-base text-slate-800 font-black">
+                                     📞 {student.mobileNumber}
+                                  </span>
+                               ) : (
+                                  <span className="text-xs text-slate-300 font-medium italic">No mobile</span>
+                               )}
+                               <span className="text-xs text-slate-500 font-semibold truncate max-w-[220px] mt-0.5">
+                                  ✉️ {student.email}
+                               </span>
                             </div>
                          </td>
                          <td className="px-5 py-6">
@@ -266,9 +388,13 @@ const ManageStudents = () => {
                                       </div>
                                     );
                                   });
-                                })() : (
-                                  <span className="text-sm text-slate-400 italic">No Manual Overrides</span>
-                                )}
+                                })() : student.isOneOnOne ? (
+                                    <span className="text-[11px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-md flex items-center gap-1.5">
+                                      🎯 Personal Sessions
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm text-slate-400 italic">No Manual Overrides</span>
+                                  )}
                             </div>
                          </td>
                          <td className="px-5 py-6">
@@ -278,7 +404,7 @@ const ManageStudents = () => {
                                'bg-slate-50 text-slate-500 border-slate-200'
                              }`}>
                                 {status.icon}
-                                {board === '1-on-1' && status.label === 'No Access' ? '1-ON-1 TRACK' : status.label}
+                                {student.isOneOnOne && status.label === 'No Access' ? '1-ON-1' : status.label}
                              </div>
                          </td>
                          <td className="px-5 py-6 text-right">
@@ -290,12 +416,12 @@ const ManageStudents = () => {
                                >
                                   <Eye className="w-5 h-5" />
                                </button>
-                               {board === '1-on-1' ? (
+                               {student.isOneOnOne ? (
                                  <button 
                                    onClick={() => window.location.href = '/admin/personal-sessions'}
                                    className="px-4 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-md text-[11px] font-black uppercase tracking-wider hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                                  >
-                                   Assign 1-on-1
+                                   Manage 1-on-1
                                  </button>
                                ) : (
                                  <button 
@@ -531,6 +657,11 @@ const ManageStudents = () => {
                        <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
                           <Mail className="w-4 h-4 text-indigo-500" /> {selectedStudent.email}
                        </div>
+                       {selectedStudent.mobileNumber && (
+                          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                             <span className="text-indigo-400">📞</span> {selectedStudent.mobileNumber}
+                          </div>
+                       )}
                     </div>
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Academic Level</p>

@@ -34,6 +34,8 @@ const authUser = async (req, res, next) => {
           role: user.role,
           board: user.board,
           className: user.className,
+          isOneOnOne: user.isOneOnOne,
+          oneOnOneCategory: user.oneOnOneCategory,
           payRates: user.payRates,
           token,
         });
@@ -48,7 +50,7 @@ const authUser = async (req, res, next) => {
 
 const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password, role, board, className, mobileNumber } = req.body;
+    const { name, email, password, role, board, className, mobileNumber, isOneOnOne, oneOnOneCategory } = req.body;
     if (!email || !password || !mobileNumber) {
       return res.status(400).json({ message: 'Email, password and mobile number are required' });
     }
@@ -64,8 +66,10 @@ const registerUser = async (req, res, next) => {
       mobileNumber,
       password,
       role: role || 'Student',
-      board,
-      className,
+      // Only set board/className for normal tuition students
+      ...(isOneOnOne ? {} : { board, className }),
+      isOneOnOne: !!isOneOnOne,
+      oneOnOneCategory: isOneOnOne ? (oneOnOneCategory || null) : null,
     });
 
     if (user) {
@@ -73,8 +77,8 @@ const registerUser = async (req, res, next) => {
       user.currentDeviceToken = deviceToken;
       await user.save();
 
-      // Create PersonalSession document if user board is 1-on-1
-      if (board === '1-on-1') {
+      // Create PersonalSession document if user is 1-on-1
+      if (isOneOnOne) {
         const PersonalSession = require('../models/PersonalSession');
         const session = new PersonalSession({
           studentId: user._id,
@@ -110,6 +114,8 @@ const registerUser = async (req, res, next) => {
         role: user.role,
         board: user.board,
         className: user.className,
+        isOneOnOne: user.isOneOnOne,
+        oneOnOneCategory: user.oneOnOneCategory,
         token,
       });
     } else {
@@ -152,6 +158,8 @@ const getUserProfile = async (req, res, next) => {
         role: user.role,
         board: user.board,
         className: user.className,
+        isOneOnOne: user.isOneOnOne,
+        oneOnOneCategory: user.oneOnOneCategory,
         payRates: user.payRates,
       });
     } else {

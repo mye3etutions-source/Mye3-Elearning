@@ -28,7 +28,7 @@ const MyLearning = () => {
   useEffect(() => {
     const fetchLearning = async () => {
       try {
-        if (userInfo?.board === '1-on-1') {
+        if (userInfo?.isOneOnOne) {
           const { data } = await axios.get('/student/personal-sessions');
           const active = (data || []).find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || (data && data[0]) || null;
           setPersonalSession(active);
@@ -54,7 +54,7 @@ const MyLearning = () => {
     </div>
   );
 
-  const isOneOnOne = userInfo?.board === '1-on-1';
+  const isOneOnOne = userInfo?.isOneOnOne;
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20 p-4 md:p-6 lg:px-8 bg-slate-50 min-h-screen">

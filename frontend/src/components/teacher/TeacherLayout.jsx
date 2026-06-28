@@ -84,7 +84,7 @@ const TeacherLayout = ({ children }) => {
         </header>
 
         {/* Main Content Area */}
-        <main className="p-4 md:p-10 flex-1">
+        <main className="p-2 md:p-4 lg:p-6 flex-1">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

@@ -33,3 +33,9 @@ Thumbs.db
 
 # User uploads
 uploads/
+
+# Scratch/debug files (temporary scripts)
+scratch_*.js
+check_*.js
+debug_*.js
+temp_*.js

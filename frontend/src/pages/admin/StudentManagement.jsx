@@ -94,6 +94,9 @@ const StudentManagement = () => {
                              <div>
                                 <p className="font-semibold text-base text-slate-800 leading-tight">{student.name}</p>
                                 <p className="text-sm text-slate-500 mt-0.5">{student.email}</p>
+                                {student.mobileNumber && (
+                                  <p className="text-sm text-slate-400 mt-0.5">📱 {student.mobileNumber}</p>
+                                )}
                              </div>
                           </div>
                        </td>

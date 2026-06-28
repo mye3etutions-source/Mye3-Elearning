@@ -23,6 +23,7 @@ const dateForDayInWeek = (anchor, dayOfWeek, hour, minute) => {
 };
 
 const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSuccess }) => {
+  const [allTeachers, setAllTeachers] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [teacherId, setTeacherId] = useState('');
   const [subjectName, setSubjectName] = useState('');
@@ -44,7 +45,7 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
     const loadData = async () => {
       try {
         const resTeachers = await axios.get('/admin/teachers-list');
-        setTeachers(resTeachers.data || []);
+        setAllTeachers(resTeachers.data || []);
       } catch (err) {
         toast.error('Failed to load teachers list');
       }
@@ -54,7 +55,7 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
     
     if (session && session.status !== 'pending') {
       setTeacherId(typeof session.teacherId === 'object' ? session.teacherId?._id : session.teacherId);
-      setSubjectName(session.subjectName || '');
+      setSubjectName(session.subjectName || student?.oneOnOneCategory?.name || '');
       setAdminNote(session.adminNote || '');
       
       if (session.scheduledSlots && session.scheduledSlots.length > 0) {
@@ -75,11 +76,66 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
       }
     } else {
       setTeacherId('');
-      setSubjectName('');
+      setSubjectName(student?.oneOnOneCategory?.name || '');
       setAdminNote('');
       setScheduleData({ time: '10:00', endTime: '11:00', platform: 'Google Meet', link: '', selectedDays: [new Date().getDay()], scheduleType: 'this_month' });
     }
-  }, [isOpen, student]);
+  }, [isOpen, student, session]);
+
+  // Phase 6: Smart Teacher Sort — matching on top, all show, board+class+subject details
+  useEffect(() => {
+    if (allTeachers.length === 0) return;
+
+    // Step 1: Only actual teachers (no admins, no students)
+    const actualTeachers = allTeachers.filter(t => t.role?.toLowerCase() === 'teacher');
+
+    // Step 2: Figure out category keywords to match against
+    const catName = (student?.oneOnOneCategory?.name || '').toLowerCase();
+    const catWords = catName.split(/[^a-z0-9]+/).filter(w => w.length > 1); // e.g. ['inter', '1st', 'math']
+
+    // Step 3: For each teacher, build display label + score
+    const scored = actualTeachers.map(t => {
+      const subjects = t.assignedSubjects || [];
+
+      // Build a readable label for this teacher's subjects
+      let shortSubjectLabel = 'All Subjects';
+      let fullSubjectLabel = 'All Subjects';
+
+      if (subjects.length > 0) {
+        const mappedSubjects = subjects.map(sub => {
+          const board = sub.board ? sub.board.replace(' Board', '') : '';
+          const cls   = sub.classLevel || '';
+          const subj  = sub.subjectName || '';
+          return [board, cls, subj].filter(Boolean).join(' ');
+        });
+
+        fullSubjectLabel = mappedSubjects.join(' | ');
+
+        // Truncate if too many subjects to prevent UI overflow
+        if (mappedSubjects.length > 2) {
+          shortSubjectLabel = `${mappedSubjects.slice(0, 2).join(' | ')} (+${mappedSubjects.length - 2} more)`;
+        } else {
+          shortSubjectLabel = mappedSubjects.join(' | ');
+        }
+      }
+
+      // Score: count how many category words match teacher's subject text
+      const subjectText = fullSubjectLabel.toLowerCase();
+      const score = catWords.reduce((acc, word) => acc + (subjectText.includes(word) ? 1 : 0), 0);
+
+      return {
+        ...t,
+        displayName: `${t.name}  —  ${shortSubjectLabel}`,
+        _fullTooltip: `${t.name}'s Subjects:\n${fullSubjectLabel.split(' | ').join('\n')}`,
+        _score: score
+      };
+    });
+
+    // Step 4: Sort — matching (score > 0) on top, rest below
+    scored.sort((a, b) => b._score - a._score);
+
+    setTeachers(scored);
+  }, [allTeachers, student]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -210,9 +266,28 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-indigo-500 bg-white"
               >
                 <option value="">Select Teacher</option>
-                {teachers.map(t => (
-                  <option key={t._id} value={t._id}>{t.name}</option>
-                ))}
+                {(() => {
+                  const matched = teachers.filter(t => t._score > 0);
+                  const others  = teachers.filter(t => t._score === 0);
+                  return (
+                    <>
+                      {matched.length > 0 && (
+                        <optgroup label={`✅ Best Match for "${student?.oneOnOneCategory?.name || 'Category'}"`}>
+                          {matched.map(t => (
+                            <option key={t._id} value={t._id} title={t._fullTooltip}>{t.displayName}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {others.length > 0 && (
+                        <optgroup label="── Other Teachers ──">
+                          {others.map(t => (
+                            <option key={t._id} value={t._id} title={t._fullTooltip}>{t.displayName}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </>
+                  );
+                })()}
               </select>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">

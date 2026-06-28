@@ -15,7 +15,7 @@ import { Navigate } from 'react-router-dom';
 const StudentPerformance = () => {
   const { userInfo } = useSelector((state) => state.auth);
   
-  if (userInfo?.board === '1-on-1') {
+  if (userInfo?.isOneOnOne) {
     return <Navigate to="/student/dashboard" replace />;
   }
 

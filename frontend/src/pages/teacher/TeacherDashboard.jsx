@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
@@ -33,12 +33,14 @@ const TeacherDashboard = () => {
   const [sessions, setSessions] = useState([]);
   const [personalSessions, setPersonalSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedSession, setSelectedSession] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
+      setError(null);
       const [statsRes, sessionRes, personalRes] = await Promise.all([
         axios.get('/teacher/dashboard-stats'),
         axios.get('/teacher/live-sessions'),
@@ -48,8 +50,10 @@ const TeacherDashboard = () => {
       setSessions(sessionRes.data);
       setPersonalSessions(personalRes.data || []);
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching dashboard data');
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Unknown error occurred';
+      setError(errMsg);
       setLoading(false);
     }
   }, []);
@@ -107,7 +111,7 @@ const TeacherDashboard = () => {
     const list = [];
     const todayStr = new Date().toDateString();
     personalSessions.forEach(session => {
-      if (session.status === 'active') {
+      if (['active', 'assigned'].includes(session.status)) {
         (session.scheduledSlots || []).forEach(slot => {
           if (slot.status === 'upcoming' && new Date(slot.startTime).toDateString() === todayStr) {
             list.push({
@@ -128,32 +132,62 @@ const TeacherDashboard = () => {
   };
 
   const todayPersonalSlots = getTodayPersonalSlots();
+  
+  // Total Active Today = Regular Classes + 1-on-1 Classes
+  const totalActiveToday = activeTodayCount + todayPersonalSlots.length;
 
   const statCards = [
     { label: 'Assigned Classes', value: stats.totalAssigned, icon: BookOpen, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/classes', sub: 'All Grades' },
-    { label: 'Today\'s Classes', value: activeTodayCount, icon: Video, color: 'text-[#f16126]', bg: 'bg-orange-50', path: '/teacher/classes', sub: 'Active' },
-    { label: 'Total Sessions', value: stats.endedCount, icon: CheckCircle2, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/past-sessions', sub: 'Completed' },
+    { label: 'Today\'s Classes', value: totalActiveToday, icon: Video, color: 'text-[#f16126]', bg: 'bg-orange-50', path: '/teacher/classes', sub: 'Active' },
+    { label: 'Total Sessions', value: stats.endedCount + personalSessions.filter(s => s.status === 'completed').length, icon: CheckCircle2, color: 'text-[#002147]', bg: 'bg-indigo-50', path: '/teacher/past-sessions', sub: 'Completed' },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="w-12 h-12 border-4 border-slate-200 border-t-[#002147] rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-bold tracking-widest text-sm uppercase">Loading Dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center">
+          <Zap className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Failed to load data</h2>
+        <p className="text-red-500 font-bold max-w-md text-center">{error}</p>
+        <button 
+          onClick={fetchData} 
+          className="px-6 py-2 bg-[#002147] text-white rounded-lg font-bold text-sm hover:bg-[#002147]/90 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 p-4 md:p-6 lg:p-8 pb-24 bg-slate-50/30 min-h-screen font-sans">
+    <div className="space-y-4 animate-in fade-in duration-700 pb-24 bg-transparent font-sans">
       
       {/* Dynamic Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-         <div className="space-y-3">
-            <div className="flex items-center gap-3 px-4 py-1.5 bg-[#002147]/5 rounded-full w-fit border border-[#002147]/10">
-               <Activity className="w-3.5 h-3.5 text-[#002147]" />
-               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#002147]">Teacher Dashboard</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+         <div className="space-y-1">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#002147]/5 rounded-full w-fit border border-[#002147]/10">
+               <Activity className="w-3 h-3 text-[#002147]" />
+               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#002147]">Teacher Dashboard</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-none uppercase italic">
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-none uppercase italic">
                WELCOME <span className="text-[#f16126] not-italic">BACK</span>
             </h1>
-            <p className="text-slate-500 font-bold italic text-sm md:text-lg max-w-xl">
+            <p className="text-slate-500 font-bold italic text-xs md:text-sm max-w-xl">
                Manage your daily classes and live sessions for today.
             </p>
          </div>
 
-         <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 self-start">
+         <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 self-start mt-2 md:mt-0">
             <div className="w-12 h-12 bg-[#002147] rounded-xl flex items-center justify-center text-white shadow-lg shadow-navy-100">
                <Calendar className="w-6 h-6" />
             </div>
@@ -366,8 +400,19 @@ const TeacherDashboard = () => {
                  <div className="pt-4">
                     {selectedSession.status === 'upcoming' && (
                         <button 
-                            onClick={() => { handleUpdateStatus(selectedSession._id, 'live'); setShowModal(false); }}
-                            className="w-full bg-[#002147] text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-[#f16126] transition-all shadow-xl shadow-blue-900/10 active:scale-95 group"
+                            onClick={() => { 
+                              if (new Date() < new Date(new Date(selectedSession.startTime).getTime() - 5 * 60000)) {
+                                alert('You can only start the class 5 minutes before the scheduled time.');
+                                return;
+                              }
+                              handleUpdateStatus(selectedSession._id, 'live'); 
+                              setShowModal(false); 
+                            }}
+                            className={`w-full text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-xl group ${
+                              new Date() >= new Date(new Date(selectedSession.startTime).getTime() - 5 * 60000)
+                                ? 'bg-[#002147] hover:bg-[#f16126] shadow-blue-900/10 active:scale-95'
+                                : 'bg-slate-300 cursor-not-allowed opacity-70'
+                            }`}
                         >
                             START CLASS <Play className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
@@ -455,14 +500,12 @@ const TeacherDashboard = () => {
                                  {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                            </div>
-                           <a 
-                             href={slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`}
-                             target="_blank"
-                             rel="noopener noreferrer"
-                             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-all shadow-md shadow-indigo-100"
+                           <Link 
+                             to="/teacher/personal-sessions"
+                             className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-100 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-all"
                            >
-                              Join <ExternalLink className="w-3 h-3" />
-                           </a>
+                              View Details <ChevronRight className="w-3 h-3" />
+                           </Link>
                         </div>
                      </div>
                   );

@@ -37,7 +37,7 @@ const StudentLiveSchedule = () => {
         }
 
         // 2. If student is 1-on-1, fetch personal session slots and merge them
-        if (userInfo?.board === '1-on-1') {
+        if (userInfo?.isOneOnOne) {
           const { data: personalData } = await axios.get('/student/personal-sessions');
           const active = (personalData || []).find(s => ['assigned', 'active'].includes(s.status)) || (personalData && personalData[0]) || null;
           

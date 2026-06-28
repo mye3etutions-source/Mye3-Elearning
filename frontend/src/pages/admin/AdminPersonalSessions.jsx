@@ -70,6 +70,9 @@ const AdminPersonalSessions = () => {
   // Filter & Search computations
   const getFilteredNewStudents = () => {
     return newStudents.filter(item => {
+      // ONLY SHOW PENDING SESSIONS IN "NEW STUDENTS" TAB
+      if (item.session && item.session.status !== 'pending') return false;
+
       const name = item.student?.name || '';
       const email = item.student?.email || '';
       const mobile = item.student?.mobileNumber || '';
@@ -82,6 +85,9 @@ const AdminPersonalSessions = () => {
 
   const getFilteredSessions = () => {
     return allSessions.filter(session => {
+      // ONLY SHOW ASSIGNED, ACTIVE, COMPLETED, CANCELLED IN "ALL ASSIGNED SESSIONS" TAB
+      if (session.status === 'pending') return false;
+
       const studentName = session.studentId?.name || '';
       const teacherName = session.teacherId?.name || '';
       const subject = session.subjectName || '';
@@ -99,12 +105,34 @@ const AdminPersonalSessions = () => {
 
   const formatPlanType = (plan) => {
     switch (plan) {
-      case 'oneMonth': return 'Monthly';
+      case 'oneMonth':    return 'Monthly';
       case 'threeMonths': return 'Quarterly';
-      case 'sixMonths': return 'Half-Yearly';
-      case 'twelveMonths': return 'Annually';
-      default: return plan;
+      case 'sixMonths':   return 'Half-Yearly';
+      case 'twelveMonths':return 'Annual';
+      default: return plan || '—';
     }
+  };
+
+  const getExpiryColor = (expiryDate) => {
+    if (!expiryDate) return 'text-slate-400';
+    const days = Math.ceil((new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+    if (days < 0)  return 'text-red-600 font-bold';
+    if (days <= 7) return 'text-red-500 font-bold';
+    if (days <= 14) return 'text-amber-500 font-bold';
+    return 'text-emerald-600 font-bold';
+  };
+
+  const hasUpcomingSlots = (session) => {
+    if (!session?.scheduledSlots?.length) return false;
+    return session.scheduledSlots.some(s => s.status === 'upcoming' && new Date(s.startTime) > new Date());
+  };
+
+  const needsSlots = (session) => {
+    // Plan is active/assigned but no upcoming slots remain
+    if (!session) return false;
+    if (!['active', 'assigned'].includes(session.status)) return false;
+    if (session.expiryDate && new Date() > new Date(session.expiryDate)) return false; // expired
+    return !hasUpcomingSlots(session);
   };
 
   const getStatusBadge = (status) => {
@@ -154,7 +182,7 @@ const AdminPersonalSessions = () => {
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
-          <UserCheck className="w-4 h-4" /> New Students ({newStudents.length})
+          <UserCheck className="w-4 h-4" /> New Students ({getFilteredNewStudents().length})
         </button>
         <button
           onClick={() => { setActiveTab('all'); setSearchQuery(''); }}
@@ -222,7 +250,7 @@ const AdminPersonalSessions = () => {
                    <th className="p-4">Student Name</th>
                   <th className="p-4">Contact Info</th>
                   <th className="p-4">Registered Date</th>
-                  <th className="p-4">Payment Status</th>
+                  <th className="p-4">Plan &amp; Payment</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -234,12 +262,17 @@ const AdminPersonalSessions = () => {
                 ) : (
                   getFilteredNewStudents().map((item) => (
                     <tr key={item.student._id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 font-bold text-slate-800">
-                        {item.student.name}
+                      <td className="p-4">
+                        <div className="font-bold text-slate-800">{item.student.name}</div>
+                        {item.student.oneOnOneCategory && (
+                          <div className="text-[11px] font-bold text-indigo-600 mt-0.5">
+                            {item.student.oneOnOneCategory.name}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         <div className="text-slate-700 font-medium">{item.student.mobileNumber || 'No Mobile'}</div>
-                        <div className="text-[11px] text-slate-400">{item.student.email}</div>
+                        <div className="text-xs text-slate-600 font-medium mt-0.5">{item.student.email}</div>
                       </td>
                       <td className="p-4 text-slate-600">
                         {new Date(item.student.createdAt).toLocaleDateString('en-US', {
@@ -250,9 +283,22 @@ const AdminPersonalSessions = () => {
                       </td>
                       <td className="p-4">
                         {item.session?.paymentStatus === 'paid' ? (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-[11px] font-extrabold uppercase">Paid</span>
+                          <div className="flex flex-col gap-1">
+                            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-[11px] font-extrabold uppercase w-fit">✅ Paid</span>
+                            {item.session?.planType && (
+                              <span className="text-[11px] font-bold text-slate-700">
+                                {formatPlanType(item.session.planType)}
+                                {item.session?.price ? ` — ₹${item.session.price.toLocaleString('en-IN')}` : ''}
+                              </span>
+                            )}
+                            {item.session?.expiryDate && (
+                              <span className={`text-[11px] ${getExpiryColor(item.session.expiryDate)}`}>
+                                Expires: {new Date(item.session.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
                         ) : (
-                          <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded text-[11px] font-extrabold uppercase">Unpaid</span>
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[11px] font-extrabold uppercase">⏳ Awaiting Payment</span>
                         )}
                       </td>
                       <td className="p-4 text-right">
@@ -319,11 +365,16 @@ const AdminPersonalSessions = () => {
                           </td>
                           <td className="p-4">
                             <div className="font-bold text-slate-800">{session.studentId?.name || 'Deleted Student'}</div>
-                            <div className="text-[11px] text-slate-400">{session.studentId?.mobileNumber}</div>
+                            <div className="text-xs text-slate-600 font-medium mt-0.5">{session.studentId?.mobileNumber}</div>
+                            {session.studentId?.oneOnOneCategory && (
+                              <div className="text-[11px] font-bold text-indigo-600 mt-0.5">
+                                {session.studentId.oneOnOneCategory.name}
+                              </div>
+                            )}
                           </td>
                           <td className="p-4">
                             <div className="font-bold text-slate-800">{session.teacherId?.name || 'Unassigned'}</div>
-                            <div className="text-[11px] text-slate-400">{session.teacherId?.email}</div>
+                            <div className="text-xs text-slate-600 font-medium mt-0.5">{session.teacherId?.email}</div>
                           </td>
                           <td className="p-4">
                             <div className="font-bold text-indigo-700">{session.subjectName || '—'}</div>
@@ -333,21 +384,31 @@ const AdminPersonalSessions = () => {
                           </td>
                           <td className="p-4 text-slate-600 text-xs font-semibold">
                             {(() => {
-                              const activeSub = session.studentId?.activeSubscriptions?.find(sub => sub.board === '1-on-1' || sub.name?.includes('1-on-1'));
-                              if (activeSub && activeSub.expiryDate) {
-                                return new Date(activeSub.expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                              }
-                              if (!session.planType) return '—';
-                              const dt = new Date(session.createdAt);
-                              if (session.planType === 'oneMonth') dt.setMonth(dt.getMonth() + 1);
-                              else if (session.planType === 'threeMonths') dt.setMonth(dt.getMonth() + 3);
-                              else if (session.planType === 'sixMonths') dt.setMonth(dt.getMonth() + 6);
-                              else if (session.planType === 'twelveMonths') dt.setMonth(dt.getMonth() + 12);
-                              return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              if (!session.expiryDate) return '—';
+                              const colorClass = getExpiryColor(session.expiryDate);
+                              const days = Math.ceil((new Date(session.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className={colorClass}>
+                                    {new Date(session.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {days < 0 ? '🔴 Expired' : days <= 7 ? `🔴 ${days}d left` : days <= 14 ? `🟡 ${days}d left` : `🟢 ${days}d left`}
+                                  </span>
+                                  {session.planType && (
+                                    <span className="text-[10px] font-bold text-slate-500">{formatPlanType(session.planType)}</span>
+                                  )}
+                                </div>
+                              );
                             })()}
                           </td>
                           <td className="p-4">
-                            {getStatusBadge(session.status)}
+                            <div className="flex flex-col gap-1.5">
+                              {getStatusBadge(session.status)}
+                              {needsSlots(session) && (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded text-[10px] font-bold animate-pulse">⚠️ No Slots!</span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4 text-right">
                             <button

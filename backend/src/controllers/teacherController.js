@@ -400,12 +400,55 @@ exports.getEarnings = async (req, res, next) => {
       };
     });
 
+    const PersonalSession = require('../models/PersonalSession');
+    const unpaidPersonalSessions = await PersonalSession.find({
+      teacherId,
+      payoutStatus: 'unpaid'
+    }).lean();
+
+    const personalSessionDetails = [];
+    unpaidPersonalSessions.forEach(session => {
+      let assignment = teacher.assignedSubjects.find(a => 
+        a.subjectName === session.subjectName && 
+        (a.board === session.board || (!a.board && !session.board)) &&
+        (a.classLevel === session.classLevel)
+      );
+
+      if (!assignment) {
+        // Fallback to generic 1-on-1 rate if assigned by admin
+        assignment = teacher.assignedSubjects.find(a => 
+          a.subjectName?.toLowerCase() === '1-on-1' || 
+          a.board?.toLowerCase() === '1-on-1' ||
+          a.classLevel?.toLowerCase() === '1-on-1'
+        );
+      }
+
+      const price = assignment ? assignment.pricePerClass : 0;
+
+      (session.scheduledSlots || []).forEach(slot => {
+        if (slot.status === 'completed') {
+          pendingAmount += price;
+          personalSessionDetails.push({
+            _id: slot._id,
+            title: '1-ON-1 Class',
+            subjectName: session.subjectName,
+            classLevel: session.classLevel || 'General',
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            priceApplied: price
+          });
+        }
+      });
+    });
+
+    const allUnpaidSessions = [...sessionDetails, ...personalSessionDetails].sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+
     const history = await Payout.find({ teacherId }).sort({ createdAt: -1 }).lean();
 
     res.status(200).json({
       pendingAmount,
-      unpaidSessionsCount: sessionDetails.length,
-      unpaidSessions: sessionDetails,
+      unpaidSessionsCount: allUnpaidSessions.length,
+      unpaidSessions: allUnpaidSessions,
       history
     });
   } catch (error) {

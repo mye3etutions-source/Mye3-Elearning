@@ -9,7 +9,61 @@ const LiveSession = require('../models/LiveSession');
 const RecurringSchedule = require('../models/RecurringSchedule');
 const Payout = require('../models/Payout');
 const PersonalSession = require('../models/PersonalSession');
+const OneOnOneCategory = require('../models/OneOnOneCategory');
 const { generateSessionsFromTemplate, getEndOfNextMonth } = require('../cron/recurringScheduler');
+
+// ─── Phase 3: OneOnOneCategory CRUD ──────────────────────────────────────────
+
+// GET /admin/1on1-categories
+exports.getOneOnOneCategories = async (req, res) => {
+  try {
+    const categories = await OneOnOneCategory.find({}).sort({ createdAt: -1 });
+    res.json(categories);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /admin/1on1-categories
+exports.createOneOnOneCategory = async (req, res) => {
+  try {
+    const { name, description, pricing } = req.body;
+    if (!name) return res.status(400).json({ message: 'Category name is required' });
+    const category = await OneOnOneCategory.create({ name, description, pricing });
+    res.status(201).json(category);
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ message: 'Category name already exists' });
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// PUT /admin/1on1-categories/:id
+exports.updateOneOnOneCategory = async (req, res) => {
+  try {
+    const { name, description, pricing, isActive } = req.body;
+    const category = await OneOnOneCategory.findByIdAndUpdate(
+      req.params.id,
+      { name, description, pricing, isActive },
+      { new: true, runValidators: true }
+    );
+    if (!category) return res.status(404).json({ message: 'Category not found' });
+    res.json(category);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// DELETE /admin/1on1-categories/:id
+exports.deleteOneOnOneCategory = async (req, res) => {
+  try {
+    const category = await OneOnOneCategory.findByIdAndDelete(req.params.id);
+    if (!category) return res.status(404).json({ message: 'Category not found' });
+    res.json({ message: 'Category deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 exports.updatePricing = async (req, res, next) => {
   try {
@@ -282,7 +336,10 @@ exports.getStudentsList = async (req, res, next) => {
   try {
     const students = await User.find({
       role: 'student'
-    }).select('-password').sort({ createdAt: -1 });
+    })
+    .select('-password')
+    .populate('oneOnOneCategory', 'name')
+    .sort({ createdAt: -1 });
     res.status(200).json(students);
   } catch (error) {
     next(error);
@@ -375,9 +432,18 @@ exports.assignSubscription = async (req, res, next) => {
 // @access  Admin
 exports.getDashboardStats = async (req, res, next) => {
   try {
-    const studentCount = await User.countDocuments({ role: 'student', board: { $ne: '1-on-1' } });
-    const personalStudentCount = await User.countDocuments({ role: 'student', board: '1-on-1' });
+    const studentCount = await User.countDocuments({ role: 'student', isOneOnOne: { $ne: true } });
+    const personalStudentCount = await User.countDocuments({ role: 'student', isOneOnOne: true });
     const teacherCount = await User.countDocuments({ role: 'teacher' });
+
+    // 1-on-1 specific stats
+    const pendingAssignment = await PersonalSession.countDocuments({ status: 'pending' });
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+    const expiringThisWeek = await PersonalSession.countDocuments({
+      status: 'active',
+      expiryDate: { $lte: sevenDaysFromNow, $gte: new Date() }
+    });
 
     const liveSessions = await LiveSession.find({
       status: { $in: ['live', 'upcoming'] }
@@ -445,6 +511,8 @@ exports.getDashboardStats = async (req, res, next) => {
     res.status(200).json({
       totalStudents: studentCount,
       totalPersonalStudents: personalStudentCount,
+      pendingAssignment,
+      expiringThisWeek,
       totalTeachers: teacherCount,
       totalRevenue,
       expiringSoon: expiringSoonCount,

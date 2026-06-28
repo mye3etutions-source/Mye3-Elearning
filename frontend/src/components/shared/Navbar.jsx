@@ -395,21 +395,26 @@ const Navbar = () => {
 
   const isStudent = userInfo?.role?.toLowerCase() === 'student';
 
+  const tuitionsMenu = userInfo?.isOneOnOne ? {
+    label: 'My Plan',
+    to: '/courses'
+  } : {
+    label: 'Tuitions', 
+    to: '#', 
+    dropdown: isStudent && userInfo?.board ? [
+      { label: `${userInfo.board} - ${userInfo.className}`, to: '/courses' },
+    ] : [
+      { label: 'All', to: '/courses' },
+      { label: 'AP BOARD', to: '/courses/board/ap-board' },
+      { label: 'TS BOARD', to: '/courses/board/ts-board' },
+      { label: 'CBSE BOARD', to: '/courses/board/cbse-board' },
+      { label: 'ICSE BOARD', to: '/courses/board/icse-board' },
+    ]
+  };
+
   const NAV_ITEMS = [
     { label: 'Home', to: '/' },
-    { 
-      label: 'Tuitions', 
-      to: '#', 
-      dropdown: isStudent && userInfo?.board ? [
-        { label: `${userInfo.board} - ${userInfo.className}`, to: '/courses' },
-      ] : [
-        { label: 'All', to: '/courses' },
-        { label: 'AP BOARD', to: '/courses/board/ap-board' },
-        { label: 'TS BOARD', to: '/courses/board/ts-board' },
-        { label: 'CBSE BOARD', to: '/courses/board/cbse-board' },
-        { label: 'ICSE BOARD', to: '/courses/board/icse-board' },
-      ]
-    },
+    tuitionsMenu,
     { label: 'Teachers', to: '/teachers' },
     { label: 'About Us', to: '/about' },
     { label: 'FAQs', to: '/faqs' },

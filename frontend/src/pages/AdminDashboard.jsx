@@ -78,6 +78,40 @@ const AdminDashboard = () => {
          </div>
       </div>
       
+      {/* Alerts Section */}
+      {(statsData?.pendingAssignment > 0 || statsData?.expiringThisWeek > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {statsData?.pendingAssignment > 0 && (
+            <Link to="/admin/personal-sessions" className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between group hover:bg-amber-100 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-amber-900">Pending Assignments</h4>
+                  <p className="text-xs text-amber-700">{statsData.pendingAssignment} 1-on-1 students await teacher/schedule assignment</p>
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-amber-500 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          )}
+          {statsData?.expiringThisWeek > 0 && (
+            <Link to="/admin/personal-sessions" className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-center justify-between group hover:bg-rose-100 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-rose-900">Expiring Plans</h4>
+                  <p className="text-xs text-rose-700">{statsData.expiringThisWeek} 1-on-1 plans expiring in the next 7 days</p>
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-rose-500 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          )}
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {stats.map((stat, idx) => {

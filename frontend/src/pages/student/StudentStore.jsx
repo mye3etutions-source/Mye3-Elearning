@@ -243,13 +243,18 @@ const StudentStore = () => {
   const fetchCourses = async () => {
     try {
       const board = userInfo?.board || '';
-      if (board === '1-on-1') {
+      if (userInfo?.isOneOnOne) {
         try {
-          const [pricingRes, sessionRes] = await Promise.all([
-            axios.get('/student/personal-sessions/pricing'),
-            axios.get('/student/personal-sessions')
+          const [sessionRes, categoriesRes] = await Promise.all([
+            axios.get('/student/personal-sessions'),
+            axios.get('/student/1on1-categories')
           ]);
-          setPersonalPricing(pricingRes.data);
+          
+          // Get the user's category pricing
+          const myCategoryId = typeof userInfo.oneOnOneCategory === 'object' ? userInfo.oneOnOneCategory?._id : userInfo.oneOnOneCategory;
+          const myCat = (categoriesRes.data || []).find(c => c._id === myCategoryId);
+          setPersonalPricing(myCat?.pricing || null);
+
           const sessions = sessionRes.data || [];
           const active = sessions.find(s => ['assigned', 'active', 'pending', 'completed'].includes(s.status)) || sessions[0] || null;
           setPersonalSession(active);
@@ -258,7 +263,12 @@ const StudentStore = () => {
         }
       }
 
-      const { data } = await axios.get(`/student/catalog${board ? `?board=${board}` : ''}`);
+      // Only fetch catalog if they have a board (regular tuition) or if we want to show it anyway
+      let data = [];
+      if (!userInfo?.isOneOnOne) {
+        const res = await axios.get(`/student/catalog${board ? `?board=${board}` : ''}`);
+        data = res.data;
+      }
 
       let baseCourses = data || [];
       if (baseCourses.length === 0) {
@@ -283,7 +293,7 @@ const StudentStore = () => {
     }
     setBuyingPlan(planId);
     try {
-      const configRes = await axios.get('/payment/config');
+      const configRes = await axios.get('/payments/config');
       const { enableRealPayment, keyId } = configRes.data;
 
       if (enableRealPayment && keyId) {
@@ -403,7 +413,7 @@ const StudentStore = () => {
     setBuyLoading(true);
 
     try {
-      const configRes = await axios.get('/payment/config');
+      const configRes = await axios.get('/payments/config');
       const { enableRealPayment, keyId } = configRes.data;
 
       const itemsPayload = selectedItems.map(item => {
@@ -586,7 +596,7 @@ const StudentStore = () => {
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 pt-8 pb-6">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row overflow-hidden">
           <div className="w-full md:w-3/5 p-6 md:p-10 flex flex-col justify-center border-b md:border-b-0 md:border-r border-slate-100">
-            {userInfo?.board === '1-on-1' ? (
+            {userInfo?.isOneOnOne ? (
               <>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center shrink-0 text-indigo-600">
@@ -627,7 +637,7 @@ const StudentStore = () => {
 
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 space-y-8">
         
-        {userInfo?.board === '1-on-1' ? (
+        {userInfo?.isOneOnOne ? (
           <div className="w-full">
             {(() => {
               const plans = [

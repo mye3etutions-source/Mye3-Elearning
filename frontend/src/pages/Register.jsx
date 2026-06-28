@@ -17,6 +17,11 @@ const Register = () => {
   const [error, setError]       = useState(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [availableClasses, setAvailableClasses] = useState([]);
+  
+  // 1-on-1 specific states
+  const [isOneOnOne, setIsOneOnOne] = useState(false);
+  const [oneOnOneCategories, setOneOnOneCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
 
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
@@ -29,7 +34,6 @@ const Register = () => {
         // Extract unique classNames from the returned items and sort them
         const classNames = data.map(item => item.className);
         const uniqueClasses = [...new Set(classNames)].filter(Boolean)
-          .filter(name => name.toLowerCase() !== '1-on-1' && !name.toLowerCase().includes('1 on 1'))
           .sort((a, b) => {
           const numA = parseInt(a.replace(/\D/g, '')) || 0;
           const numB = parseInt(b.replace(/\D/g, '')) || 0;
@@ -39,6 +43,14 @@ const Register = () => {
       } catch (err) {
         console.error('Failed to fetch classes for registration', err);
       }
+
+      try {
+        // Fetch 1-on-1 categories
+        const { data: catData } = await axios.get('/student/1on1-categories');
+        setOneOnOneCategories(catData.filter(c => c.isActive));
+      } catch (err) {
+        console.error('Failed to fetch 1on1 categories', err);
+      }
     };
     fetchClasses();
   }, []);
@@ -46,7 +58,23 @@ const Register = () => {
   const submitHandler = async (e) => {
     e.preventDefault();
     try {
-      const res  = await axios.post('/auth/register', { name, email: email.toLowerCase(), mobileNumber, password, role, board, className });
+      const payload = {
+        name,
+        email: email.toLowerCase(),
+        mobileNumber,
+        password,
+        role,
+        isOneOnOne
+      };
+
+      if (isOneOnOne) {
+        payload.oneOnOneCategory = selectedCategory;
+      } else {
+        payload.board = board;
+        payload.className = className;
+      }
+
+      const res  = await axios.post('/auth/register', payload);
       const user = res.data;
       dispatch(setCredentials({ ...user }));
       const userRole = user?.role?.toLowerCase() || 'student';
@@ -253,6 +281,35 @@ const Register = () => {
           color: white;
         }
 
+        /* Radio Toggle */
+        .reg-type-toggle {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+        .reg-type-toggle label {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.3);
+          background: rgba(0, 40, 85, 0.5);
+          color: white;
+          font-size: 12px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .reg-type-toggle input[type="radio"] {
+          display: none;
+        }
+        .reg-type-toggle input[type="radio"]:checked + label {
+          background: #e84c3d;
+          border-color: #e84c3d;
+        }
+
         /* ── Mobile View ── */
         @media (max-width: 768px) {
           html, body, #root {
@@ -330,37 +387,67 @@ const Register = () => {
                   <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
 
-                <div className="reg-input-group">
-                  <select 
-                    value={board} 
-                    onChange={(e) => {
-                      const selectedBoard = e.target.value;
-                      setBoard(selectedBoard);
-                      if (selectedBoard === '1-on-1') {
-                        setClassName('');
-                      }
-                    }} 
-                    required
-                  >
-                    <option value="" disabled>Select Board</option>
-                    <option value="TS Board">TS Board</option>
-                    <option value="AP Board">AP Board</option>
-                    <option value="CBSE">CBSE Board</option>
-                    <option value="ICSE">ICSE Board</option>
-                    <option value="1-on-1">1-on-1 Personal Class</option>
-                  </select>
+                <div className="reg-type-toggle">
+                  <input 
+                    type="radio" 
+                    id="type-regular" 
+                    name="reg-type" 
+                    checked={!isOneOnOne} 
+                    onChange={() => setIsOneOnOne(false)} 
+                  />
+                  <label htmlFor="type-regular">Regular Tuition</label>
+                  
+                  <input 
+                    type="radio" 
+                    id="type-1on1" 
+                    name="reg-type" 
+                    checked={isOneOnOne} 
+                    onChange={() => setIsOneOnOne(true)} 
+                  />
+                  <label htmlFor="type-1on1">1-on-1 Personal Class</label>
                 </div>
 
-                {board !== '1-on-1' && (
+                {!isOneOnOne ? (
+                  <>
+                    <div className="reg-input-group">
+                      <select 
+                        value={board} 
+                        onChange={(e) => setBoard(e.target.value)} 
+                        required={!isOneOnOne}
+                      >
+                        <option value="" disabled>Select Board</option>
+                        <option value="TS Board">TS Board</option>
+                        <option value="AP Board">AP Board</option>
+                        <option value="CBSE">CBSE Board</option>
+                        <option value="ICSE">ICSE Board</option>
+                      </select>
+                    </div>
+
+                    {board && (
+                      <div className="reg-input-group">
+                        <select 
+                          value={className} 
+                          onChange={(e) => setClassName(e.target.value)} 
+                          required={!isOneOnOne}
+                        >
+                          <option value="" disabled>Select Class</option>
+                          {availableClasses.map((cls, idx) => (
+                            <option key={idx} value={cls}>{cls}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
+                ) : (
                   <div className="reg-input-group">
                     <select 
-                      value={className} 
-                      onChange={(e) => setClassName(e.target.value)} 
-                      required={board !== '1-on-1'}
+                      value={selectedCategory} 
+                      onChange={(e) => setSelectedCategory(e.target.value)} 
+                      required={isOneOnOne}
                     >
-                      <option value="" disabled>Select Class</option>
-                      {availableClasses.map((cls, idx) => (
-                        <option key={idx} value={cls}>{cls}</option>
+                      <option value="" disabled>Select Category</option>
+                      {oneOnOneCategories.map((cat) => (
+                        <option key={cat._id} value={cat._id}>{cat.name}</option>
                       ))}
                     </select>
                   </div>

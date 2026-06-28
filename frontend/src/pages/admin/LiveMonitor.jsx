@@ -8,6 +8,11 @@ import {
 
 import socket from '../../socket';
 
+// ─── Sub-components (Phase 5 split) ──────────────────────────────────────────
+import LiveSessionCard    from '../../components/admin/live/LiveSessionCard';
+import LiveSessionStats   from '../../components/admin/live/LiveSessionStats';
+import LiveSessionFilters from '../../components/admin/live/LiveSessionFilters';
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 const BOARDS = ['AP Board', 'TS Board', 'CBSE', 'ICSE'];
 const BOARD_THEMES = {
@@ -1155,60 +1160,29 @@ const LiveMonitor = () => {
 
             {/* ── Monitor view ─────────────────────────────────────────────── */}
             {viewType === 'monitor' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {allSessions.length === 0 && (
-                        <div className="col-span-full py-16 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg">
-                            <Clock className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                            <p className="text-sm font-semibold text-slate-800">No Sessions Scheduled</p>
-                            <p className="text-xs text-slate-500 mt-1">Use the Timetable view to add classes.</p>
-                        </div>
-                    )}
-                    {allSessions
-                        .sort((a, b) => {
-                            const w = { live: 0, upcoming: 1, ended: 2 };
-                            return (w[a.status] ?? 1) - (w[b.status] ?? 1) || new Date(a.startTime) - new Date(b.startTime);
-                        })
-                        .map((s, idx) => {
-                            const isLive = s.status === 'live';
-                            const isEnded = s.status === 'ended';
-                            const isMissed = s.status === 'upcoming' && new Date(s.endTime || new Date(s.startTime).getTime() + 60*60*1000) < new Date();
-                            return (
-                                <div key={idx} className={`bg-white border rounded-lg overflow-hidden shadow-sm transition-shadow ${isLive ? 'border-rose-300 shadow-rose-50' : isEnded ? 'border-slate-200 opacity-80' : isMissed ? 'border-orange-200 opacity-80' : 'border-slate-200 hover:shadow-md'}`}>
-                                    <div className={`px-4 py-2 flex items-center justify-between border-b ${isLive ? 'bg-rose-50 border-rose-100' : isEnded ? 'bg-slate-50 border-slate-100' : isMissed ? 'bg-orange-50 border-orange-100' : 'bg-white border-slate-100'}`}>
-                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider ${isLive ? 'bg-rose-600 text-white animate-pulse' : isEnded ? 'bg-slate-200 text-slate-600' : isMissed ? 'bg-orange-200 text-orange-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                                            {isLive ? 'LIVE' : isEnded ? 'DONE' : isMissed ? 'MISSED' : 'NEXT'}
-                                        </span>
-                                        <span className="text-xs font-semibold text-slate-600">{s.classLevel}</span>
-                                    </div>
-                                    <div className="p-4 space-y-4">
-                                        <div>
-                                            <h3 className={`text-base font-semibold leading-tight ${isMissed ? 'text-orange-800' : 'text-slate-800'}`}>{s.subjectName}</h3>
-                                            <p className={`text-xs font-medium mt-1 ${isMissed ? 'text-orange-600/70' : 'text-slate-500'}`}>{s.platform} &middot; {new Date(s.startTime).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className={`flex items-center gap-3 rounded-lg p-3 border ${isMissed ? 'bg-orange-50/50 border-orange-100' : 'bg-slate-50 border-slate-100'}`}>
-                                            <div className={`w-8 h-8 rounded-md flex items-center justify-center font-semibold text-sm ${isMissed ? 'bg-orange-100 text-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
-                                                {(s.teacherId?.name || 'T').charAt(0)}
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-semibold text-slate-400 uppercase leading-none mb-1">Teacher</p>
-                                                <p className="text-sm font-semibold text-slate-800 leading-none">{s.teacherId?.name || 'TBA'}</p>
-                                            </div>
-                                            <span className={`ml-auto text-xs font-semibold ${isMissed ? 'text-orange-600' : 'text-indigo-600'}`}>{fmtTime(s.startTime)}</span>
-                                        </div>
-                                        {!isEnded && !isMissed ? (
-                                            <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noreferrer"
-                                                className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-md text-xs font-semibold transition-colors ${isLive ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-900 text-white hover:bg-indigo-600'}`}>
-                                                <Video className="w-4 h-4" /> Join Classroom
-                                            </a>
-                                        ) : (
-                                            <div className={`w-full py-2.5 text-center rounded-md text-xs font-semibold border ${isMissed ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                                                {isMissed ? 'Session Missed ✕' : 'Session Concluded ✓'}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                <div className="space-y-4">
+                    {/* Stats Row */}
+                    <LiveSessionStats sessions={allSessions} />
+
+                    {/* Session Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {allSessions.length === 0 && (
+                            <div className="col-span-full py-16 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg">
+                                <Clock className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                                <p className="text-sm font-semibold text-slate-800">No Sessions Scheduled</p>
+                                <p className="text-xs text-slate-500 mt-1">Use the Timetable view to add classes.</p>
+                            </div>
+                        )}
+                        {allSessions
+                            .sort((a, b) => {
+                                const w = { live: 0, upcoming: 1, ended: 2 };
+                                return (w[a.status] ?? 1) - (w[b.status] ?? 1) || new Date(a.startTime) - new Date(b.startTime);
+                            })
+                            .map((s, idx) => (
+                                <LiveSessionCard key={s._id || idx} session={s} />
+                            ))
+                        }
+                    </div>
                 </div>
             )}
         </div>

@@ -221,14 +221,28 @@ const TeacherManagement = () => {
                }
             });
          } else {
-            // Allow assigning the bundle itself if it has no subjects (e.g. 1-on-1 generic grade)
-            acc[board][level].push({
-               assignmentType: 'bundle',
-               classLevel: level,
-               subjectName: curr.displayName || level,
-               subjectId: curr._id,
-               board
-            });
+            // If it's a regular board (not 1-on-1), inject default subjects when empty
+            if (board !== '1-on-1' && board !== '1-ON-1' && !level.toLowerCase().includes('1-on-1')) {
+                const defaultSubjects = ['Telugu', 'Hindi', 'English', 'Mathematics', 'Science', 'Social Studies'];
+                defaultSubjects.forEach(subName => {
+                    acc[board][level].push({
+                       assignmentType: 'bundle',
+                       classLevel: level,
+                       subjectName: subName,
+                       subjectId: curr._id,
+                       board
+                    });
+                });
+            } else {
+                // Allow assigning the bundle itself if it has no subjects (e.g. 1-on-1 generic grade)
+                acc[board][level].push({
+                   assignmentType: 'bundle',
+                   classLevel: level,
+                   subjectName: curr.displayName || level,
+                   subjectId: curr._id,
+                   board
+                });
+            }
          }
       } else {
          if (curr.displayName) {
@@ -246,6 +260,8 @@ const TeacherManagement = () => {
 
    // Flatten helper for selection
    const getAllItemsForBoard = (board) => Object.values(groupedByBoard[board] || {}).flat();
+
+   const [expandedTeacherId, setExpandedTeacherId] = useState(null);
 
    const filteredTeachers = teachers.filter(t =>
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -332,28 +348,53 @@ const TeacherManagement = () => {
                      return (
                         <div
                            key={teacher._id}
-                           className={`flex flex-col lg:flex-row items-start gap-4 p-6 transition-colors hover:bg-slate-50/60 ${idx < currentItems.length - 1 ? 'border-b border-slate-100' : ''}`}
+                           className={`flex flex-col gap-2 p-6 transition-colors hover:bg-slate-50/60 ${idx < currentItems.length - 1 ? 'border-b border-slate-100' : ''}`}
                         >
-                           {/* Col 1: Faculty Profile - Compact and fixed width on desktop */}
-                           <div className="flex items-center gap-4 shrink-0 lg:w-[240px]">
-                              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xl shrink-0 shadow-sm border border-indigo-100/50">
-                                 {teacher.name.charAt(0)}
+                           {/* Accordion Header */}
+                           <div 
+                              className="flex items-center justify-between w-full cursor-pointer group"
+                              onClick={() => setExpandedTeacherId(expandedTeacherId === teacher._id ? null : teacher._id)}
+                           >
+                              {/* Col 1: Faculty Profile - Compact */}
+                              <div className="flex items-center gap-4 shrink-0 lg:w-[240px]">
+                                 <div className="min-w-0">
+                                    <p className="text-[15px] font-black text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                                       {teacher.name}
+                                    </p>
+                                    <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 mt-1">
+                                       <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400" /> {teacher.email}
+                                    </p>
+                                 </div>
                               </div>
-                              <div className="min-w-0">
-                                 <p
-                                    className="text-[15px] font-black text-slate-900 truncate cursor-pointer hover:text-indigo-600 transition-colors"
-                                    onClick={() => setDetailedTeacher(teacher)}
-                                 >
-                                    {teacher.name}
-                                 </p>
-                                 <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 mt-1">
-                                    <Mail className="w-3.5 h-3.5 shrink-0 text-slate-400" /> {teacher.email}
-                                 </p>
+                              
+                              <div className="flex items-center gap-4 text-[12px] font-bold text-slate-400">
+                                 {Object.keys(grouped).length === 0 ? (
+                                    <span className="italic">No Assignments</span>
+                                 ) : (
+                                    <span className="bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md">
+                                       {(() => {
+                                          const keys = Object.keys(grouped);
+                                          const has1on1 = keys.some(b => b.toUpperCase() === '1-ON-1');
+                                          const boardCount = keys.filter(b => b.toUpperCase() !== '1-ON-1').length;
+                                          let text = '';
+                                          if (boardCount > 0) text += `${boardCount} ${boardCount === 1 ? 'Board' : 'Boards'}`;
+                                          if (boardCount > 0 && has1on1) text += ' & ';
+                                          if (has1on1) text += '1-ON-1';
+                                          return text + ' Assigned';
+                                       })()}
+                                    </span>
+                                 )}
+                                 <div className={`p-1 rounded-full transition-colors ${expandedTeacherId === teacher._id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
+                                    <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${expandedTeacherId === teacher._id ? '-rotate-90' : 'rotate-90'}`} />
+                                 </div>
                               </div>
                            </div>
 
-                           {/* Col 2: Assigned Subjects - Flexible flow to use horizontal space */}
-                           <div className="flex-1 min-w-0">
+                           {/* Accordion Content */}
+                           {expandedTeacherId === teacher._id && (
+                              <div className="flex flex-col lg:flex-row items-start gap-4 w-full mt-4 pt-6 border-t border-slate-100 animate-accordion">
+                                 {/* Col 2: Assigned Subjects */}
+                                 <div className="flex-1 min-w-0 w-full">
                               {Object.keys(grouped).length === 0 ? (
                                  <div className="flex items-center gap-3">
                                     <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em] italic">No Assignments</p>
@@ -371,35 +412,44 @@ const TeacherManagement = () => {
                                     </button>
                                  </div>
                               ) : (
-                                 <div className="flex flex-wrap gap-4">
-                                    {Object.entries(grouped).map(([board, classes]) => {
+                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pb-4 items-start">
+                                    {Object.entries(grouped)
+                                       .sort(([boardA], [boardB]) => {
+                                          const aIs1on1 = boardA.toUpperCase() === '1-ON-1' || boardA.toUpperCase() === '1-ON-1';
+                                          const bIs1on1 = boardB.toUpperCase() === '1-ON-1' || boardB.toUpperCase() === '1-ON-1';
+                                          if (aIs1on1 && !bIs1on1) return 1;
+                                          if (!aIs1on1 && bIs1on1) return -1;
+                                          return 0;
+                                       })
+                                       .map(([board, classes]) => {
                                        const dotColor = {
                                           'AP BOARD': 'bg-orange-500',
                                           'TS BOARD': 'bg-blue-600',
                                           'CBSE': 'bg-purple-600',
                                           'ICSE': 'bg-purple-600',
+                                          '1-ON-1': 'bg-emerald-500'
                                        }[board.toUpperCase()] || 'bg-slate-400';
 
                                        return (
-                                          <div key={board} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm min-w-[280px]">
-                                             <p className="text-[13px] font-black uppercase tracking-[0.1em] text-slate-700 flex items-center gap-2.5 mb-5">
-                                                <span className={`w-3 h-3 rounded-full ${dotColor} shadow-sm shadow-slate-200`}></span>
+                                          <div key={board} className="bg-white border-y border-r border-l-4 border-l-slate-200 border-y-slate-100 border-r-slate-100 rounded-xl p-2.5 shadow-sm w-full">
+                                             <p className="text-[12px] font-black uppercase tracking-[0.1em] text-slate-700 flex items-center gap-2 mb-3 pb-2 border-b border-slate-100/60">
+                                                <span className={`w-2 h-2 rounded-full ${dotColor} shadow-sm`}></span>
                                                 {board}
                                              </p>
-                                             <div className="space-y-6">
+                                             <div className="space-y-2">
                                                 {Object.entries(classes).map(([cls, subjects]) => (
-                                                   <div key={cls} className="space-y-3">
-                                                      <p className="text-xs font-black text-slate-500 flex items-center gap-2.5 uppercase tracking-[0.1em]">
-                                                         <GraduationCap className="w-5 h-5 text-slate-400" />
+                                                   <div key={cls} className="flex flex-col gap-1.5">
+                                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-1">
+                                                         <GraduationCap className="w-3 h-3 text-slate-300" />
                                                          {cls}
                                                       </p>
-                                                      <div className="flex flex-wrap gap-2.5">
+                                                      <div className="flex flex-col items-start gap-1 pl-1">
                                                          {subjects.map((s, i) => (
                                                             <span
                                                                key={i}
-                                                               className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50/40 text-indigo-700 text-[13px] font-bold rounded-xl border border-indigo-100/50 group/tag shadow-sm hover:shadow-md hover:bg-indigo-50/80 hover:border-indigo-200/60 transition-all cursor-default"
+                                                               className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 text-slate-700 text-[11px] font-bold rounded-lg border border-slate-200/80 group/tag shadow-sm hover:border-slate-300 transition-all cursor-default w-fit"
                                                             >
-                                                               <span className="flex items-center gap-2.5">
+                                                               <span className="flex items-center gap-1.5 overflow-hidden">
                                                                   <span className="truncate max-w-[120px]">{s.subjectName}</span>
                                                                   <span
                                                                      onClick={(e) => {
@@ -409,11 +459,11 @@ const TeacherManagement = () => {
                                                                         setShowAssignModal(true);
                                                                         setActiveBoard(s.board);
                                                                      }}
-                                                                     className="flex items-center gap-1 px-2 py-0.5 bg-white border border-indigo-100 rounded-lg text-indigo-600 cursor-pointer hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm group/price"
+                                                                     className="flex items-center gap-0.5 px-1.5 py-0.5 bg-white border border-indigo-100 rounded-md text-indigo-600 cursor-pointer hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm group/price"
                                                                      title="Click to edit price"
                                                                   >
-                                                                     <span className="text-[11px] font-black tracking-tight">₹{s.pricePerClass || 0}</span>
-                                                                     <span className="text-[9px] font-bold opacity-60 group-hover/price:opacity-100">/class</span>
+                                                                     <span className="text-[10px] font-black tracking-tight">₹{s.pricePerClass || 0}</span>
+                                                                     <span className="text-[8px] font-bold opacity-60 group-hover/price:opacity-100">/class</span>
                                                                   </span>
                                                                </span>
                                                                <button
@@ -421,10 +471,10 @@ const TeacherManagement = () => {
                                                                      e.stopPropagation();
                                                                      handleRemoveAssignment(teacher._id, s._id);
                                                                   }}
-                                                                  className="text-slate-400 hover:text-rose-500 transition-colors p-1 border-l border-indigo-100/50 pl-2 ml-0.5"
+                                                                  className="text-slate-400 hover:text-rose-500 transition-colors p-0.5 border-l border-indigo-100/50 pl-1 ml-0.5"
                                                                   title="Remove assignment"
                                                                >
-                                                                  <X className="w-3.5 h-3.5" />
+                                                                  <X className="w-3 h-3" />
                                                                </button>
                                                             </span>
                                                          ))}
@@ -436,6 +486,32 @@ const TeacherManagement = () => {
                                        );
                                     })}
 
+                                 </div>
+                              )}
+                           </div>
+
+                                 {/* Col 3: Controls - Pushed to end on desktop */}
+                                 <div className="flex flex-col items-end gap-3 lg:ml-auto shrink-0 pt-2 lg:pt-0">
+                                    <div className="flex items-center gap-2">
+                                       <button
+                                          onClick={() => {
+                                             setEditingTeacher(teacher);
+                                             setFormData({ name: teacher.name, email: teacher.email, password: '' });
+                                             setShowModal(true);
+                                          }}
+                                          className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 shadow-sm border border-transparent hover:border-indigo-100 rounded-xl transition-all"
+                                          title="Edit Faculty"
+                                       >
+                                          <Edit2 className="w-5 h-5" />
+                                       </button>
+                                       <button
+                                          onClick={() => { setTeacherToDelete(teacher); setShowDeleteConfirm(true); }}
+                                          className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 shadow-sm border border-transparent hover:border-rose-100 rounded-xl transition-all"
+                                          title="Delete Faculty"
+                                       >
+                                          <Trash2 className="w-5 h-5" />
+                                       </button>
+                                    </div>
                                     <button
                                        onClick={() => {
                                           setSelectedTeacher(teacher);
@@ -444,36 +520,13 @@ const TeacherManagement = () => {
                                           setActiveBoard(null);
                                           setActiveClasses([]);
                                        }}
-                                       className="flex flex-col items-center justify-center gap-2.5 border-2 border-dashed border-slate-200 rounded-2xl p-5 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/40 hover:shadow-md transition-all group min-w-[180px]"
+                                       className="flex items-center justify-center gap-1 w-[90px] py-1.5 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-[10px] hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100 uppercase"
                                     >
-                                       <Plus className="w-6 h-6 p-1 bg-slate-100 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm" />
-                                       <span className="text-[10px] font-black uppercase tracking-widest text-center">Assign Subject</span>
+                                       <Plus className="w-3 h-3" /> Assign
                                     </button>
                                  </div>
-                              )}
-                           </div>
-
-                           {/* Col 3: Controls - Pushed to end on desktop */}
-                           <div className="flex items-center gap-2 lg:ml-auto shrink-0 pt-2 lg:pt-0">
-                              <button
-                                 onClick={() => {
-                                    setEditingTeacher(teacher);
-                                    setFormData({ name: teacher.name, email: teacher.email, password: '' });
-                                    setShowModal(true);
-                                 }}
-                                 className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 shadow-sm border border-transparent hover:border-indigo-100 rounded-xl transition-all"
-                                 title="Edit Faculty"
-                              >
-                                 <Edit2 className="w-5 h-5" />
-                              </button>
-                              <button
-                                 onClick={() => { setTeacherToDelete(teacher); setShowDeleteConfirm(true); }}
-                                 className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 shadow-sm border border-transparent hover:border-rose-100 rounded-xl transition-all"
-                                 title="Delete Faculty"
-                              >
-                                 <Trash2 className="w-5 h-5" />
-                              </button>
-                           </div>
+                              </div>
+                           )}
                         </div>
                      );
                   })}
@@ -597,12 +650,7 @@ const TeacherManagement = () => {
                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Step 1: Board</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                           {Object.keys(groupedByBoard).length === 0 ? (
-                              <div className="p-4 text-center text-slate-400 mt-10">
-                                 <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                                 <p className="text-[10px] font-bold uppercase tracking-wider">No Boards Found</p>
-                              </div>
-                           ) : Object.keys(groupedByBoard).map(board => {
+                           {['1-on-1', 'AP Board', 'CBSE', 'ICSE', 'TS Board'].map(board => {
                               const items = getAllItemsForBoard(board);
                               const selectedItems = items.filter(i => selectedAssignments.some(a => a.classLevel === i.classLevel && a.subjectName === i.subjectName && a.board === i.board));
                               const selectedInBoard = selectedItems.length;

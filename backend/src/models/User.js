@@ -34,8 +34,10 @@ const userSchema = new mongoose.Schema({
     default: 'Student',
     lowercase: true
   },
-  board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-on-1'] },
-  className: { type: String },
+  board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-ON-1', '1-on-1'] },
+  className:  { type: String },
+  isOneOnOne: { type: Boolean, default: false },
+  oneOnOneCategory: { type: mongoose.Schema.Types.ObjectId, ref: 'OneOnOneCategory', default: null },
   activeSubscriptions: [subscriptionSchema],
   assignedSubjects: [
     {
@@ -43,7 +45,7 @@ const userSchema = new mongoose.Schema({
       classLevel: { type: String, required: true },
       subjectName: { type: String, required: true },
       subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
-      board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-on-1'] },
+      board: { type: String, enum: ['CBSE', 'ICSE', 'TS Board', 'AP Board', '1-ON-1', '1-on-1'] },
       pricePerClass: { type: Number, default: 0 }
     }
   ],

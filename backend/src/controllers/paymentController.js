@@ -48,9 +48,16 @@ exports.getMockOrderPrice = async (req, res, next) => {
       const session = await PersonalSession.findById(referenceIds[0]);
       if (!session) return res.status(404).json({ message: 'Personal session not found' });
       
-      const ClassBundle = require('../models/ClassBundle');
-      const pricingDoc = await ClassBundle.findOne({ className: '1-on-1', board: '1-on-1' });
-      actualAmount = (session.price && session.price > 0) ? session.price : (pricingDoc?.pricing?.[selectedDuration] || 0);
+      let categoryPricing = null;
+      if (req.user && req.user.oneOnOneCategory) {
+          const OneOnOneCategory = require('../models/OneOnOneCategory');
+          const category = await OneOnOneCategory.findById(req.user.oneOnOneCategory);
+          if (category) {
+              categoryPricing = category.pricing;
+          }
+      }
+      
+      actualAmount = (session.price && session.price > 0) ? session.price : (categoryPricing?.[selectedDuration] || 0);
     } else if (type === 'bundle') {
       const ClassBundle = require('../models/ClassBundle');
       const bundle = await ClassBundle.findById(referenceIds[0]);
@@ -92,9 +99,16 @@ exports.createOrder = async (req, res, next) => {
       const session = await PersonalSession.findById(referenceIds[0]);
       if (!session) return res.status(404).json({ message: 'Personal session not found' });
       
-      const ClassBundle = require('../models/ClassBundle');
-      const pricingDoc = await ClassBundle.findOne({ className: '1-on-1', board: '1-on-1' });
-      actualAmount = (session.price && session.price > 0) ? session.price : (pricingDoc?.pricing?.[selectedDuration] || 0);
+      let categoryPricing = null;
+      if (req.user && req.user.oneOnOneCategory) {
+          const OneOnOneCategory = require('../models/OneOnOneCategory');
+          const category = await OneOnOneCategory.findById(req.user.oneOnOneCategory);
+          if (category) {
+              categoryPricing = category.pricing;
+          }
+      }
+
+      actualAmount = (session.price && session.price > 0) ? session.price : (categoryPricing?.[selectedDuration] || 0);
 
       if (!actualAmount || actualAmount <= 0) {
         return res.status(400).json({ message: 'Session price not set by admin yet.' });

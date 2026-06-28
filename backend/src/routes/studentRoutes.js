@@ -11,11 +11,13 @@ const {
   getMyTransactions,
   getAllMaterials
 } = require('../controllers/studentController');
+const { getOneOnOneCategories } = require('../controllers/adminController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
 
-// Public student routes
+// Public routes
 router.get('/catalog', getCatalog);
+router.get('/1on1-categories', getOneOnOneCategories);
 
 // All other student routes are protected
 router.use(protect);

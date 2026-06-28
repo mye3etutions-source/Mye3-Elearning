@@ -147,7 +147,7 @@ const StudentDashboard = () => {
 
     try {
       // 1. Get Payment Config from Backend
-      const configRes = await axios.get('/payment/config');
+      const configRes = await axios.get('/payments/config');
       const { enableRealPayment, keyId } = configRes.data;
 
       // 2. Prepare Payload
@@ -334,7 +334,7 @@ const StudentDashboard = () => {
         <div className="lg:col-span-8 space-y-6">
           
           {/* SIDE BY SIDE: DASHBOARD BANNER + SUBSCRIPTION CARD */}
-          <div className={`grid grid-cols-1 ${userInfo?.board === '1-on-1' ? '' : 'md:grid-cols-2'} gap-4`}>
+          <div className={`grid grid-cols-1 ${userInfo?.isOneOnOne ? '' : 'md:grid-cols-2'} gap-4`}>
 
             {/* LEFT: DASHBOARD BANNER */}
             <div className="bg-gradient-to-br from-[#002147] to-[#003a7a] rounded-xl p-6 text-white relative overflow-hidden shadow-sm flex flex-col justify-between h-[180px]">
@@ -352,7 +352,7 @@ const StudentDashboard = () => {
             </div>
 
             {/* RIGHT: SUBSCRIPTION STATUS */}
-            {userInfo?.board !== '1-on-1' && (
+            {!userInfo?.isOneOnOne && (
               <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between h-[180px]">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-2">
@@ -387,7 +387,7 @@ const StudentDashboard = () => {
           </div>
 
           {/* 1-on-1 PERSONAL SESSIONS WIDGET */}
-          {userInfo?.board === '1-on-1' && (
+          {userInfo?.isOneOnOne && (
             <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                  <div className="flex items-center gap-2">
@@ -586,7 +586,7 @@ const StudentDashboard = () => {
           )}
 
           {/* UPCOMING CLASSES PREVIEW */}
-          {userInfo?.board !== '1-on-1' && (
+          {!userInfo?.isOneOnOne && (
             <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                  <div className="flex items-center gap-2">
@@ -635,7 +635,7 @@ const StudentDashboard = () => {
                    { label: 'My Classes', path: '/student/classes', icon: BookOpen, color: 'text-indigo-600', bg: 'bg-indigo-50' },
                    { label: 'Notes & PDF', path: '/student/notes', icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50' },
                    { label: 'Live Schedule', path: '/student/live-schedule', icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                   ...(userInfo?.board !== '1-on-1' ? [{ label: 'Performance', path: '/student/performance', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' }] : []),
+                   ...(!userInfo?.isOneOnOne ? [{ label: 'Performance', path: '/student/performance', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' }] : []),
                  ].map((action, i) => (
                    <Link key={i} to={action.path} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group">
                       <div className="flex items-center gap-3">
@@ -651,7 +651,7 @@ const StudentDashboard = () => {
            </div>
 
            {/* FEATURED SUBJECTS */}
-           {userInfo?.board !== '1-on-1' && (
+           {!userInfo?.isOneOnOne && (
               <div className="bg-[#002147] rounded-xl p-6 text-white relative overflow-hidden shadow-md">
                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#f16126] rounded-full blur-[40px] opacity-20 -mr-8 -mt-8" />
                  <div className="relative z-10 space-y-4">

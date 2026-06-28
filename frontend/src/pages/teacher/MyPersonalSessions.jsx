@@ -62,8 +62,9 @@ const MyPersonalSessions = () => {
           list.push({
             sessionId: session._id,
             subjectName: session.subjectName,
+            board: session.board || '1-ON-1',
+            classLevel: session.classLevel || 'General',
             studentName: session.studentId?.name || 'Student',
-            studentMobile: session.studentId?.mobileNumber || 'N/A',
             studentEmail: session.studentId?.email || '',
             slotId: slot._id,
             startTime: slot.startTime,
@@ -78,7 +79,29 @@ const MyPersonalSessions = () => {
     return list.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
   };
 
+  const getCompletedSlots = () => {
+    const list = [];
+    sessions.forEach(session => {
+      (session.scheduledSlots || []).forEach(slot => {
+        if (slot.status === 'completed') {
+          list.push({
+            sessionId: session._id,
+            subjectName: session.subjectName,
+            studentName: session.studentId?.name || 'Student',
+            studentEmail: session.studentId?.email || '',
+            slotId: slot._id,
+            startTime: slot.startTime,
+            endTime: slot.endTime
+          });
+        }
+      });
+    });
+    // Sort by most recently completed
+    return list.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
+  };
+
   const upcomingSlots = getUpcomingSlots();
+  const completedSlots = getCompletedSlots();
 
   const formatPlanType = (plan) => {
     switch (plan) {
@@ -119,8 +142,8 @@ const MyPersonalSessions = () => {
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Completed Programs</span>
-            <span className="text-xl font-bold text-slate-800">{completedSessions.length} Sessions</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Completed Slots</span>
+            <span className="text-xl font-bold text-slate-800">{completedSlots.length} Slots</span>
           </div>
         </div>
 
@@ -147,7 +170,7 @@ const MyPersonalSessions = () => {
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
-          <CheckCircle2 className="w-4 h-4" /> Completed Sessions ({completedSessions.length})
+          <CheckCircle2 className="w-4 h-4" /> Completed Sessions ({completedSlots.length})
         </button>
       </div>
 
@@ -176,8 +199,8 @@ const MyPersonalSessions = () => {
                       <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full uppercase">
                         {slot.subjectName}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                        {slot.platform}
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">
+                        {slot.board} • {slot.classLevel}
                       </span>
                     </div>
 
@@ -185,7 +208,6 @@ const MyPersonalSessions = () => {
                       <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                         <User className="w-4 h-4 text-slate-400" /> {slot.studentName}
                       </h3>
-                      <p className="text-[11px] text-slate-400 font-medium pl-5">Mobile: {slot.studentMobile}</p>
                     </div>
 
                     <div className="bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 text-xs space-y-1">
@@ -203,19 +225,43 @@ const MyPersonalSessions = () => {
                   <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
                     {slot.meetingLink && (
                       <a
-                        href={slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`}
-                        target="_blank"
+                        href={new Date() >= new Date(start.getTime() - 5 * 60000) ? (slot.meetingLink?.startsWith('http') ? slot.meetingLink : `https://${slot.meetingLink}`) : '#'}
+                        target={new Date() >= new Date(start.getTime() - 5 * 60000) ? "_blank" : "_self"}
                         rel="noopener noreferrer"
-                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider text-center transition-colors flex items-center justify-center gap-1 shadow-sm"
+                        onClick={(e) => {
+                          if (new Date() < new Date(start.getTime() - 5 * 60000)) {
+                            e.preventDefault();
+                            toast.error('You can only join 5 minutes before the class starts.');
+                          }
+                        }}
+                        className={`w-full py-2 rounded-lg font-bold text-xs uppercase tracking-wider text-center transition-colors flex items-center justify-center gap-1 shadow-sm ${
+                          new Date() >= new Date(start.getTime() - 5 * 60000) 
+                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
                       >
                         Join Class <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     )}
                     <button
-                      onClick={() => handleCompleteSlot(slot.sessionId, slot.slotId)}
-                      className="w-full py-2 border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1"
+                      onClick={(e) => {
+                        if (new Date() < new Date(start.getTime() - 5 * 60000)) {
+                          e.preventDefault();
+                          toast.error('You cannot mark a class as completed before it starts.');
+                          return;
+                        }
+                        handleCompleteSlot(slot.sessionId, slot.slotId);
+                      }}
+                      disabled={new Date() < new Date(start.getTime() - 5 * 60000)}
+                      className={`w-full py-2 border rounded-lg font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1 ${
+                        new Date() >= new Date(start.getTime() - 5 * 60000)
+                          ? 'border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 text-slate-700'
+                          : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                      }`}
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Mark Completed
+                      <CheckCircle2 className={`w-3.5 h-3.5 ${
+                        new Date() >= new Date(start.getTime() - 5 * 60000) ? 'text-emerald-500' : 'text-slate-300'
+                      }`} /> Mark Completed
                     </button>
                   </div>
                 </div>
@@ -236,22 +282,22 @@ const MyPersonalSessions = () => {
                 </tr>
               </thead>
               <tbody className="text-[13px] divide-y divide-slate-100">
-                {completedSessions.length === 0 ? (
+                {completedSlots.length === 0 ? (
                   <tr>
-                    <td colSpan="3" className="p-8 text-center text-slate-400 font-medium">No completed 1-on-1 programs yet.</td>
+                    <td colSpan="3" className="p-8 text-center text-slate-400 font-medium">No completed 1-on-1 slots yet.</td>
                   </tr>
                 ) : (
-                  completedSessions.map((session) => (
-                    <tr key={session._id} className="hover:bg-slate-50/50 transition-colors">
+                  completedSlots.map((slot) => (
+                    <tr key={slot.slotId} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-4">
-                        <div className="font-bold text-slate-800">{session.studentId?.name || 'Student'}</div>
-                        <div className="text-[11px] text-slate-400">{session.studentId?.email}</div>
+                        <div className="font-bold text-slate-800">{slot.studentName}</div>
+                        <div className="text-[11px] text-slate-400">{slot.studentEmail}</div>
                       </td>
                       <td className="p-4 font-bold text-slate-700">
-                        {session.subjectName}
+                        {slot.subjectName}
                       </td>
                       <td className="p-4 text-slate-500">
-                        {new Date(session.updatedAt).toLocaleDateString('en-US', {
+                        {new Date(slot.endTime).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric'

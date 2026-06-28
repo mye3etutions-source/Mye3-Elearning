@@ -61,8 +61,9 @@ const checkTeacherConflict = async (teacherId, startTime, endTime, excludeSessio
 // GET /admin/personal-sessions/students
 exports.getPersonalStudents = async (req, res) => {
   try {
-    const students = await User.find({ board: '1-on-1', role: 'student' })
-      .select('name email mobileNumber createdAt')
+    const students = await User.find({ isOneOnOne: true, role: 'student' })
+      .select('name email mobileNumber createdAt oneOnOneCategory')
+      .populate('oneOnOneCategory', 'name pricing')
       .sort({ createdAt: -1 });
 
     // Attach session info per student
@@ -91,7 +92,11 @@ exports.getAllPersonalSessions = async (req, res) => {
     if (status) filter.status = status;
 
     const sessions = await PersonalSession.find(filter)
-      .populate('studentId', 'name email mobileNumber activeSubscriptions')
+      .populate({
+        path: 'studentId',
+        select: 'name email mobileNumber activeSubscriptions oneOnOneCategory',
+        populate: { path: 'oneOnOneCategory', select: 'name pricing' }
+      })
       .populate('teacherId', 'name email')
       .sort({ createdAt: -1 });
 
@@ -160,8 +165,12 @@ exports.assignSession = async (req, res) => {
     }));
     session.adminNote = adminNote || '';
 
-    // Always set status to active upon assignment by admin
-    session.status = 'active';
+    // Set status to 'active' if already paid, else 'assigned'
+    if (session.paymentStatus === 'paid') {
+      session.status = 'active';
+    } else {
+      session.status = 'assigned';
+    }
 
     await session.save();
 
@@ -230,11 +239,15 @@ exports.getMyPersonalSessions = async (req, res) => {
       .populate('teacherId', 'name email')
       .sort({ createdAt: -1 });
 
-    // Mark expired sessions as completed
+    // Mark expired sessions as completed and auto-fix stuck statuses
     let hasChanges = false;
     for (let session of sessions) {
       if (session.expiryDate && new Date() > new Date(session.expiryDate) && !['completed', 'cancelled'].includes(session.status)) {
          session.status = 'completed';
+         await session.save();
+         hasChanges = true;
+      } else if (session.status === 'assigned' && session.paymentStatus === 'paid') {
+         session.status = 'active';
          await session.save();
          hasChanges = true;
       }
@@ -242,7 +255,7 @@ exports.getMyPersonalSessions = async (req, res) => {
 
     // Auto-create a pending session document if they have no active sessions
     const activeSession = sessions.find(s => !['completed', 'cancelled'].includes(s.status));
-    if (!activeSession && req.user.board === '1-on-1') {
+    if (!activeSession && req.user.isOneOnOne) {
       const newSession = new PersonalSession({
         studentId: req.user._id,
         status: 'pending',
@@ -280,13 +293,26 @@ exports.initiatePayment = async (req, res) => {
       return res.status(400).json({ message: 'Plan type is required to process payment' });
     }
 
-    // Resolve price dynamically from global pricing config safely
-    let pricingDoc = await ClassBundle.findOne({ className: '1-on-1', board: '1-on-1' });
-    const resolvedPrice = pricingDoc?.pricing?.[finalPlanType] || session.price || 0;
+    // Resolve price dynamically from student's 1-on-1 category
+    let resolvedPrice = session.price || 0;
+    if (finalPlanType) {
+      const studentUser = await User.findById(req.user._id).populate('oneOnOneCategory');
+      if (studentUser && studentUser.oneOnOneCategory && studentUser.oneOnOneCategory.pricing) {
+        resolvedPrice = studentUser.oneOnOneCategory.pricing[finalPlanType] || resolvedPrice;
+      }
+    }
 
     session.planType      = finalPlanType;
     session.price         = resolvedPrice;
     session.paymentStatus = 'paid';
+
+    // Calculate and set expiry date based on plan duration
+    const expiry = new Date();
+    if (finalPlanType === 'oneMonth')     expiry.setMonth(expiry.getMonth() + 1);
+    else if (finalPlanType === 'threeMonths') expiry.setMonth(expiry.getMonth() + 3);
+    else if (finalPlanType === 'sixMonths')   expiry.setMonth(expiry.getMonth() + 6);
+    else if (finalPlanType === 'twelveMonths') expiry.setFullYear(expiry.getFullYear() + 1);
+    session.expiryDate = expiry;
     
     // Set status to active if teacher is assigned, else keep as pending
     if (session.teacherId) {
