@@ -309,7 +309,7 @@ const StudentDashboard = () => {
           { icon: ShieldCheck, label: userInfo?.isOneOnOne ? 'Active Trainings' : 'Active Courses', val: userInfo?.isOneOnOne ? (personalSession?.status === 'active' ? '1' : '0') : (learning.length || '0'), color: 'bg-indigo-50 text-[#002147]', borderColor: 'border-indigo-100' },
           { icon: Users, label: 'Attended Classes', val: liveAlerts.filter(s => s.status === 'ended').length || '0', color: 'bg-emerald-50 text-emerald-600', borderColor: 'border-emerald-100' },
           { icon: FileText, label: 'Study Materials', val: materialsCount || '0', color: 'bg-orange-50 text-[#f16126]', borderColor: 'border-orange-100' },
-          ...(!userInfo?.isOneOnOne ? [{ icon: BookOpen, label: 'Enrolled Subjects', val: learning.reduce((sum, item) => sum + (item.subjects?.length || 1), 0) || '0', color: 'bg-slate-50 text-slate-600', borderColor: 'border-slate-200' }] : []),
+          { icon: BookOpen, label: 'Enrolled Subjects', val: userInfo?.isOneOnOne ? (personalSession?.subjectName ? '1' : '0') : (learning.reduce((sum, item) => sum + (item.subjects?.length || 1), 0) || '0'), color: 'bg-slate-50 text-slate-600', borderColor: 'border-slate-200' },
         ].map((stat, i) => (
           <motion.div
             key={i}
