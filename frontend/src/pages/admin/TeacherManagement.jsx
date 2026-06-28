@@ -65,7 +65,11 @@ const TeacherManagement = () => {
       if (teachers.length > 0 && location.state?.expandTeacherId) {
          const t = teachers.find(teacher => teacher._id === location.state.expandTeacherId);
          if (t) {
-            setDetailedTeacher(t);
+            setSelectedTeacher(t);
+            setSelectedAssignments(t.assignedSubjects || []);
+            setShowAssignModal(true);
+            setActiveBoard('1-on-1');
+            setActiveClasses([]);
             // Optionally clear the state so it doesn't re-trigger on reload
             window.history.replaceState({}, document.title);
          }
