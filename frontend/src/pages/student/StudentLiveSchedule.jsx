@@ -88,7 +88,7 @@ const StudentLiveSchedule = () => {
     const diffMs = new Date(startTime) - now;
     const diffMins = Math.ceil(diffMs / (1000 * 60));
     
-    if (diffMins <= 0) return 'Starting shortly';
+    if (diffMins <= 0) return 'Waiting for Teacher';
     if (diffMins < 60) return `Starts in ${diffMins} mins`;
     const diffHrs = Math.floor(diffMins / 60);
     if (diffHrs < 24) return `Starts in ${diffHrs} hrs`;
