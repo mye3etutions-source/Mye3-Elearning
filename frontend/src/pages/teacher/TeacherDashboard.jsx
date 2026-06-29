@@ -80,7 +80,14 @@ const TeacherDashboard = () => {
     }
   };
 
-  const now = new Date();
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const now = currentTime;
   const todayStr = now.toDateString();
 
   // 1. Filter sessions for TODAY only
@@ -313,9 +320,31 @@ const TeacherDashboard = () => {
                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Scheduled For</span>
                             <span className="text-[10px] font-black text-[#002147] uppercase italic">{startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {startTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#002147] border border-slate-100 italic font-black text-[10px] group-hover:bg-[#002147] group-hover:text-white transition-all shadow-sm">
-                            i
-                        </div>
+                        {s.status === 'upcoming' && now.getTime() >= (startTime.getTime() - 5 * 60000) ? (
+                            <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation();
+                                    handleUpdateStatus(s._id, 'live'); 
+                                }}
+                                className="px-4 py-1.5 bg-[#002147] text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-[#f16126] transition-colors shadow-md flex items-center gap-1.5"
+                            >
+                                START <Play className="w-3 h-3" />
+                            </button>
+                        ) : s.status === 'live' ? (
+                            <button 
+                                onClick={(e) => { 
+                                    e.stopPropagation();
+                                    window.open(s.link?.startsWith('http') ? s.link : `https://${s.link}`, '_blank');
+                                }}
+                                className="px-4 py-1.5 bg-[#f16126] text-white rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-orange-600 transition-colors shadow-md flex items-center gap-1.5 animate-pulse"
+                            >
+                                JOIN <Play className="w-3 h-3 fill-white" />
+                            </button>
+                        ) : (
+                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#002147] border border-slate-100 italic font-black text-[10px] group-hover:bg-[#002147] group-hover:text-white transition-all shadow-sm">
+                                i
+                            </div>
+                        )}
                      </div>
                   </motion.div>
                 );
