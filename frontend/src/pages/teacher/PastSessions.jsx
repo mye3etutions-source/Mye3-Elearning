@@ -19,6 +19,7 @@ const PastSessions = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [activeSession, setActiveSession] = useState(null); // For the upload side panel
+  const [allMaterials, setAllMaterials] = useState([]);
 
   useEffect(() => {
     fetchSessions();
@@ -26,12 +27,16 @@ const PastSessions = () => {
 
   const fetchSessions = async () => {
     try {
-      const { data } = await axios.get('/teacher/live-sessions');
+      const [sessionsRes, materialsRes] = await Promise.all([
+        axios.get('/teacher/live-sessions'),
+        axios.get('/teacher/materials')
+      ]);
       // Filter for ended sessions only
-      setSessions(data.filter(s => s.status === 'ended'));
+      setSessions(sessionsRes.data.filter(s => s.status === 'ended'));
+      setAllMaterials(materialsRes.data || []);
       setLoading(false);
     } catch (error) {
-      toast.error('Failed to load past sessions');
+      toast.error('Failed to load past sessions data');
       setLoading(false);
     }
   };
@@ -149,7 +154,7 @@ const PastSessions = () => {
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex flex-col items-end gap-3">
-                      <MaterialsList session={session} onDelete={handleDeleteMaterial} />
+                      <MaterialsList session={session} allMaterials={allMaterials} onDelete={handleDeleteMaterial} />
                       
                       <label className="relative cursor-pointer">
                         <input 
@@ -176,25 +181,10 @@ const PastSessions = () => {
   );
 };
 
-const MaterialsList = ({ session, onDelete }) => {
-  const [materials, setMaterials] = useState([]);
-  const [loading, setLoading] = useState(true);
+const MaterialsList = ({ session, allMaterials, onDelete }) => {
+  const materials = allMaterials.filter(m => m.sessionId === session._id);
 
-  useEffect(() => {
-    fetchMaterials();
-  }, [session]);
-
-  const fetchMaterials = async () => {
-    try {
-      const { data } = await axios.get('/teacher/materials');
-      setMaterials(data.filter(m => m.sessionId === session._id));
-      setLoading(false);
-    } catch (error) {
-      setLoading(false);
-    }
-  };
-
-  if (loading || materials.length === 0) return null;
+  if (materials.length === 0) return null;
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
