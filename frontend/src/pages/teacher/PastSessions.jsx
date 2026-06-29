@@ -27,12 +27,38 @@ const PastSessions = () => {
 
   const fetchSessions = async () => {
     try {
-      const [sessionsRes, materialsRes] = await Promise.all([
+      const [sessionsRes, materialsRes, personalRes] = await Promise.all([
         axios.get('/teacher/live-sessions'),
-        axios.get('/teacher/materials')
+        axios.get('/teacher/materials'),
+        axios.get('/teacher/personal-sessions')
       ]);
-      // Filter for ended sessions only
-      setSessions(sessionsRes.data.filter(s => s.status === 'ended'));
+      
+      const endedRegular = sessionsRes.data.filter(s => s.status === 'ended');
+      
+      const endedPersonalSlots = [];
+      (personalRes.data || []).forEach(session => {
+        (session.scheduledSlots || []).forEach(slot => {
+          if (slot.status === 'completed' || slot.status === 'ended') {
+            endedPersonalSlots.push({
+              _id: slot._id,
+              isPersonal: true,
+              subjectName: session.subjectName,
+              classLevel: '1-on-1',
+              title: `${session.studentId?.name || 'Student'} - Personal Class`,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              platform: slot.platform,
+              status: 'ended'
+            });
+          }
+        });
+      });
+
+      const combinedSessions = [...endedRegular, ...endedPersonalSlots].sort(
+        (a, b) => new Date(b.startTime) - new Date(a.startTime)
+      );
+
+      setSessions(combinedSessions);
       setAllMaterials(materialsRes.data || []);
       setLoading(false);
     } catch (error) {
