@@ -87,7 +87,7 @@ const TeacherDashboard = () => {
   const todaySessions = sessions.filter(s => {
     const sessionStartTime = new Date(s.startTime);
     return sessionStartTime.toDateString() === todayStr;
-  });
+  }).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
   // 2. Further filter for display based on status and time
   const filteredSessions = todaySessions.filter(s => {
@@ -423,13 +423,13 @@ const TeacherDashboard = () => {
                                 href={selectedSession.link?.startsWith('http') ? selectedSession.link : `https://${selectedSession.link}`} target="_blank" rel="noopener noreferrer"
                                 className="w-full bg-[#f16126] text-white py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-orange-600/20 hover:scale-[1.02] transition-all"
                             >
-                                <Play className="w-4 h-4 fill-white" /> JOIN CLASS
+                                <Play className="w-4 h-4 fill-white" /> JOIN NOW
                             </a>
                             <button 
                                 onClick={() => { handleUpdateStatus(selectedSession._id, 'ended'); setShowModal(false); }}
                                 className="w-full bg-white text-rose-600 border border-rose-100 py-5 rounded-3xl font-black text-[11px] uppercase tracking-widest hover:bg-rose-50 transition-all"
                             >
-                                END CLASS
+                                COMPLETED
                             </button>
                         </div>
                     )}

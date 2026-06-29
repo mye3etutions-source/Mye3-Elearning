@@ -82,7 +82,14 @@ const StudentLiveSchedule = () => {
     fetchLiveSessions();
   }, [userInfo]);
 
-  const now = new Date();
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const now = currentTime;
 
   const getTimeUntil = (startTime) => {
     const diffMs = new Date(startTime) - now;
@@ -246,7 +253,11 @@ const StudentLiveSchedule = () => {
                     </div>
 
                     <div className="w-full sm:w-auto shrink-0">
-                       <div className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-semibold text-xs border border-indigo-100 text-center">
+                       <div className={`px-4 py-2 rounded-lg font-semibold text-xs border text-center ${
+                          getTimeUntil(session.startTime) === 'Waiting for Teacher' 
+                            ? 'bg-orange-50 text-[#f16126] border-orange-200 animate-pulse'
+                            : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                       }`}>
                           {getTimeUntil(session.startTime)}
                        </div>
                     </div>

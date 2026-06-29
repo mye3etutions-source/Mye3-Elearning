@@ -335,60 +335,6 @@ const StudentDashboard = () => {
         {/* LEFT COLUMN (8) */}
         <div className="lg:col-span-8 space-y-6">
           
-          {/* SIDE BY SIDE: DASHBOARD BANNER + SUBSCRIPTION CARD */}
-          <div className={`grid grid-cols-1 ${userInfo?.isOneOnOne ? '' : 'md:grid-cols-2'} gap-4`}>
-
-            {/* LEFT: DASHBOARD BANNER */}
-            {!userInfo?.isOneOnOne && (
-              <div className="bg-gradient-to-br from-[#002147] to-[#003a7a] rounded-xl p-6 text-white relative overflow-hidden shadow-sm flex flex-col justify-between h-[180px]">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#f16126] rounded-full blur-[60px] opacity-20 pointer-events-none -mr-10 -mt-10" />
-                <div className="relative z-10">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/10 text-emerald-400 rounded-md border border-white/5 text-[10px] font-semibold mb-3">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Access Active
-                  </div>
-                  <h2 className="text-xl font-bold mb-1">Dashboard</h2>
-                  <p className="text-indigo-200/80 text-xs">Daily live lessons & notes</p>
-                </div>
-                <Link to="/student/live-schedule" className="relative z-10 inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#f16126] text-white rounded-lg font-semibold text-sm hover:bg-white hover:text-[#002147] transition-colors w-max">
-                  Start Live Session <Play className="w-4 h-4 fill-current" />
-                </Link>
-              </div>
-            )}
-
-            {/* RIGHT: SUBSCRIPTION STATUS */}
-            {!userInfo?.isOneOnOne && (
-              <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between h-[180px]">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-indigo-500" />
-                    <span className="text-sm font-semibold text-slate-700">Status</span>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md ${hasSubscriptions ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                    {hasSubscriptions ? 'Subscribed' : 'Not Subscribed'}
-                  </span>
-                </div>
-
-                {hasSubscriptions ? (
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-500 leading-relaxed">Your account is active. You have full access to curriculum subjects and live faculty support.</p>
-                    <Link to="/student/classes" className="text-sm font-semibold text-[#f16126] hover:underline flex items-center gap-1 w-max">
-                      Go to My Classes <ChevronRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-500 leading-relaxed">Unlock all subjects, video lessons, and mock tests for your current grade.</p>
-                    <button 
-                      onClick={openCheckout}
-                      className="w-full py-2 bg-[#002147] text-white rounded-lg font-semibold text-sm hover:bg-[#f16126] transition-colors"
-                    >
-                      Buy Subscription
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
           {/* 1-on-1 PERSONAL SESSIONS WIDGET */}
           {userInfo?.isOneOnOne && (
