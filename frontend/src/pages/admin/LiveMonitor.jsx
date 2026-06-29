@@ -470,8 +470,8 @@ const LiveMonitor = () => {
                 endTime.setHours(eh, em, 0, 0);
                 await axios.put(`/admin/live-sessions/${cellForm.sessionId}`, { ...payload, startTime: startTime.toISOString(), endTime: endTime.toISOString() });
 
-                // If user changed single session to repeat, create others
-                if (cellForm.scheduleType !== 'once') {
+                // If user changed single session to repeat or added days, create others
+                if (cellForm.scheduleType !== 'once' || cellForm.selectedDays.length > 1) {
                     const days = cellForm.selectedDays.length > 0 ? cellForm.selectedDays : [date.getDay()];
                     const sessions = [];
                     
@@ -1101,7 +1101,7 @@ const LiveMonitor = () => {
                                                                                             {cellForm.scheduleType === 'everyday' && (
                                                                                                 <p className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 p-1.5 rounded-md">⚡ Sessions auto-generate daily until end of next month.</p>
                                                                                             )}
-                                                                                            {['this_week','next_week','this_month','1week','2weeks','1month'].includes(cellForm.scheduleType) && cellForm.selectedDays.length > 0 && (
+                                                                                            {['once', 'this_week','next_week','this_month','1week','2weeks','1month'].includes(cellForm.scheduleType) && cellForm.selectedDays.length > 0 && (
                                                                                                 <p className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 p-1.5 rounded-md">
                                                                                                     ✅ Bulk scheduling: {cellForm.selectedDays.length} days selected.
                                                                                                 </p>

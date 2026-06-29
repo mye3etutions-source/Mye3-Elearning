@@ -196,7 +196,7 @@ const StudentLiveSchedule = () => {
                          rel="noopener noreferrer"
                          className="px-6 py-2.5 bg-rose-600 text-white rounded-lg font-semibold text-sm shadow-md flex items-center justify-center gap-2 hover:bg-rose-700 transition-colors shrink-0"
                        >
-                         Join Class <Play className="w-4 h-4 fill-current" />
+                         Join Now <Play className="w-4 h-4 fill-current" />
                        </a>
                     </div>
                   </div>

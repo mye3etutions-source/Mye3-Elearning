@@ -350,7 +350,7 @@ exports.getLiveAlerts = async (req, res, next) => {
 
     // Board filter: match sessions that have no board OR match student's board
     const boardFilter = student.board
-      ? { $or: [{ board: student.board }, { board: { $exists: false } }, { board: null }] }
+      ? { $or: [{ board: { $regex: new RegExp(`^${student.board}$`, 'i') } }, { board: { $exists: false } }, { board: null }] }
       : {};
 
     const liveSessions = await LiveSession.find({

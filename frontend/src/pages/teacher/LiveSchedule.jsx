@@ -226,17 +226,17 @@ const LiveSchedule = () => {
                 <div className="flex gap-1">
                   <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noopener noreferrer"
                     className="flex-1 text-center py-1 bg-red-600 text-white rounded-lg text-[9px] font-bold hover:bg-red-700 transition-colors">
-                    Join
+                    Join Now
                   </a>
                   <button onClick={() => handleUpdateStatus(s._id, 'ended')}
                     className="px-2 py-1 border border-red-200 text-red-600 rounded-lg text-[9px] font-bold hover:bg-red-50">
-                    End
+                    Completed
                   </button>
                 </div>
               ) : (
                 <button onClick={() => handleUpdateStatus(s._id, 'live')}
                   className={`w-full py-1 ${isLate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-800 hover:bg-teal-600'} text-white rounded-lg text-[9px] font-bold transition-colors flex items-center justify-center gap-1`}>
-                  <Radio className="w-2.5 h-2.5" />{isLate ? 'Go Live (Late)' : 'Go Live'}
+                  <Radio className="w-2.5 h-2.5" />{isLate ? 'Start Class (Late)' : 'Start Class'}
                 </button>
               )}
             </div>
@@ -484,17 +484,17 @@ const LiveSchedule = () => {
                             {!isLive ? (
                               <button onClick={() => handleUpdateStatus(s._id, 'live')}
                                 className="w-full sm:w-auto px-5 py-2 bg-slate-800 hover:bg-teal-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2">
-                                <Video className="w-4 h-4" /> Start Broadcast
+                                <Video className="w-4 h-4" /> Start Class
                               </button>
                             ) : (
                               <div className="flex w-full sm:w-auto items-center gap-2">
                                 <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noopener noreferrer"
                                   className="flex-1 sm:flex-none px-5 py-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold text-center">
-                                  Join Call
+                                  Join Now
                                 </a>
                                 <button onClick={() => handleUpdateStatus(s._id, 'ended')}
                                   className="flex-1 sm:flex-none px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold">
-                                  End Session
+                                  Completed
                                 </button>
                               </div>
                             )}
