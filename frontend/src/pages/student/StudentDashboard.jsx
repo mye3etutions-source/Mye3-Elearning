@@ -44,6 +44,13 @@ const StudentDashboard = () => {
   const [personalSession, setPersonalSession] = useState(null);
   const [personalLoading, setPersonalLoading] = useState(true);
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Auto-detect if user is an Intermediate student
   const userClassNum = userInfo?.className?.toLowerCase().includes('1-on-1') ? '' : userInfo?.className?.replace(/\D/g, '') || '';
   const isInter = userClassNum === '11' || userClassNum === '12';
@@ -555,7 +562,13 @@ const StudentDashboard = () => {
                          </div>
                       </div>
                       <Link to="/student/live-schedule" className="p-2 bg-white rounded-md border border-slate-200 text-slate-400 hover:text-indigo-600 transition-colors">
-                         <ChevronRight className="w-4 h-4" />
+                         {currentTime >= new Date(session.startTime) ? (
+                           <div className="flex items-center gap-1.5 px-2 py-0.5 bg-orange-50 text-[#f16126] border border-orange-200 rounded text-[10px] font-bold animate-pulse uppercase tracking-wider">
+                              Waiting <Play className="w-3 h-3 fill-current" />
+                           </div>
+                         ) : (
+                           <ChevronRight className="w-4 h-4" />
+                         )}
                       </Link>
                     </div>
                   ))
