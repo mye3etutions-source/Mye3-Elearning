@@ -142,7 +142,7 @@ const PricingManagement = () => {
      }
   };
 
-  const handleDeleteSubjectBoard = async (subjectId) => {
+   const handleDeleteSubjectBoard = async (subjectId) => {
      if(!window.confirm(`Are you sure you want to delete this subject for ${activeBoard}?`)) return;
      const loadingToast = toast.loading('Deleting...');
      try {
@@ -152,6 +152,19 @@ const PricingManagement = () => {
      } catch (e) { 
         const msg = e.response?.data?.message || 'Failed to delete';
         toast.error(msg, { id: loadingToast }); 
+     }
+  };
+
+  const handleDeleteClass = async (classId, className) => {
+     if(!window.confirm(`Are you sure you want to delete ${className} for ${activeBoard}?`)) return;
+     const loadingToast = toast.loading(`Deleting ${className}...`);
+     try {
+        await axios.delete(`/admin/classes/${classId}`);
+        toast.success(`${className} deleted!`, { id: loadingToast });
+        fetchData();
+     } catch (e) {
+        const msg = e.response?.data?.message || 'Failed to delete class';
+        toast.error(msg, { id: loadingToast });
      }
   };
 
@@ -397,7 +410,16 @@ const PricingManagement = () => {
                                   )}
                                </div>
 
-                               <div className="w-1/3 flex justify-end">
+                               <div className="w-1/3 flex justify-end items-center gap-2">
+                                  {grade && (
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteClass(classId, name); }}
+                                      className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                      title="Delete Class"
+                                    >
+                                       <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
                                   <div className={`p-1.5 rounded-md transition-colors ${isExpanded ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-100 border border-transparent hover:border-slate-200'}`}>
                                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                   </div>
