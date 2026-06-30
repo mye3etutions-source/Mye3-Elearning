@@ -113,6 +113,21 @@ exports.getClassBundles = async (req, res, next) => {
   }
 };
 
+// @desc    Delete a class bundle
+// @route   DELETE /api/admin/classes/:id
+// @access  Admin
+exports.deleteClassBundle = async (req, res, next) => {
+  try {
+    const bundle = await ClassBundle.findByIdAndDelete(req.params.id);
+    if (!bundle) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+    res.status(200).json({ message: 'Class deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Update class bundle price
 // @route   PUT /api/admin/classes/:id
 // @access  Admin
@@ -456,8 +471,7 @@ exports.getDashboardStats = async (req, res, next) => {
       Payment.find({ status: 'captured' }).populate('userId', 'name email').sort({ createdAt: -1 })
     ]);
 
-    const totalRevenue = txs.reduce((acc, curr) => acc + (curr.amount || 0), 0) +
-      payments.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const totalRevenue = txs.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
     // --- CHART DATA LOGIC: Last 7 Days ---
     const chartData = [];
@@ -469,8 +483,7 @@ exports.getDashboardStats = async (req, res, next) => {
       const dailyTx = txs.filter(t => new Date(t.date || t.createdAt).toDateString() === date.toDateString());
       const dailyPay = payments.filter(p => new Date(p.createdAt).toDateString() === date.toDateString());
 
-      const dailySum = dailyTx.reduce((acc, curr) => acc + (curr.amount || 0), 0) +
-        dailyPay.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+      const dailySum = dailyTx.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
       chartData.push({ name: dateStr, revenue: dailySum });
     }
