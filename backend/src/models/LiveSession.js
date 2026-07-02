@@ -11,7 +11,7 @@ const liveSessionSchema = new mongoose.Schema({
   link: { type: String, required: true },
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
-  status: { type: String, enum: ['upcoming', 'live', 'ended'], default: 'upcoming' },
+  status: { type: String, enum: ['upcoming', 'live', 'ended', 'missed'], default: 'upcoming' },
   recurringScheduleId: { type: mongoose.Schema.Types.ObjectId, ref: 'RecurringSchedule' },
   payoutStatus: { type: String, enum: ['unpaid', 'paid'], default: 'unpaid' },
   payoutId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payout' }

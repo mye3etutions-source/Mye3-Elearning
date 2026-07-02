@@ -6,13 +6,8 @@ const connectDB = require('./src/config/db');
 const { initializeCronJobs } = require('./src/cron/recurringScheduler');
 const { initializeExpiryCron } = require('./src/cron/expiryScheduler');
 
-// Restart server after installing dotenv
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
-
-// Initialize Cron Jobs
-initializeCronJobs();
-initializeExpiryCron();
 
 // Initialize Socket.io
 const io = new Server(server, {
@@ -39,6 +34,10 @@ io.on('connection', (socket) => {
     console.log('User Disconnected');
   });
 });
+
+// Initialize Cron Jobs (after io is ready so auto-end can emit socket events)
+initializeCronJobs();
+initializeExpiryCron(io);
 
 connectDB().then(() => {
   server.listen(PORT, () => {

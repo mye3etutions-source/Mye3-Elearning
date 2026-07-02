@@ -134,88 +134,14 @@ check_*.js
 
 ---
 
-## Observation 5 — Class List Hardcoded + Mobile Number Missing
-
-### Problem A — Class List Hardcoded in Multiple Places
-Admin Fees Center లో కొత్త class add చేసినా (Class 1, 2, 3...) అవి మిగతా చోట్లా automatically రావడం లేదు:
-
-| Where | Current | Should Be |
-|---|---|---|
-| Register Form (Select Class) | Hardcoded: Class 6-10, Inter | Dynamic from DB (`ClassBundle`) |
-| Teacher Assign Subjects Modal | Hardcoded: Class 6-12 | Dynamic from DB |
-| Fees Center Section Heading | Hardcoded: `"(6th - 10th)"` | Dynamic: min-max from DB |
-| Register Form (Select Class) | No Class 1-5 option | Admin add చేస్తే appear అవ్వాలి |
-
-**Root Cause**: Class list అన్ని చోట్లా hardcoded ఉంది. `ClassBundle` DB collection → single source of truth అవ్వాలి.
-
-### Fix Plan
-
-**Step 1 — Fees Center: "Add Class" button add చేయాలి**
-- Admin ఏ class అయినా add చేయగలగాలి (Class 1, 2, 3, Degree...)
-- `POST /admin/classes` → new ClassBundle entry create
-- Already route ఉంది — UI లో button add చేయాలి
-
-**Step 2 — Section Heading Dynamic చేయాలి**
-```js
-// Hardcoded (wrong):
-"Junior Grades (6th - 10th)"
-
-// Dynamic (correct):
-const minClass = Math.min(...classes.map(c => c.classNumber));
-const maxClass = Math.max(...classes.map(c => c.classNumber));
-`Junior Grades (${minClass}th - ${maxClass}th)`
-```
-
-**Step 3 — Register Form: Class dropdown dynamic**
-- `GET /api/public/classes` → DB నుండి all active classes fetch
-- Admin add చేసిన classes automatically register form లో కనబడతాయి
-
-**Step 4 — Teacher Assign Modal: Grade list dynamic**
-- `GET /admin/classes` → same DB source
-- Admin add చేసిన classes → teacher modal లో automatically appear
-
-**Step 5 — "1-on-1" Board from Teacher Modal తీసేయాలి**
-- Teacher Assign Subjects modal లో Step 1: Board లో `"1-on-1"` ఉంది → remove చేయాలి
-- (ONE_ON_ONE_NEW_PLAN లో board concept change అవుతోంది కాబట్టి)
-
-### Files to Change
-- `frontend/src/pages/admin/PricingManagement.jsx` — Add Class button + dynamic heading
-- `frontend/src/pages/Register.jsx` — Dynamic class list from API
-- `frontend/src/components/admin/AssignSubjectsModal.jsx` — Dynamic grades + remove 1-on-1 board
-- `backend/src/routes/` — Public classes API (unauthenticated, for register page)
-
----
-
-### Problem B — Mobile Number Not Showing in Student List
-
-**File**: `frontend/src/pages/admin/Students.jsx`
-
-Student list లో email కనిపిస్తోంది, mobile number కనిపించడం లేదు.
-
-**Fix**: Student card/row లో mobile number add చేయాలి:
-```jsx
-// Current:
-<span>{student.email}</span>
-
-// Should be:
-<span>{student.mobileNumber}</span>
-<span>{student.email}</span>
-```
-
-### Files to Change
-- `frontend/src/pages/admin/Students.jsx` — Mobile number display add
-
----
-
 ## 🚀 Phase-wise Execution Plan
 
 | Phase | Observation | Work | Priority | Time |
 |---|---|---|---|---|
 | **Phase 1** | Obs 4 | Debug files delete + `.gitignore` update | 🟢 Easy | 5 mins |
 | **Phase 2** | Obs 2 | Duplicate payment route fix + frontend standardize | 🟡 Medium | 15 mins |
-| **Phase 3** | Obs 5 | Class List Dynamic fix + Mobile Number display | 🔴 High | 45 mins |
-| **Phase 4** | Obs 3 | Basic tests create (auth + personalSession) | 🟡 Medium | 30 mins |
-| **Phase 5** | Obs 1 | LiveMonitor.jsx split into components | 🔴 Complex | 60 mins |
+| **Phase 3** | Obs 3 | Basic tests create (auth + personalSession) | 🟡 Medium | 30 mins |
+| **Phase 4** | Obs 1 | LiveMonitor.jsx split into components | 🔴 Complex | 60 mins |
 
 ---
 
@@ -228,10 +154,7 @@ Student list లో email కనిపిస్తోంది, mobile number �
 ### Modify
 - `backend/src/app.js` — Remove duplicate payment route
 - `backend/.gitignore` — Add scratch patterns
-- `frontend/src/pages/admin/PricingManagement.jsx` — Dynamic classes
-- `frontend/src/pages/Register.jsx` — Dynamic classes
-- `frontend/src/components/admin/AssignSubjectsModal.jsx` — Dynamic classes
-- `frontend/src/pages/admin/Students.jsx` — Mobile numbers
+- `frontend/src/**` — Standardize payment API URLs
 
 ### Create (New)
 - `backend/tests/auth.test.js`

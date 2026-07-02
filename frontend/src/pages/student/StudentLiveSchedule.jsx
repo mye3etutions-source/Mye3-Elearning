@@ -11,7 +11,8 @@ import {
   Play, 
   Search,
   MonitorPlay,
-  UserCircle 
+  UserCircle,
+  AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -106,7 +107,15 @@ const StudentLiveSchedule = () => {
   // Robust Filtering based on Date + Status
   const liveNow = liveSessions.filter(s => 
     s.status === 'live' &&
+    new Date(s.endTime) > now &&
     (s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+     s.subjectName?.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const missedSessions = liveSessions.filter(s =>
+    (s.status === 'missed' ||
+     (s.status === 'upcoming' && s.endTime && new Date(s.endTime) < now)) &&
+    (s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
      s.subjectName?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -211,8 +220,39 @@ const StudentLiveSchedule = () => {
               </div>
             </div>
           )}
+          {/* MISSED CLASSES SECTION */}
+          {missedSessions.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-orange-500" />
+                <h2 className="text-sm font-bold text-slate-700">Missed Classes</h2>
+              </div>
+              <div className="space-y-3">
+                {missedSessions.map((session, idx) => (
+                  <div key={idx} className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-4">
+                    <div className="w-20 py-3 bg-white rounded-lg border border-orange-100 flex flex-col items-center justify-center shrink-0">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase">{new Date(session.startTime).toLocaleDateString('en-GB', { month: 'short' })}</p>
+                      <p className="text-2xl font-bold text-orange-400 leading-none my-1">{new Date(session.startTime).getDate()}</p>
+                      <p className="text-[10px] font-semibold text-slate-400">{new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-orange-500">
+                        {String(session.classLevel || '').replace(/class/gi, '').trim() ? `Class ${String(session.classLevel || '').replace(/class/gi, '').trim()}` : 'General'} · {session.subjectName || 'Subject'}
+                      </p>
+                      <h3 className="text-base font-bold text-slate-700 truncate">{session.title}</h3>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                        <UserCircle className="w-3.5 h-3.5" />
+                        <span>{session.teacherId?.name || 'Teacher'}</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-orange-600 uppercase bg-orange-100 border border-orange-200 px-2 py-1 rounded-md shrink-0">Missed</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {/* UPCOMING SCHEDULE SECTION */}
+
           <div className="space-y-4">
             <h2 className="text-sm font-bold text-slate-700">Upcoming Schedule</h2>
 

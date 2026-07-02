@@ -976,13 +976,15 @@ exports.createLiveSession = async (req, res, next) => {
         s.endTime = newEnd.toISOString();
       }
 
+      // Include board in upsert condition so same time slot can exist for different boards
       const matchUpsertCond = {
         classLevel: s.classLevel,
         subjectName: s.subjectName,
+        board: s.board || 'TS Board',
         startTime: newStart
       };
 
-      // 1. Teacher Conflict
+      // 1. Teacher Conflict (teacher cannot teach two sessions at same time regardless of board)
       const teacherConflict = await LiveSession.findOne({
         teacherId: s.teacherId,
         status: { $nin: ['ended', 'cancelled'] },
@@ -997,9 +999,10 @@ exports.createLiveSession = async (req, res, next) => {
         return res.status(409).json({ message: `Teacher is already booked for another session during this time.` });
       }
 
-      // 2. Class Level Conflict
+      // 2. Class Level + Board Conflict (same class & board cannot have overlapping sessions)
       const classLevelConflict = await LiveSession.findOne({
         classLevel: s.classLevel,
+        board: s.board || 'TS Board',
         status: { $nin: ['ended', 'cancelled'] },
         $or: [
           { startTime: { $lt: newEnd }, endTime: { $gt: newStart } }
@@ -1008,7 +1011,7 @@ exports.createLiveSession = async (req, res, next) => {
       });
 
       if (classLevelConflict) {
-        return res.status(409).json({ message: `A scheduled session already exists for ${s.classLevel} during this time.` });
+        return res.status(409).json({ message: `A scheduled session already exists for ${s.classLevel} (${s.board || 'TS Board'}) during this time.` });
       }
 
       const cleanSession = {

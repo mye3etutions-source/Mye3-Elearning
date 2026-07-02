@@ -706,9 +706,8 @@ const LiveMonitor = () => {
 
                                         return (
                                             <th key={di} className={`p-3 text-center transition-all relative border-r border-slate-50 last:border-r-0 ${isToday ? `${BOARD_THEMES[boardFilter].primary} text-white shadow-sm z-30` : `${isInActiveMonth ? 'bg-white' : 'bg-slate-50/50'} text-slate-600`} w-[13.5%] min-w-[120px]`}>
-                                                <div className={`flex flex-col items-center gap-0.5 ${!isInActiveMonth ? 'opacity-50' : ''}`}>
-                                                    <span className={`text-sm font-bold ${isToday ? 'text-white' : 'text-slate-800'}`}>{fmtDay(date)}</span>
-                                                    <span className={`text-xs font-medium ${isToday ? 'text-white/80' : 'text-slate-500'}`}>{fmtDate(date)}</span>
+                                                <div className={`flex items-center justify-center gap-1 ${!isInActiveMonth ? 'opacity-50' : ''}`}>
+                                                    <span className={`text-xs font-bold whitespace-nowrap ${isToday ? 'text-white' : 'text-slate-800'}`}>{fmtDay(date)}, {fmtDate(date)}</span>
                                                 </div>
                                             </th>
                                         );
@@ -859,9 +858,11 @@ const LiveMonitor = () => {
                                                                         <div className="flex flex-col h-full min-h-[60px]">
                                                                             <div className="flex flex-col gap-2 flex-grow">
                                                                                 {daySessions.map((s, sidx) => {
-                                                                                    const isLive = s.status === 'live';
-                                                                                    const isEnded = s.status === 'ended';
-                                                                                    const isMissed = s.status === 'upcoming' && new Date(s.endTime || new Date(s.startTime).getTime() + 60*60*1000) < new Date();
+                                                                                    const now = new Date();
+                                                                                    const sessionEnd = new Date(s.endTime || new Date(s.startTime).getTime() + 60*60*1000);
+                                                                                    const isLive    = s.status === 'live' && sessionEnd > now;
+                                                                                    const isEnded   = s.status === 'ended' || (s.status === 'live' && sessionEnd <= now);
+                                                                                    const isMissed  = s.status === 'missed' || (s.status === 'upcoming' && sessionEnd < now);
                                                                                     const theme = BOARD_THEMES[boardFilter];
                                                                                     return (
                                                                                         <div
@@ -871,9 +872,24 @@ const LiveMonitor = () => {
                                                                                             <div className={`absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm ${isLive ? 'bg-rose-500' : isEnded ? 'bg-emerald-500' : isMissed ? 'bg-rose-500' : theme.primary}`} />
 
                                                                                             <div className="flex items-center justify-between pl-1.5">
-                                                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isLive ? 'text-rose-600' : isEnded ? 'text-emerald-700' : isMissed ? 'text-rose-600 line-through' : 'text-slate-600'}`}>
-                                                                                                    {fmt24To12(get24HFromDate(s.startTime))} - {fmt24To12(get24HFromDate(s.endTime || new Date(s.startTime).getTime() + 60*60*1000))}
-                                                                                                </span>
+                                                                                                <div className="flex flex-col">
+                                                                                                    <span className="text-[9px] font-medium text-slate-400">{new Date(s.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                                                                                                    <span className={`text-[10px] font-bold whitespace-nowrap ${isLive ? 'text-rose-600' : isEnded ? 'text-emerald-700' : isMissed ? 'text-rose-500 line-through' : 'text-slate-600'}`}>
+                                                                                                        {(() => {
+                                                                                                            const s1 = fmt24To12(get24HFromDate(s.startTime));
+                                                                                                            const e1 = fmt24To12(get24HFromDate(s.endTime || new Date(s.startTime).getTime() + 60*60*1000));
+                                                                                                            const startPeriod = s1.split(' ')[1]; // AM or PM
+                                                                                                            const endPeriod   = e1.split(' ')[1]; // AM or PM
+                                                                                                            // Same period: show period only at end: "6:30–7:15 PM"
+                                                                                                            // Different period: show both: "11:50 AM–12:00 PM"
+                                                                                                            if (startPeriod === endPeriod) {
+                                                                                                                const sShort = s1.replace(` ${startPeriod}`, '');
+                                                                                                                return `${sShort}–${e1}`;
+                                                                                                            }
+                                                                                                            return `${s1}–${e1}`;
+                                                                                                        })()}
+                                                                                                    </span>
+                                                                                                </div>
                                                                                                 <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
                                                                                                     {(() => {
                                                                                                         if (isLive || isEnded || isMissed) return <span title={isLive ? "Live class" : isEnded ? "Ended class" : "Missed class"} className="p-1 text-slate-300"><Lock className="w-3 h-3" /></span>;
@@ -902,21 +918,21 @@ const LiveMonitor = () => {
                                                                                             </div>
 
                                                                                             <div className="pl-1.5 mt-1">
-                                                                                                {s.recurringScheduleId && (
-                                                                                                    <div className="absolute top-1 right-1 p-0.5 bg-amber-100 rounded group-hover/card:bg-amber-200 transition-colors" title="Daily Recurring Series">
-                                                                                                        <Activity className="w-2.5 h-2.5 text-amber-600" />
-                                                                                                    </div>
-                                                                                                )}
-                                                                                                {isLive ? (
-                                                                                                    <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 w-full py-1 bg-rose-600 text-white rounded text-[10px] font-semibold hover:bg-rose-700 transition-colors">
-                                                                                                        <Video className="w-3 h-3" /> Join Now
+
+                                                                                                {/* Teacher name — always visible */}
+                                                                                                <p className={`text-xs font-semibold truncate ${isLive ? 'text-rose-700' : isMissed ? 'text-orange-700' : isEnded ? 'text-emerald-700' : 'text-slate-800'}`}>
+                                                                                                    {s.teacherId?.name || 'TBA'}
+                                                                                                </p>
+                                                                                                {/* Join Now — only when live */}
+                                                                                                {isLive && (
+                                                                                                    <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noreferrer" className="mt-1 flex items-center justify-center w-full py-1 bg-rose-600 text-white rounded text-[10px] font-bold hover:bg-rose-700 transition-colors whitespace-nowrap">
+                                                                                                        Join Now
                                                                                                     </a>
-                                                                                                ) : (
-                                                                                                    <p className={`text-xs font-semibold truncate ${isMissed ? 'text-orange-700' : 'text-slate-800'}`}>{s.teacherId?.name || 'TBA'}</p>
                                                                                                 )}
                                                                                                 <div className="mt-1 flex items-center justify-between">
                                                                                                     <span className={`text-[10px] font-medium ${isMissed ? 'text-orange-500' : 'text-slate-500'}`}>{s.platform}</span>
                                                                                                     {isMissed && <span className="text-[9px] font-bold text-orange-600 uppercase bg-orange-100 px-1 rounded">Missed</span>}
+                                                                                                    {isEnded && <span className="text-[9px] font-bold text-emerald-600 uppercase bg-emerald-100 px-1 rounded">Ended</span>}
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>

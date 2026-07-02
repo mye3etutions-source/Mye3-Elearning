@@ -348,18 +348,32 @@ exports.getLiveAlerts = async (req, res, next) => {
     const yesterday = new Date();
     yesterday.setHours(yesterday.getHours() - 24);
 
-    // Board filter: match sessions that have no board OR match student's board
-    const boardFilter = student.board
-      ? { $or: [{ board: { $regex: new RegExp(`^${student.board}$`, 'i') } }, { board: { $exists: false } }, { board: null }] }
+    // Board filter: strictly match student's board only
+    // Sessions with no board field are shown to all students (legacy data)
+    const boardCondition = student.board
+      ? { $or: [{ board: { $regex: new RegExp(`^${student.board}$`, 'i') } }, { board: { $exists: false } }, { board: null }, { board: '' }] }
       : {};
 
-    const liveSessions = await LiveSession.find({
-      ...boardFilter,
+    // Status filter: live/upcoming sessions OR recently ended/missed (within 24hrs)
+    const statusCondition = {
       $or: [
         { status: { $in: ['live', 'upcoming'] } },
-        { status: 'ended', updatedAt: { $gte: yesterday } }
-      ],
-      $and: [ { $or: orConditions } ]
+        { status: 'ended',  updatedAt: { $gte: yesterday } },
+        { status: 'missed', updatedAt: { $gte: yesterday } }
+      ]
+    };
+
+    // Subscription condition: student must be enrolled in that class/subject
+    const subscriptionCondition = { $or: orConditions };
+
+    // Combine all filters with $and to avoid MongoDB $or override conflicts
+    const andConditions = [statusCondition, subscriptionCondition];
+    if (student.board) {
+      andConditions.push(boardCondition);
+    }
+
+    const liveSessions = await LiveSession.find({
+      $and: andConditions
     }).populate('teacherId', 'name').sort({ status: 1, startTime: 1 });
 
     // Fetch materials for each session

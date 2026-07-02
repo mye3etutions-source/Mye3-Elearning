@@ -97,11 +97,12 @@ const StudentDashboard = () => {
     return upcoming[0] || null;
   };
 
-  const isJoinActive = (startTime) => {
+  const isJoinActive = (startTime, endTime) => {
     const now = new Date();
     const start = new Date(startTime);
-    const diffMinutes = (start - now) / (1000 * 60);
-    return diffMinutes <= 15;
+    const end = endTime ? new Date(endTime) : new Date(start.getTime() + 60 * 60 * 1000);
+    // Join active only if session has started (within 15 min) AND end time not passed
+    return (start - now) <= 15 * 60 * 1000 && now < end;
   };
 
   const formatPlanType = (plan) => {
@@ -344,48 +345,89 @@ const StudentDashboard = () => {
         <div className="lg:col-span-8 space-y-6">
           
           {/* LIVE NOW LISTING (Dynamic from alerts) */}
-          {liveAlerts.filter(s => s.status === 'live').length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-rose-500 rounded-full animate-ping" />
-                <h2 className="text-sm font-bold text-slate-700">Live Now</h2>
-              </div>
-              <div className="space-y-4">
-                {liveAlerts.filter(s => s.status === 'live').map((session, idx) => (
-                  <div key={idx} className="bg-slate-900 rounded-xl p-6 text-white relative overflow-hidden shadow-lg border border-slate-800">
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500 rounded-full -mr-24 -mt-24 blur-[80px] opacity-20 pointer-events-none" />
-                    
-                    <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6">
-                       <div className="space-y-3 flex-1 text-center sm:text-left">
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/20 text-rose-300 rounded-md border border-rose-500/30 text-[10px] font-semibold">
-                             <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" /> Live Now
-                          </div>
-                          <h2 className="text-xl md:text-2xl font-bold leading-tight">{session.title}</h2>
-                          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-sm text-slate-300">
-                             <div className="flex items-center gap-2">
-                                <UserCircle className="w-4 h-4 text-slate-400" /> {session.teacherId?.name || 'Teacher'}
+          {/* LIVE NOW */}
+          {(() => {
+            const now = new Date();
+            const liveNow = liveAlerts.filter(s =>
+              s.status === 'live' && new Date(s.endTime) > now
+            );
+            const missedToday = liveAlerts.filter(s =>
+              s.status === 'missed' ||
+              (s.status === 'upcoming' && s.endTime && new Date(s.endTime) < now)
+            );
+            return (
+              <>
+                {liveNow.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-rose-500 rounded-full animate-ping" />
+                      <h2 className="text-sm font-bold text-slate-700">Live Now</h2>
+                    </div>
+                    <div className="space-y-4">
+                      {liveNow.map((session, idx) => (
+                        <div key={idx} className="bg-slate-900 rounded-xl p-6 text-white relative overflow-hidden shadow-lg border border-slate-800">
+                          <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500 rounded-full -mr-24 -mt-24 blur-[80px] opacity-20 pointer-events-none" />
+                          <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                             <div className="space-y-3 flex-1 text-center sm:text-left">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/20 text-rose-300 rounded-md border border-rose-500/30 text-[10px] font-semibold">
+                                   <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" /> Live Now
+                                </div>
+                                <h2 className="text-xl md:text-2xl font-bold leading-tight">{session.title}</h2>
+                                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-sm text-slate-300">
+                                   <div className="flex items-center gap-2">
+                                      <UserCircle className="w-4 h-4 text-slate-400" /> {session.teacherId?.name || 'Teacher'}
+                                   </div>
+                                   <div className="w-1 h-1 bg-slate-600 rounded-full" />
+                                   <div className="flex items-center gap-2">
+                                      <Clock className="w-4 h-4 text-slate-400" /> {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                   </div>
+                                </div>
                              </div>
-                             <div className="w-1 h-1 bg-slate-600 rounded-full" />
-                             <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-slate-400" /> {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                             </div>
+                             <a
+                               href={session.link?.startsWith('http') ? session.link : `https://${session.link}`}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               className="px-6 py-2.5 bg-rose-600 text-white rounded-lg font-semibold text-sm shadow-md flex items-center justify-center gap-2 hover:bg-rose-700 transition-colors shrink-0"
+                             >
+                               Join Now <Play className="w-4 h-4 fill-current" />
+                             </a>
                           </div>
-                       </div>
-                       
-                       <a 
-                         href={session.link?.startsWith('http') ? session.link : `https://${session.link}`}
-                         target="_blank"
-                         rel="noopener noreferrer"
-                         className="px-6 py-2.5 bg-rose-600 text-white rounded-lg font-semibold text-sm shadow-md flex items-center justify-center gap-2 hover:bg-rose-700 transition-colors shrink-0"
-                       >
-                         Join Now <Play className="w-4 h-4 fill-current" />
-                       </a>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                )}
+
+                {/* MISSED CLASSES TODAY */}
+                {missedToday.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-orange-500" />
+                      <h2 className="text-sm font-bold text-slate-700">Missed Classes</h2>
+                    </div>
+                    {missedToday.map((session, idx) => (
+                      <div key={idx} className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                            <AlertCircle className="w-4 h-4 text-orange-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{session.title}</p>
+                            <p className="text-xs text-slate-500">
+                              <UserCircle className="w-3 h-3 inline mr-1" />{session.teacherId?.name || 'Teacher'}
+                              {' · '}{new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-orange-600 uppercase bg-orange-100 border border-orange-200 px-2 py-1 rounded-md shrink-0">Missed</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
 
           {/* 1-on-1 PERSONAL SESSIONS WIDGET */}
           {userInfo?.isOneOnOne && (
