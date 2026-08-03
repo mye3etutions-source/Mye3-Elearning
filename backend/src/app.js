@@ -23,13 +23,20 @@ app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
       'http://localhost:5173',
+      'http://localhost:5174',
       'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
       process.env.FRONTEND_URL,
       'https://mye3etuitions.com',
       'https://www.mye3etuitions.com'
     ].filter(Boolean);
     
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      /^http:\/\/localhost:\d+$/.test(origin) ||
+      /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+    ) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

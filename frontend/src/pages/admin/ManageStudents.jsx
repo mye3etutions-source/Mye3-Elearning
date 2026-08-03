@@ -574,7 +574,7 @@ const ManageStudents = () => {
                              ...grantForm, 
                              referenceId: val, 
                              board: item?.board || '',
-                             name: item ? (grantForm.type === 'bundle' ? item.className : `${item.name} (${parseInt(item.classLevel) === 11 ? 'Inter 1st Year' : parseInt(item.classLevel) === 12 ? 'Inter 2nd Year' : `Class ${item.classLevel}`})`) : ''
+                             name: item ? (grantForm.type === 'bundle' ? item.className : `Class ${item.classLevel} - ${item.name}`) : ''
                            });
                          }}
                          className="w-full px-3 py-2 bg-white border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 shadow-sm"

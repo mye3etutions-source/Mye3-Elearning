@@ -3,3 +3,12 @@ debug.log
 .DS_Store
 dist/
 build/
+
+
+
+# Plan and documentation files (do not push to github)
+CODE_IMPROVEMENTS_PLAN.md
+DEPLOY_TRIGGER.md
+LIVE_CLASS_AND_PAYROLL_PLAN.md
+ONE_ON_ONE_NEW_PLAN.md
+*_PLAN.md

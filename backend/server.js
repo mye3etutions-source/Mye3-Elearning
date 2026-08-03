@@ -1,4 +1,11 @@
-require('dotenv').config();
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment-specific file (.env.development / .env.production), then fallback to .env
+const nodeEnv = process.env.NODE_ENV || 'development';
+dotenv.config({ path: path.resolve(__dirname, `.env.${nodeEnv}`) });
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
 const http = require('http');
 const { Server } = require('socket.io');
 const app = require('./src/app');
@@ -13,13 +20,27 @@ const server = http.createServer(app);
 const io = new Server(server, {
   path: '/api/socket.io',
   cors: {
-    origin: [
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      process.env.FRONTEND_URL,
-      'https://mye3etuitions.com',
-      'https://www.mye3etuitions.com'
-    ].filter(Boolean),
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:5174',
+        process.env.FRONTEND_URL,
+        'https://mye3etuitions.com',
+        'https://www.mye3etuitions.com'
+      ].filter(Boolean);
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
