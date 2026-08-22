@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
 const subscriptionSchema = new mongoose.Schema({
-  type: { type: String, enum: ['bundle', 'subject'], required: true },
+  type: { type: String, enum: ['bundle', 'subject', 'oneonone'], required: true },
   referenceId: { type: String, required: true }, // Refers to Class or Subject (Flexible for Mock/Real)
   name: { type: String, required: true }, // e.g. "Class 10 Bundle" or "Physics Class 11"
   subscriptionType: {

@@ -35,7 +35,7 @@ const StudentLayout = ({ children }) => {
     fetchAlerts();
 
     const socket = io(socketUrl, {
-      path: window.location.hostname === 'localhost' ? '/socket.io' : '/api/socket.io',
+      path: '/api/socket.io',
       withCredentials: true,
       transports: ['polling', 'websocket'],
       reconnection: true,

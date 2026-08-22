@@ -120,14 +120,14 @@ const AdminDashboard = () => {
             <Link 
               key={idx} 
               to={stat.path}
-              className="premium-card bg-white p-8 flex items-center gap-6 border-none shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] group hover:scale-[1.02] transition-all"
+              className="premium-card bg-white p-4 xl:p-5 flex items-center gap-1.5 border-none shadow-[0_10px_40px_-15px_rgba(0,0,0,0.05)] group hover:scale-[1.02] transition-all"
             >
-              <div className={`w-16 h-16 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center text-3xl group-hover:rotate-6 transition-transform`}>
-                <Icon className="w-8 h-8" />
+              <div className={`shrink-0 w-6 h-6 rounded-md ${stat.bg} ${stat.color} flex items-center justify-center group-hover:rotate-6 transition-transform`}>
+                <Icon className="w-3 h-3" />
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">{stat.label}</p>
-                <p className="text-3xl font-black text-slate-900 mt-1">{stat.value}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest truncate" title={stat.label}>{stat.label}</p>
+                <p className="text-xl 2xl:text-2xl font-black text-slate-900 mt-1">{stat.value}</p>
               </div>
             </Link>
           );

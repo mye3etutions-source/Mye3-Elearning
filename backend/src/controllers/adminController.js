@@ -85,8 +85,8 @@ exports.updatePricing = async (req, res, next) => {
 
 exports.getReports = async (req, res, next) => {
   try {
-    const totalStudents = await User.countDocuments({ role: 'Student' });
-    const totalTeachers = await User.countDocuments({ role: 'Teacher' });
+    const totalStudents = await User.countDocuments({ role: 'student' });
+    const totalTeachers = await User.countDocuments({ role: 'teacher' });
 
     const payments = await Payment.find({ status: 'captured' });
     const totalRevenue = payments.reduce((acc, curr) => acc + curr.amount, 0);
@@ -366,7 +366,7 @@ exports.getStudentsList = async (req, res, next) => {
 // @access  Admin
 exports.addStudent = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, mobileNumber } = req.body;
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -377,6 +377,7 @@ exports.addStudent = async (req, res, next) => {
       name,
       email,
       password,
+      mobileNumber,
       role: 'student'
     });
 
@@ -428,11 +429,52 @@ exports.assignSubscription = async (req, res, next) => {
     if (type === 'bundle') {
        student.className = name.split(' ')[1] ? `Class ${name.split(' ')[1]}` : name;
        student.board = board || 'TS Board';
+       
+       // If this is the 1-on-1 bundle, mark their PersonalSession as paid
+       if (name === '1-on-1' || student.isOneOnOne) {
+         const PersonalSession = require('../models/PersonalSession');
+         let session = await PersonalSession.findOne({ studentId: student._id, status: { $nin: ['completed', 'cancelled'] } });
+         if (!session) {
+           session = new PersonalSession({ studentId: student._id });
+         }
+         session.paymentStatus = 'paid';
+         // Automatically determine plan type from duration
+         if (durationDays <= 31) session.planType = 'oneMonth';
+         else if (durationDays <= 93) session.planType = 'threeMonths';
+         else if (durationDays <= 186) session.planType = 'sixMonths';
+         else session.planType = 'twelveMonths';
+         
+         session.expiryDate = expiryDate;
+         if (session.teacherId) session.status = 'active';
+         else if (session.status === 'pending') session.status = 'assigned';
+         
+         await session.save();
+       }
     } else if (type === 'subject') {
        // Extract class level from name like "Physics (Class 11)"
        const match = name.match(/Class (\d+)/);
        if (match) student.className = `Class ${match[1]}`;
        student.board = board || 'TS Board';
+    } else if (type === 'oneonone') {
+       student.isOneOnOne = true;
+       student.oneOnOneCategory = referenceId;
+       student.board = '1-on-1';
+       
+       const PersonalSession = require('../models/PersonalSession');
+       let session = await PersonalSession.findOne({ studentId: student._id, status: { $nin: ['completed', 'cancelled'] } });
+       if (!session) {
+         session = new PersonalSession({ studentId: student._id });
+       }
+       session.paymentStatus = 'paid';
+       if (durationDays <= 31) session.planType = 'oneMonth';
+       else if (durationDays <= 93) session.planType = 'threeMonths';
+       else if (durationDays <= 186) session.planType = 'sixMonths';
+       else session.planType = 'twelveMonths';
+       
+       session.expiryDate = expiryDate;
+       if (session.teacherId) session.status = 'active';
+       
+       await session.save();
     }
 
     await student.save();
@@ -943,6 +985,19 @@ exports.createLiveSession = async (req, res, next) => {
         delete templateData.subjectId;
       }
 
+      // Check for teacher conflict on the start day as a proxy for recurring conflicts
+      const teacherConflict = await LiveSession.findOne({
+        teacherId: templateData.teacherId,
+        status: { $nin: ['ended', 'cancelled'] },
+        $or: [
+          { startTime: { $lt: end }, endTime: { $gt: start } }
+        ]
+      });
+
+      if (teacherConflict) {
+        return res.status(409).json({ message: `Teacher is already booked for another session during this time.` });
+      }
+
       // 3. Save Recurring Schedule Config
       const template = await RecurringSchedule.create(templateData);
 
@@ -976,12 +1031,13 @@ exports.createLiveSession = async (req, res, next) => {
         s.endTime = newEnd.toISOString();
       }
 
-      // Include board in upsert condition so same time slot can exist for different boards
+      // Include board and teacherId in upsert condition so same time slot can exist for different boards and teachers
       const matchUpsertCond = {
         classLevel: s.classLevel,
         subjectName: s.subjectName,
         board: s.board || 'TS Board',
-        startTime: newStart
+        startTime: newStart,
+        teacherId: s.teacherId
       };
 
       // 1. Teacher Conflict (teacher cannot teach two sessions at same time regardless of board)
@@ -999,9 +1055,11 @@ exports.createLiveSession = async (req, res, next) => {
         return res.status(409).json({ message: `Teacher is already booked for another session during this time.` });
       }
 
-      // 2. Class Level + Board Conflict (same class & board cannot have overlapping sessions)
+      // 2. Same Subject + Class + Board Conflict (exact duplicate — same subject cannot overlap)
+      // NOTE: Different subjects CAN run at the same time (e.g., Maths & Science simultaneously for different student groups)
       const classLevelConflict = await LiveSession.findOne({
         classLevel: s.classLevel,
+        subjectName: s.subjectName,
         board: s.board || 'TS Board',
         status: { $nin: ['ended', 'cancelled'] },
         $or: [
@@ -1011,7 +1069,7 @@ exports.createLiveSession = async (req, res, next) => {
       });
 
       if (classLevelConflict) {
-        return res.status(409).json({ message: `A scheduled session already exists for ${s.classLevel} (${s.board || 'TS Board'}) during this time.` });
+        return res.status(409).json({ message: `${s.subjectName} is already scheduled for ${s.classLevel} (${s.board || 'TS Board'}) during this time.` });
       }
 
       const cleanSession = {
@@ -1152,14 +1210,14 @@ exports.deleteLiveSession = async (req, res, next) => {
 // @access  Admin
 exports.getAllLiveSessions = async (req, res, next) => {
   try {
-    // Fetch from 7 days ago up to 45 days ahead (supports full month scheduling view)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // Fetch from 45 days ago up to 45 days ahead (supports full month scheduling view backward and forward)
+    const fortyFiveDaysAgo = new Date();
+    fortyFiveDaysAgo.setDate(fortyFiveDaysAgo.getDate() - 45);
     const fortyFiveDaysAhead = new Date();
     fortyFiveDaysAhead.setDate(fortyFiveDaysAhead.getDate() + 45);
 
     const sessions = await LiveSession.find({
-      startTime: { $gte: sevenDaysAgo, $lte: fortyFiveDaysAhead }
+      startTime: { $gte: fortyFiveDaysAgo, $lte: fortyFiveDaysAhead }
     })
       .populate('teacherId', 'name email')
       .sort({ startTime: 1 });

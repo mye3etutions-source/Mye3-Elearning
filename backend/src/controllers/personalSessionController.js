@@ -132,21 +132,26 @@ exports.assignSession = async (req, res) => {
       return res.status(400).json({ message: 'teacherId, slots required' });
     }
 
+    // Upsert PersonalSession for this student
+    let session = await PersonalSession.findOne({ studentId, status: { $nin: ['completed', 'cancelled'] } });
+    if (!session) {
+      session = new PersonalSession({ studentId });
+    }
+
     // Conflict check for all slots
     for (const slot of slots) {
-      const { hasConflict, conflicts } = await checkTeacherConflict(teacherId, slot.startTime, slot.endTime);
+      const { hasConflict, conflicts } = await checkTeacherConflict(
+        teacherId, 
+        slot.startTime, 
+        slot.endTime, 
+        session._id // exclude this session's old slots
+      );
       if (hasConflict) {
         return res.status(409).json({
           message: 'Teacher has a conflict in one or more slots',
           conflicts
         });
       }
-    }
-
-    // Upsert PersonalSession for this student
-    let session = await PersonalSession.findOne({ studentId, status: { $nin: ['completed', 'cancelled'] } });
-    if (!session) {
-      session = new PersonalSession({ studentId });
     }
 
     // Check if plan has expired

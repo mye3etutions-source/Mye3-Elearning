@@ -1,26 +1,122 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { 
   X, Plus, Trash2, AlertTriangle, Check, Loader2, Calendar, 
-  Clock, Video, User, BookOpen, DollarSign, FileText, Link as LinkIcon, UserPlus
+  Clock, Video, User, BookOpen, DollarSign, FileText, Link as LinkIcon, UserPlus,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const DAYS_META = [
-    { label: 'S', value: 0 }, { label: 'M', value: 1 }, { label: 'T', value: 2 },
-    { label: 'W', value: 3 }, { label: 'T', value: 4 }, { label: 'F', value: 5 },
-    { label: 'S', value: 6 }
-];
 const PLATFORMS = ['Google Meet', 'Zoom', 'Teams'];
 
-const dateForDayInWeek = (anchor, dayOfWeek, hour, minute) => {
-    const sunday = new Date(anchor);
-    sunday.setDate(anchor.getDate() - anchor.getDay());
-    sunday.setHours(hour, minute, 0, 0);
-    const d = new Date(sunday);
-    d.setDate(sunday.getDate() + dayOfWeek);
-    return d;
+const isSameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth()    === b.getMonth()    &&
+    a.getDate()     === b.getDate();
+
+const MiniCalendar = ({ selectedDates, onToggleDate, month, year, onPrevMonth, onNextMonth }) => {
+    const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDow    = new Date(year, month, 1).getDay(); // 0 = Sunday
+
+    const isSelected = (d) => selectedDates.some(s => isSameDay(s, d));
+    const isPast     = (d) => d < today;
+    const isToday    = (d) => isSameDay(d, today);
+
+    const cells = [
+        ...Array(firstDow).fill(null),
+        ...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
+    ];
+
+    const monthName = new Date(year, month, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    const clearAll = () => {
+        [...selectedDates].forEach(d => onToggleDate(d));
+    };
+
+    return (
+        <div className="select-none w-full">
+            {/* Month navigation */}
+            <div className="flex items-center justify-between mb-3">
+                <button type="button" onClick={onPrevMonth} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors">
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-bold text-slate-700">{monthName}</span>
+                <button type="button" onClick={onNextMonth} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors">
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+            </div>
+
+            {/* Day-of-week headers */}
+            <div className="grid grid-cols-7 mb-1">
+                {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>
+                ))}
+            </div>
+
+            {/* Date cells */}
+            <div className="grid grid-cols-7 gap-y-1">
+                {cells.map((date, i) => {
+                    if (!date) return <div key={i} />;
+                    const past     = isPast(date);
+                    const selected = isSelected(date);
+                    const todayDay = isToday(date);
+                    return (
+                        <button
+                            key={i}
+                            type="button"
+                            disabled={past}
+                            onClick={() => onToggleDate(date)}
+                            className={`h-8 w-full rounded-lg text-xs font-semibold transition-all ${
+                                selected  ? 'bg-indigo-600 text-white shadow-sm' :
+                                past      ? 'text-slate-300 cursor-not-allowed' :
+                                todayDay  ? 'bg-indigo-50 text-indigo-700 font-black ring-1 ring-indigo-300' :
+                                            'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                            }`}
+                        >
+                            {date.getDate()}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                <span className="text-xs font-bold text-indigo-600">{selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected</span>
+                <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-400 hover:text-rose-500 transition-colors">Clear</button>
+            </div>
+        </div>
+    );
+};
+
+const TimePicker = ({ label, value, onChange }) => {
+    const [h24, m24] = (value || '10:00').split(':').map(Number);
+    const h12   = h24 % 12 || 12;
+    const period = h24 >= 12 ? 'PM' : 'AM';
+
+    const update = (nh, nm, np) => {
+        let h = parseInt(nh);
+        if (np === 'PM' && h < 12) h += 12;
+        if (np === 'AM' && h === 12) h = 0;
+        onChange(`${h.toString().padStart(2, '0')}:${String(nm).padStart(2, '0')}`);
+    };
+
+    return (
+        <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase w-8 shrink-0">{label}</span>
+            <select value={h12} onChange={e => update(e.target.value, m24, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1.5 rounded-lg outline-none focus:border-indigo-400 transition-colors">
+                {[12,1,2,3,4,5,6,7,8,9,10,11].map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+            <span className="font-bold text-slate-300">:</span>
+            <select value={m24.toString().padStart(2,'0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1.5 rounded-lg outline-none focus:border-indigo-400 transition-colors">
+                {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2,'0')).map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <select value={period} onChange={e => update(h12, m24, e.target.value)} className="text-sm font-medium bg-white border border-slate-200 p-1.5 rounded-lg outline-none focus:border-indigo-400 transition-colors">
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+            </select>
+        </div>
+    );
 };
 
 const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSuccess }) => {
@@ -40,14 +136,29 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
       )
     : false;
 
+  const [calendarDates, setCalendarDates] = useState([]);
+  const [calendarView, setCalendarView] = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
   const [scheduleData, setScheduleData] = useState({
-    time: '10:00',
-    endTime: '11:00',
-    platform: 'Google Meet',
-    link: '',
-    selectedDays: [new Date().getDay()],
-    scheduleType: 'this_month'
+      time: '10:00', // 24-hr format internally
+      endTime: '11:00',
+      platform: 'Google Meet',
+      link: ''
   });
+
+  // Automatically update endTime to be 1 hour after time, unless manually modified later
+  useEffect(() => {
+      const [h, m] = scheduleData.time.split(':').map(Number);
+      let endH = (h + 1) % 24;
+      setScheduleData(prev => ({ ...prev, endTime: `${endH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}` }));
+  }, [scheduleData.time]);
+
+  const toggleCalendarDate = (d) => {
+      setCalendarDates(prev => {
+          const exists = prev.some(existing => isSameDay(existing, d));
+          if (exists) return prev.filter(existing => !isSameDay(existing, d));
+          return [...prev, d].sort((a, b) => a - b);
+      });
+  };
 
   useEffect(() => {
     if (!isOpen || !student) return;
@@ -77,18 +188,25 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
             time: `${pad(st.getHours())}:${pad(st.getMinutes())}`,
             endTime: `${pad(et.getHours())}:${pad(et.getMinutes())}`,
             platform: first.platform || 'Google Meet',
-            link: first.meetingLink || '',
-            selectedDays: Array.from(new Set(session.scheduledSlots.map(s => new Date(s.startTime).getDay()))),
-            scheduleType: session.scheduledSlots.length > 1 ? 'this_month' : 'once'
+            link: first.meetingLink || ''
         });
+        const dates = session.scheduledSlots.map(s => new Date(s.startTime));
+        setCalendarDates(dates);
+        if (dates.length > 0) {
+            setCalendarView({ month: dates[0].getMonth(), year: dates[0].getFullYear() });
+        }
       } else {
-        setScheduleData({ time: '10:00', endTime: '11:00', platform: 'Google Meet', link: '', selectedDays: [new Date().getDay()], scheduleType: 'this_month' });
+        setScheduleData({ time: '10:00', endTime: '11:00', platform: 'Google Meet', link: '' });
+        setCalendarDates([]);
+        setCalendarView({ month: new Date().getMonth(), year: new Date().getFullYear() });
       }
     } else {
       setTeacherId('');
       setSubjectName(student?.oneOnOneCategory?.name || '');
       setAdminNote('');
-      setScheduleData({ time: '10:00', endTime: '11:00', platform: 'Google Meet', link: '', selectedDays: [new Date().getDay()], scheduleType: 'this_month' });
+      setScheduleData({ time: '10:00', endTime: '11:00', platform: 'Google Meet', link: '' });
+      setCalendarDates([]);
+      setCalendarView({ month: new Date().getMonth(), year: new Date().getFullYear() });
     }
   }, [isOpen, student, session]);
 
@@ -152,7 +270,7 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
     if (!teacherId) return toast.error('Please select a teacher');
     if (!subjectName.trim()) return toast.error('Please enter a subject');
     if (!scheduleData.link.trim()) return toast.error('Meeting Link is mandatory');
-    if (scheduleData.selectedDays.length === 0) return toast.error('Please select at least one day of the week');
+    if (calendarDates.length === 0) return toast.error('Please select at least one date from the calendar');
 
     try {
         setLoading(true);
@@ -160,52 +278,28 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
         const [h, m] = scheduleData.time.split(':').map(Number);
         const [eh, em] = scheduleData.endTime.split(':').map(Number);
         
-        let startWeekOffset = 0;
-        let weekCount = 1;
-        let stopAtMonthEnd = false;
+        const slots = calendarDates.map(date => {
+            const dt = new Date(date);
+            dt.setHours(h, m, 0, 0);
+            
+            const endDt = new Date(date);
+            endDt.setHours(eh, em, 0, 0);
 
-        if (scheduleData.scheduleType === 'this_week') {
-            startWeekOffset = 0;
-            weekCount = 1;
-        } else if (scheduleData.scheduleType === 'next_week') {
-            startWeekOffset = 1;
-            weekCount = 1;
-        } else if (scheduleData.scheduleType === 'this_month') {
-            startWeekOffset = 0;
-            weekCount = 6; 
-            stopAtMonthEnd = true;
-        } else if (scheduleData.scheduleType === '1month') {
-            startWeekOffset = 0;
-            weekCount = 4;
-        }
+            if (endDt < dt) {
+                endDt.setDate(endDt.getDate() + 1);
+            }
 
-        const baseDate = new Date();
-        const originalMonth = baseDate.getMonth();
-        const slots = [];
-
-        for (let w = startWeekOffset; w < (startWeekOffset + weekCount); w++) {
-            scheduleData.selectedDays.forEach(dayNum => {
-                const anchor = new Date(baseDate);
-                anchor.setDate(baseDate.getDate() + w * 7);
-                const dt = dateForDayInWeek(anchor, dayNum, h, m);
-                const endDt = dateForDayInWeek(anchor, dayNum, eh, em);
-
-                if (stopAtMonthEnd && dt.getMonth() !== originalMonth) return;
-
-                if (dt > new Date() || scheduleData.scheduleType === 'once') {
-                    slots.push({
-                        startTime: dt.toISOString(),
-                        endTime: endDt.toISOString(),
-                        platform: scheduleData.platform,
-                        meetingLink: scheduleData.link
-                    });
-                }
-            });
-        }
+            return {
+                startTime: dt.toISOString(),
+                endTime: endDt.toISOString(),
+                platform: scheduleData.platform,
+                meetingLink: scheduleData.link
+            };
+        });
 
         if (slots.length === 0) {
             setLoading(false);
-            return toast.error('All selected times are in the past! Choose a future time.');
+            return toast.error('No valid dates selected!');
         }
 
         const payload = {
@@ -230,7 +324,7 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-[700px] rounded-2xl shadow-2xl border border-slate-100 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
@@ -257,224 +351,146 @@ const AssignPersonalSessionModal = ({ isOpen, onClose, student, session, onSucce
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-          
-          <div className="space-y-4">
-              <input 
-                type="text" 
-                placeholder="Subject Name (e.g. Mathematics)"
-                value={subjectName}
-                onChange={(e) => setSubjectName(e.target.value)}
-                required
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-indigo-500 bg-white"
+        <form onSubmit={handleSubmit} className="max-h-[90vh] overflow-y-auto">
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* Left: Calendar */}
+            <div>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Select Dates</p>
+              <MiniCalendar
+                  selectedDates={calendarDates}
+                  onToggleDate={toggleCalendarDate}
+                  month={calendarView.month}
+                  year={calendarView.year}
+                  onPrevMonth={() => setCalendarView(v => {
+                      const m = v.month - 1;
+                      return m < 0 ? { month: 11, year: v.year - 1 } : { month: m, year: v.year };
+                  })}
+                  onNextMonth={() => setCalendarView(v => {
+                      const m = v.month + 1;
+                      return m > 11 ? { month: 0, year: v.year + 1 } : { month: m, year: v.year };
+                  })}
               />
-
-              <select 
-                value={teacherId}
-                onChange={(e) => setTeacherId(e.target.value)}
-                required
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:border-indigo-500 bg-white"
-              >
-                <option value="">Select Teacher</option>
-                {(() => {
-                  const matched = teachers.filter(t => t._score > 0);
-                  const others  = teachers.filter(t => t._score === 0);
-                  return (
-                    <>
-                      {matched.length > 0 && (
-                        <optgroup label={`✅ Best Match for "${student?.oneOnOneCategory?.name || 'Category'}"`}>
-                          {matched.map(t => (
-                            <option key={t._id} value={t._id} title={t._fullTooltip}>{t.displayName}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {others.length > 0 && (
-                        <optgroup label="── Other Teachers ──">
-                          {others.map(t => (
-                            <option key={t._id} value={t._id} title={t._fullTooltip}>{t.displayName}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </>
-                  );
-                })()}
-              </select>
-
-              {teacherId && !isOneOnOneCapable && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3 animate-in slide-in-from-top-2">
-                      <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                          <div>
-                              <h4 className="text-sm font-bold text-amber-800">1-on-1 Payment Setup Required</h4>
-                              <p className="text-xs text-amber-700 mt-1 font-medium leading-relaxed">
-                                  This teacher does not have a 1-ON-1 subject assigned, so their payment price is unknown. Please assign 1-ON-1 to this teacher first.
-                              </p>
-                          </div>
-                      </div>
-                      <button 
-                          type="button"
-                          onClick={() => {
-                              onClose();
-                              navigate('/admin/teachers', { state: { expandTeacherId: teacherId } });
-                          }}
-                          className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs uppercase tracking-wider py-2.5 rounded-lg transition-colors shadow-sm"
-                      >
-                          <UserPlus className="w-4 h-4" /> Go to Teacher Profile
-                      </button>
-                  </div>
-              )}
-
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
-                  <div className="flex gap-1.5 items-center">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase w-10 tracking-widest">Start</span>
-                      {(() => {
-                          const [h24, m24] = (scheduleData.time || '10:00').split(':').map(Number);
-                          const h12 = h24 % 12 || 12;
-                          const period = h24 >= 12 ? 'PM' : 'AM';
-                          const update = (nh, nm, np) => {
-                              let h = parseInt(nh);
-                              if (np === 'PM' && h < 12) h += 12;
-                              if (np === 'AM' && h === 12) h = 0;
-                              setScheduleData(f => ({ ...f, time: `${h.toString().padStart(2, '0')}:${nm.toString().padStart(2, '0')}` }));
-                          };
-                          return (
-                              <>
-                                  <select value={h12} onChange={e => update(e.target.value, m24, period)} className="flex-1 text-sm font-bold bg-white border border-slate-200 p-1.5 rounded outline-none focus:border-indigo-500">
-                                      {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}</option>)}
-                                  </select>
-                                  <span className="font-bold text-slate-400">:</span>
-                                  <select value={m24.toString().padStart(2, '0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-bold bg-white border border-slate-200 p-1.5 rounded outline-none focus:border-indigo-500">
-                                      {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(m => <option key={m} value={m}>{m}</option>)}
-                                  </select>
-                                  <select value={period} onChange={e => update(h12, m24, e.target.value)} className="flex-1 text-sm font-bold bg-white border border-slate-200 p-1.5 rounded outline-none focus:border-indigo-500">
-                                      <option value="AM">AM</option>
-                                      <option value="PM">PM</option>
-                                  </select>
-                              </>
-                          );
-                      })()}
-                  </div>
-                  <div className="flex gap-1.5 items-center">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase w-10 tracking-widest">End</span>
-                      {(() => {
-                          const [h24, m24] = (scheduleData.endTime || '11:00').split(':').map(Number);
-                          const h12 = h24 % 12 || 12;
-                          const period = h24 >= 12 ? 'PM' : 'AM';
-                          const update = (nh, nm, np) => {
-                              let h = parseInt(nh);
-                              if (np === 'PM' && h < 12) h += 12;
-                              if (np === 'AM' && h === 12) h = 0;
-                              setScheduleData(f => ({ ...f, endTime: `${h.toString().padStart(2, '0')}:${nm.toString().padStart(2, '0')}` }));
-                          };
-                          return (
-                              <>
-                                  <select value={h12} onChange={e => update(e.target.value, m24, period)} className="flex-1 text-sm font-bold bg-white border border-slate-200 p-1.5 rounded outline-none focus:border-indigo-500">
-                                      {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}</option>)}
-                                  </select>
-                                  <span className="font-bold text-slate-400">:</span>
-                                  <select value={m24.toString().padStart(2, '0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-bold bg-white border border-slate-200 p-1.5 rounded outline-none focus:border-indigo-500">
-                                      {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(m => <option key={m} value={m}>{m}</option>)}
-                                  </select>
-                                  <select value={period} onChange={e => update(h12, m24, e.target.value)} className="flex-1 text-sm font-bold bg-white border border-slate-200 p-1.5 rounded outline-none focus:border-indigo-500">
-                                      <option value="AM">AM</option>
-                                      <option value="PM">PM</option>
-                                  </select>
-                              </>
-                          );
-                      })()}
-                  </div>
-              </div>
-
-              <select
-                  value={scheduleData.platform}
-                  onChange={e => setScheduleData(f => ({ ...f, platform: e.target.value }))}
-                  className="w-full text-sm font-bold bg-white border border-slate-200 rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500"
-              >
-                  {PLATFORMS.map(p => <option key={p}>{p}</option>)}
-              </select>
-
-              <div className="relative">
-                  <LinkIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                      type="url"
-                      placeholder="Quick Meeting Link..."
-                      value={scheduleData.link}
-                      onChange={e => setScheduleData(f => ({ ...f, link: e.target.value }))}
-                      required
-                      className="w-full text-sm font-bold bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 outline-none focus:border-indigo-500 placeholder:text-slate-400 placeholder:font-medium"
-                  />
-              </div>
-
-              <div className="pt-2 space-y-3">
-                  <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Days</span>
-                          <div className="flex gap-2">
-                              <button type="button" onClick={() => setScheduleData(f => ({ ...f, selectedDays: [0,1,2,3,4,5,6] }))} className="text-[10px] font-black text-indigo-500 hover:text-indigo-700">All</button>
-                              <span className="text-slate-300">|</span>
-                              <button type="button" onClick={() => setScheduleData(f => ({ ...f, selectedDays: [1,2,3,4,5] }))} className="text-[10px] font-black text-indigo-500 hover:text-indigo-700">Mon–Fri</button>
-                              <span className="text-slate-300">|</span>
-                              <button type="button" onClick={() => setScheduleData(f => ({ ...f, selectedDays: [] }))} className="text-[10px] font-black text-slate-400 hover:text-rose-500">Clear</button>
-                          </div>
-                      </div>
-                      <div className="flex justify-between gap-1">
-                          {DAYS_META.map((day, idx) => {
-                              const isSelected = (scheduleData.selectedDays || []).includes(day.value);
-                              return (
-                                  <button
-                                      type="button" key={idx}
-                                      onClick={() => setScheduleData(prev => {
-                                          const sel = prev.selectedDays || [];
-                                          return { ...prev, selectedDays: sel.includes(day.value) ? sel.filter(d => d !== day.value) : [...sel, day.value] };
-                                      })}
-                                      className={`w-9 h-9 rounded-xl text-xs font-black flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300'}`}
-                                  >
-                                      {day.label}
-                                  </button>
-                              );
-                          })}
-                      </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Repeat</span>
-                      <select
-                          value={scheduleData.scheduleType}
-                          onChange={e => {
-                              const val = e.target.value;
-                              setScheduleData(f => {
-                                  let newDays = f.selectedDays;
-                                  if (val === 'once' && newDays.length === 0) {
-                                      newDays = [new Date().getDay()];
-                                  } else if (newDays.length === 0) {
-                                      newDays = [1,2,3,4,5]; // default mon-fri if empty
-                                  }
-                                  return { ...f, scheduleType: val, selectedDays: newDays };
-                              });
-                          }}
-                          className="flex-1 text-sm font-bold bg-white border border-slate-200 rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500"
-                      >
-                          <option value="once">Once (This Week Only)</option>
-                          <option value="next_week">Next Week Only</option>
-                          <option value="this_month">Until End of Month</option>
-                          <option value="1month">For 4 Weeks (1 Month)</option>
-                      </select>
-                  </div>
-              </div>
-              
-              <div className="space-y-1 pt-2">
+              <div className="mt-6 pt-4 border-t border-slate-100">
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Remarks</p>
                 <input 
                   type="text"
                   placeholder="Optional Admin Remarks"
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
-                  className="w-full text-sm font-medium border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-white placeholder:text-slate-400"
+                  className="w-full text-sm font-medium border border-slate-200 rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 bg-slate-50 placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+
+            {/* Right: Form Fields */}
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Subject</p>
+                <input 
+                  type="text" 
+                  placeholder="Subject Name (e.g. Mathematics)"
+                  value={subjectName}
+                  onChange={(e) => setSubjectName(e.target.value)}
+                  required
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus:border-indigo-500 bg-white"
                 />
               </div>
 
+              <div>
+                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Teacher</p>
+                <select 
+                  value={teacherId}
+                  onChange={(e) => setTeacherId(e.target.value)}
+                  required
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus:border-indigo-500 bg-white"
+                >
+                  <option value="">Select Teacher</option>
+                  {(() => {
+                    const matched = teachers.filter(t => t._score > 0);
+                    const others  = teachers.filter(t => t._score === 0);
+                    return (
+                      <>
+                        {matched.length > 0 && (
+                          <optgroup label={`✅ Best Match for "${student?.oneOnOneCategory?.name || 'Category'}"`}>
+                            {matched.map(t => (
+                              <option key={t._id} value={t._id} title={t._fullTooltip}>{t.displayName}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {others.length > 0 && (
+                          <optgroup label="── Other Teachers ──">
+                            {others.map(t => (
+                              <option key={t._id} value={t._id} title={t._fullTooltip}>{t.displayName}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    );
+                  })()}
+                </select>
+                
+                {teacherId && !isOneOnOneCapable && (
+                    <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2 animate-in slide-in-from-top-2">
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                            <div>
+                                <h4 className="text-[11px] font-bold text-amber-800">1-on-1 Payment Setup Required</h4>
+                                <p className="text-[10px] text-amber-700 mt-0.5 leading-tight">
+                                    Please assign 1-ON-1 to this teacher first.
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            type="button"
+                            onClick={() => {
+                                onClose();
+                                navigate('/admin/teachers', { state: { expandTeacherId: teacherId } });
+                            }}
+                            className="w-full flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 rounded transition-colors shadow-sm"
+                        >
+                            <UserPlus className="w-3 h-3" /> Go to Teacher Profile
+                        </button>
+                    </div>
+                )}
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-3 space-y-2.5 border border-slate-100">
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Time</p>
+                  <TimePicker label="Start" value={scheduleData.time}    onChange={v => setScheduleData(f => ({ ...f, time: v }))} />
+                  <TimePicker label="End"   value={scheduleData.endTime} onChange={v => setScheduleData(f => ({ ...f, endTime: v }))} />
+              </div>
+
+              <div>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Platform</p>
+                  <select
+                      value={scheduleData.platform}
+                      onChange={e => setScheduleData(f => ({ ...f, platform: e.target.value }))}
+                      className="w-full text-sm font-bold bg-white border border-slate-200 rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500"
+                  >
+                      {PLATFORMS.map(p => <option key={p}>{p}</option>)}
+                  </select>
+              </div>
+
+              <div>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Meeting Link</p>
+                  <div className="relative">
+                      <LinkIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                          type="url"
+                          placeholder="Quick Meeting Link..."
+                          value={scheduleData.link}
+                          onChange={e => setScheduleData(f => ({ ...f, link: e.target.value }))}
+                          required
+                          className="w-full text-sm font-bold bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 outline-none focus:border-indigo-500 placeholder:text-slate-400 placeholder:font-medium"
+                      />
+                  </div>
+              </div>
+
+            </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 p-5 border-t border-slate-100 bg-slate-50/50">
             <button 
               type="button" 
               onClick={onClose}

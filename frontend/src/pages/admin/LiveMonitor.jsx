@@ -1,56 +1,40 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import axios from 'axios';
 import {
     Activity, Loader2, BookOpen, Plus, X, Calendar, Video,
-    Check, ChevronDown, ChevronRight, Edit2, Trash2, Clock,
-    ShieldCheck, Link as LinkIcon, AlertCircle, Users, Lock
+    Check, ChevronLeft, ChevronRight, Edit2, Trash2, Clock,
+    ShieldCheck, Link as LinkIcon, AlertCircle, Lock
 } from 'lucide-react';
-
 import socket from '../../socket';
-
-// ─── Sub-components (Phase 5 split) ──────────────────────────────────────────
 import LiveSessionCard    from '../../components/admin/live/LiveSessionCard';
 import LiveSessionStats   from '../../components/admin/live/LiveSessionStats';
-import LiveSessionFilters from '../../components/admin/live/LiveSessionFilters';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 const BOARDS = ['AP Board', 'TS Board', 'CBSE', 'ICSE'];
 const BOARD_THEMES = {
-    'AP Board': { main: 'indigo', primary: 'bg-indigo-600', secondary: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-100', hover: 'hover:bg-indigo-700', active: 'ring-indigo-100' },
-    'TS Board': { main: 'rose', primary: 'bg-rose-600', secondary: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100', hover: 'hover:bg-rose-700', active: 'ring-rose-100' },
-    'CBSE': { main: 'amber', primary: 'bg-amber-600', secondary: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', hover: 'hover:bg-amber-700', active: 'ring-amber-100' },
-    'ICSE': { main: 'emerald', primary: 'bg-emerald-600', secondary: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100', hover: 'hover:bg-emerald-700', active: 'ring-emerald-100' }
+    'AP Board': { main: 'indigo',   primary: 'bg-indigo-600',   secondary: 'bg-indigo-50',   text: 'text-indigo-600',   border: 'border-indigo-100'   },
+    'TS Board': { main: 'rose',     primary: 'bg-rose-600',     secondary: 'bg-rose-50',     text: 'text-rose-600',     border: 'border-rose-100'     },
+    'CBSE':     { main: 'amber',    primary: 'bg-amber-600',    secondary: 'bg-amber-50',    text: 'text-amber-600',    border: 'border-amber-100'    },
+    'ICSE':     { main: 'emerald',  primary: 'bg-emerald-600',  secondary: 'bg-emerald-50',  text: 'text-emerald-600',  border: 'border-emerald-100'  },
 };
-const PLATFORMS = ['Google Meet'];
-const DAYS_META = [
-    { label: 'S', value: 0 }, { label: 'M', value: 1 }, { label: 'T', value: 2 },
-    { label: 'W', value: 3 }, { label: 'T', value: 4 }, { label: 'F', value: 5 },
-    { label: 'S', value: 6 }
-];
+const PLATFORMS = ['Google Meet', 'Zoom', 'YouTube Live'];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const isSameDay = (a, b) =>
     a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
+    a.getMonth()    === b.getMonth()    &&
+    a.getDate()     === b.getDate();
 
-const fmtDay = d => d.toLocaleDateString('en-IN', { weekday: 'short' });
+const fmtDay  = d => d.toLocaleDateString('en-IN', { weekday: 'short' });
 const fmtDate = d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-const fmtTime = d => {
-    try {
-        const date = new Date(d);
-        if (isNaN(date.getTime())) return String(d);
-        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    } catch { return String(d);
-                                                                     }
-};
+
 const fmt24To12 = (t24) => {
     if (!t24) return '--:--';
     const [h, m] = t24.split(':').map(Number);
     const period = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${h12}:${m.toString().padStart(2, '0')} ${period}`;
+    return `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${period}`;
 };
+
 const get24HFromDate = (d) => {
     try {
         const date = new Date(d);
@@ -59,141 +43,223 @@ const get24HFromDate = (d) => {
     } catch { return '10:00'; }
 };
 
-/** Returns 7 Date objects for Sun-Sat of the week defined by weekOffset */
+// ─── Week dates: starts from TODAY, not Sunday ────────────────────────────────
 const getWeekDates = (weekOffset = 0) => {
-    const now = new Date();
-    now.setDate(now.getDate() + (weekOffset * 7));
-    now.setHours(0, 0, 0, 0);
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - now.getDay());
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() + weekOffset * 7);
     return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(sunday);
-        d.setDate(sunday.getDate() + i);
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
         return d;
     });
 };
 
-/** Build a concrete Date for a given weekday in the same week as `anchor` */
-const dateForDayInWeek = (anchor, dayOfWeek, hour, minute) => {
-    const sunday = new Date(anchor);
-    sunday.setDate(anchor.getDate() - anchor.getDay());
-    sunday.setHours(hour, minute, 0, 0);
-    const d = new Date(sunday);
-    d.setDate(sunday.getDate() + dayOfWeek);
-    return d;
-};
+// ─── MiniCalendar Component ───────────────────────────────────────────────────
+const MiniCalendar = ({ selectedDates, onToggleDate, month, year, onPrevMonth, onNextMonth }) => {
+    const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDow    = new Date(year, month, 1).getDay(); // 0 = Sunday
 
-// ─── Default form state ───────────────────────────────────────────────────────
-const EMPTY_CELL_FORM = {
-    sessionId: '',
-    subjectId: '',
-    subjectName: '',
-    teacherId: '',
-    time: '10:00',
-    endTime: '11:00',
-    platform: 'Google Meet',
-    link: '',
-    board: 'AP Board',
-    selectedDays: [],   // day numbers 0-6
-    scheduleType: 'once', // 'once' | 'this_week' | 'next_week' | 'this_month' | '2weeks' | '1month' | 'everyday'
-};
+    const isSelected = (d) => selectedDates.some(s => isSameDay(s, d));
+    const isPast     = (d) => d < today;
+    const isToday    = (d) => isSameDay(d, today);
 
-// ─────────────────────────────────────────────────────────────────────────────
-const LiveMonitor = () => {
-    const handleStopRecurring = async (scheduleId) => {
-        if (!window.confirm('Are you sure you want to stop this daily recurring schedule? ALL future sessions in this series will be deleted.')) return;
-        try {
-            setCellSaving(true);
-            await axios.delete(`/admin/recurring-schedules/${scheduleId}`);
-            await fetchData();
-            setActiveCell(null);
-        } catch (err) {
-            setCellError(err.response?.data?.message || 'Error stopping recurring schedule');
-        } finally {
-            setCellSaving(false);
+    const cells = [
+        ...Array(firstDow).fill(null),
+        ...Array.from({ length: daysInMonth }, (_, i) => new Date(year, month, i + 1)),
+    ];
+
+    const monthName = new Date(year, month, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    const selectMonFri = () => {
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(year, month, d);
+            const dow  = date.getDay();
+            if (dow >= 1 && dow <= 5 && !isPast(date) && !isSelected(date)) {
+                onToggleDate(date);
+            }
         }
     };
 
-    // ── Data ──────────────────────────────────────────────────────────────────
-    const [loading, setLoading] = useState(true);
-    const [allSessions, setAllSessions] = useState([]);
+    const selectAll = () => {
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(year, month, d);
+            if (!isPast(date) && !isSelected(date)) onToggleDate(date);
+        }
+    };
+
+    const clearAll = () => {
+        [...selectedDates].forEach(d => onToggleDate(d));
+    };
+
+    return (
+        <div className="select-none w-full">
+            {/* Month navigation */}
+            <div className="flex items-center justify-between mb-3">
+                <button type="button" onClick={onPrevMonth} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors">
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-bold text-slate-700">{monthName}</span>
+                <button type="button" onClick={onNextMonth} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors">
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+            </div>
+
+            {/* Day-of-week headers */}
+            <div className="grid grid-cols-7 mb-1">
+                {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+                    <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>
+                ))}
+            </div>
+
+            {/* Date cells */}
+            <div className="grid grid-cols-7 gap-y-1">
+                {cells.map((date, i) => {
+                    if (!date) return <div key={i} />;
+                    const past     = isPast(date);
+                    const selected = isSelected(date);
+                    const todayDay = isToday(date);
+                    return (
+                        <button
+                            key={i}
+                            type="button"
+                            disabled={past}
+                            onClick={() => onToggleDate(date)}
+                            className={`h-8 w-full rounded-lg text-xs font-semibold transition-all ${
+                                selected  ? 'bg-indigo-600 text-white shadow-sm' :
+                                past      ? 'text-slate-300 cursor-not-allowed' :
+                                todayDay  ? 'bg-indigo-50 text-indigo-700 font-black ring-1 ring-indigo-300' :
+                                            'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                            }`}
+                        >
+                            {date.getDate()}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="flex items-center justify-end mt-3 pt-3 border-t border-slate-100">
+                <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-400 hover:text-rose-500 transition-colors">Clear</button>
+            </div>
+        </div>
+    );
+};
+
+// ─── TimePicker Sub-component ─────────────────────────────────────────────────
+const TimePicker = ({ label, value, onChange }) => {
+    const [h24, m24] = (value || '10:00').split(':').map(Number);
+    const h12   = h24 % 12 || 12;
+    const period = h24 >= 12 ? 'PM' : 'AM';
+
+    const update = (nh, nm, np) => {
+        let h = parseInt(nh);
+        if (np === 'PM' && h < 12) h += 12;
+        if (np === 'AM' && h === 12) h = 0;
+        onChange(`${h.toString().padStart(2, '0')}:${String(nm).padStart(2, '0')}`);
+    };
+
+    return (
+        <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase w-8 shrink-0">{label}</span>
+            <select value={h12} onChange={e => update(e.target.value, m24, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1.5 rounded-lg outline-none focus:border-indigo-400 transition-colors">
+                {[12,1,2,3,4,5,6,7,8,9,10,11].map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+            <span className="font-bold text-slate-300">:</span>
+            <select value={m24.toString().padStart(2,'0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1.5 rounded-lg outline-none focus:border-indigo-400 transition-colors">
+                {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2,'0')).map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <select value={period} onChange={e => update(h12, m24, e.target.value)} className="text-sm font-medium bg-white border border-slate-200 p-1.5 rounded-lg outline-none focus:border-indigo-400 transition-colors">
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+            </select>
+        </div>
+    );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const LiveMonitor = () => {
+
+    // ── Data state ───────────────────────────────────────────────────────────
+    const [loading,            setLoading]            = useState(true);
+    const [allSessions,        setAllSessions]        = useState([]);
     const [recurringSchedules, setRecurringSchedules] = useState([]);
-    const [allClasses, setAllClasses] = useState([]);
-    const [allBundlesDB, setAllBundlesDB] = useState([]);
-    const [allSubjectsDB, setAllSubjectsDB] = useState([]);
-    const [allTeachers, setAllTeachers] = useState([]);   // ALL teachers (for fallback)
+    const [allClasses,         setAllClasses]         = useState([]);
+    const [allBundlesDB,       setAllBundlesDB]       = useState([]);
+    const [allSubjectsDB,      setAllSubjectsDB]      = useState([]);
+    const [allTeachers,        setAllTeachers]        = useState([]);
 
-    // ── UI ────────────────────────────────────────────────────────────────────
-    const [viewType, setViewType] = useState('roster');
-    const [expandedClasses, setExpandedClasses] = useState([]);
-    const [boardFilter, setBoardFilter] = useState('AP Board');
+    // ── UI state ─────────────────────────────────────────────────────────────
+    const [viewType,         setViewType]         = useState('roster');
+    const [expandedClasses,  setExpandedClasses]  = useState([]);
+    const [boardFilter,      setBoardFilter]      = useState('AP Board');
+    const [weekOffset,       setWeekOffset]       = useState(0);
+    const [monthOffset,      setMonthOffset]      = useState(0);
+    const [deleteConfirmId,  setDeleteConfirmId]  = useState(null);
 
-    // ── Inline cell scheduler ─────────────────────────────────────────────────
-    const [activeCell, setActiveCell] = useState(null); // { classLevel, date, subjectName }
-    const [cellForm, setCellForm] = useState(EMPTY_CELL_FORM);
-    const [cellTeachers, setCellTeachers] = useState([]);
-    const [cellLoadingTeachers, setCellLoadingTeachers] = useState(false);
-    const [cellSaving, setCellSaving] = useState(false);
-    const [cellError, setCellError] = useState('');
-    const [lastForm, setLastForm] = useState(null);  // remembered defaults
-    const [deleteConfirmId, setDeleteConfirmId] = useState(null);  // session id awaiting delete confirm
+    // ── Sticky header ref (used to offset the table thead) ────────────────────
+    const headerRef    = useRef(null);
+    const [headerHeight, setHeaderHeight] = useState(0);
 
-    const [weekOffset, setWeekOffset] = useState(0);
-    const [monthOffset, setMonthOffset] = useState(0); // -1, 0, or +1 only
-    const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-    
-    const weekDates = useMemo(() => {
-        return getWeekDates(weekOffset);
-    }, [weekOffset]);
+    useLayoutEffect(() => {
+        const measure = () => {
+            if (headerRef.current) setHeaderHeight(headerRef.current.offsetHeight);
+        };
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, [viewType]);
 
-    // ── Month & Week Navigation Logic ────────────────────────────────────────
+    // ── Schedule/Edit Modal (unified) ─────────────────────────────────────────
+    const [scheduleModal,          setScheduleModal]          = useState({ open: false, classLevel: '', subjectName: '', subjectId: '', isEdit: false, sessionId: null });
+    const [calendarDates,          setCalendarDates]          = useState([]);
+    const [calendarView,           setCalendarView]           = useState({ month: new Date().getMonth(), year: new Date().getFullYear() });
+    const [modalForm,              setModalForm]              = useState({ teacherId: '', time: '10:00', endTime: '11:00', platform: 'Google Meet', link: '' });
+    const [modalTeachers,          setModalTeachers]          = useState([]);
+    const [modalTeachersLoading,   setModalTeachersLoading]   = useState(false);
+    const [modalSaving,            setModalSaving]            = useState(false);
+    const [modalError,             setModalError]             = useState('');
+
+    // ── Derived ───────────────────────────────────────────────────────────────
+    const today     = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+    const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+
+    // Use a ref so callbacks don't need boardFilter in their dependency arrays
+    const boardFilterRef = useRef(boardFilter);
+    useEffect(() => { boardFilterRef.current = boardFilter; }, [boardFilter]);
+
+    // ── Navigation info ───────────────────────────────────────────────────────
     const navInfo = useMemo(() => {
         const now = new Date();
-        const activeMonthIndex = now.getMonth() + monthOffset;
-        const activeYear = now.getFullYear() + Math.floor(activeMonthIndex / 12);
-        const normalizedMonth = ((activeMonthIndex % 12) + 12) % 12;
-        
-        const monthStart = new Date(activeYear, normalizedMonth, 1);
-        
-        const fullWeekDates = getWeekDates(weekOffset);
-        const curWeekStart = fullWeekDates[0];
-        const curWeekEnd = fullWeekDates[6];
-        
+        const start = weekDates[0];
+        const end   = weekDates[6];
         return {
             monthLabels: [-1, 0, 1].map(offset => {
                 const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
                 return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
             }),
-            activeMonth: normalizedMonth,
-            activeYear: activeYear,
-            weekLabel: `${curWeekStart.getDate()} ${curWeekStart.toLocaleDateString('en-IN',{month:'short'})} – ${curWeekEnd.getDate()} ${curWeekEnd.toLocaleDateString('en-IN',{month:'short', year:'numeric'})}`,
-            canGoPrev: true,   // always allow going back
-            canGoNext: true    // always allow going forward
+            activeMonth: start.getMonth(),
+            weekLabel: `${start.getDate()} ${start.toLocaleDateString('en-IN',{month:'short'})} – ${end.getDate()} ${end.toLocaleDateString('en-IN',{month:'short', year:'numeric'})}`,
         };
-    }, [monthOffset, weekDates]);
+    }, [weekDates]);
 
     const handleMonthJump = (offset) => {
-        const now = new Date();
         setMonthOffset(offset);
         if (offset === 0) {
             setWeekOffset(0);
         } else {
-            const thisSun = new Date(now);
-            thisSun.setDate(now.getDate() - now.getDay());
-            thisSun.setHours(0,0,0,0);
-            const targetMonthStart = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-            const targetSun = new Date(targetMonthStart);
-            targetSun.setDate(targetMonthStart.getDate() - targetMonthStart.getDay());
-            setWeekOffset(Math.round((targetSun - thisSun) / (7 * 24 * 60 * 60 * 1000)));
+            const now = new Date(); now.setHours(0,0,0,0);
+            const targetStart = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+            targetStart.setHours(0,0,0,0);
+            const diffDays = Math.round((targetStart - now) / (24*60*60*1000));
+            setWeekOffset(Math.ceil(diffDays / 7));
         }
     };
-
 
     // ── Fetch all data ────────────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            console.log('LiveMonitor: Fetching data...');
             const [sessRes, classRes, subjRes, teachRes, recRes] = await Promise.allSettled([
                 axios.get('/admin/live-sessions'),
                 axios.get('/admin/classes'),
@@ -202,13 +268,10 @@ const LiveMonitor = () => {
                 axios.get('/admin/recurring-schedules'),
             ]);
 
-            const sessions = sessRes.status === 'fulfilled' ? sessRes.value.data : [];
-            const bundles = classRes.status === 'fulfilled' ? classRes.value.data : [];
-            const subjects = subjRes.status === 'fulfilled' ? subjRes.value.data : [];
+            const sessions = sessRes.status  === 'fulfilled' ? sessRes.value.data  : [];
+            const bundles  = classRes.status === 'fulfilled' ? classRes.value.data : [];
+            const subjects = subjRes.status  === 'fulfilled' ? subjRes.value.data  : [];
             const teachers = teachRes.status === 'fulfilled' ? teachRes.value.data : [];
-
-            if (classRes.status === 'rejected') console.error('LiveMonitor: Classes API failed:', classRes.reason);
-            if (subjRes.status === 'rejected') console.error('LiveMonitor: Subjects API failed:', subjRes.reason);
 
             setAllSessions(sessions);
             setAllBundlesDB(bundles);
@@ -216,171 +279,101 @@ const LiveMonitor = () => {
             setAllTeachers(teachers);
             setRecurringSchedules(recRes.status === 'fulfilled' ? recRes.value.data : []);
 
-            // Build sorted class list
-            const bundleNames = bundles.map(b => b.className || `Class ${b.classLevel}`);
-            const subjectLevels = subjects.map(s => `Class ${s.classLevel}`);
-            const combined = [...new Set([...bundleNames, ...subjectLevels])];
-            
-            combined.sort((a, b) => {
-                const n = s => parseInt((String(s).match(/\d+/) || [0])[0]);
-                return n(a) - n(b);
-            });
-            if (combined.length === 0) {
-                console.warn('LiveMonitor: No classes or subjects returned from backend.');
-            }
-            
-            console.log('LiveMonitor: Final matches:', { sessionsCount: sessions.length, classesCount: combined.length });
-            // Filter out 1-on-1 classes as requested by user
-            const filteredClasses = combined.filter(c => !String(c).toLowerCase().includes('1-on-1'));
-            setAllClasses(filteredClasses);
+            const combined = [...new Set([
+                ...bundles.map(b => b.className || `Class ${b.classLevel}`),
+                ...subjects.map(s => `Class ${s.classLevel}`),
+            ])].filter(c => !String(c).toLowerCase().includes('1-on-1'))
+               .sort((a, b) => {
+                   const n = s => parseInt((String(s).match(/\d+/) || [0])[0]);
+                   return n(a) - n(b);
+               });
+
+            setAllClasses(combined);
         } catch (err) {
-            console.error('LiveMonitor: fetchData fatal error:', err);
-            alert('Data Fetch Failed! Check Backend Console.');
+            console.error('LiveMonitor fetchData error:', err);
         } finally {
             setLoading(false);
         }
-    }, [boardFilter]);
+    }, []); // stable — no external dependencies
 
     useEffect(() => {
         fetchData();
-
-        // Listen for real-time updates from other admins/backend
-        socket.on('live-session-update', (data) => {
-            console.log('LiveMonitor: External update detected:', data.type);
-            fetchData();
-        });
-
-        return () => {
-            socket.off('live-session-update');
-        };
+        socket.on('live-session-update', fetchData);
+        return () => socket.off('live-session-update', fetchData);
     }, [fetchData]);
 
-    // ── Subjects for a class level ────────────────────────────────────────────
+    // ── Subjects for a class level (board-aware) ──────────────────────────────
     const getSubjectsForLevel = useCallback((classLevel) => {
         const levelNum = parseInt(classLevel.replace(/\D/g, ''));
-        const fromSubjectModel = allSubjectsDB.filter(s => s.classLevel === levelNum && s.board === boardFilter);
-        if (fromSubjectModel.length > 0) {
-            return fromSubjectModel.map(s => ({ id: s._id, subjectName: s.name, classLevel, type: 'subject' }));
+        const fromSubject = allSubjectsDB.filter(s => s.classLevel === levelNum && s.board === boardFilter);
+        if (fromSubject.length > 0) {
+            return fromSubject.map(s => ({ id: s._id, subjectName: s.name, classLevel, type: 'subject' }));
         }
         const bundle = allBundlesDB.find(b => b.className === classLevel && b.board === boardFilter);
         if (bundle?.subjects?.length > 0) {
-            return bundle.subjects.map(s => ({
-                id: `${classLevel}::${s.name}`,
-                subjectName: s.name,
-                classLevel,
-                type: 'bundle-subject'
-            }));
+            return bundle.subjects.map(s => ({ id: `${classLevel}::${s.name}`, subjectName: s.name, classLevel, type: 'bundle-subject' }));
         }
         return [{ id: classLevel, subjectName: classLevel, classLevel, type: 'bundle' }];
     }, [allSubjectsDB, allBundlesDB, boardFilter]);
 
     // ── Load teachers for a subject ───────────────────────────────────────────
     const loadTeachersForSubject = useCallback(async (classLevel, subjectName) => {
-        setCellLoadingTeachers(true);
-        setCellTeachers([]);
         try {
-            const params = new URLSearchParams({ 
-                classLevel, 
-                subjectName,
-                board: boardFilter // Pass the current board to the backend
-            });
+            const params = new URLSearchParams({ classLevel, subjectName, board: boardFilterRef.current });
             const res = await axios.get(`/admin/teachers-for-subject?${params}`);
-            const list = res.data || [];
-            setCellTeachers(list);
+            return res.data || [];
         } catch {
-            setCellTeachers([]);
-        } finally {
-            setCellLoadingTeachers(false);
+            return [];
         }
-    }, [boardFilter]);
+    }, []);
 
-    // ── Open the inline scheduler ─────────────────────────────────────────────
-    const openCellScheduler = useCallback((classLevel, date, existingSession = null, subjectName = null) => {
-        setCellError('');
-        const subs = getSubjectsForLevel(classLevel);
+    // ── Open Schedule Modal ───────────────────────────────────────────────────
+    const openScheduler = useCallback(async (classLevel, subjectName, subjectId) => {
+        setModalError('');
+        setCalendarDates([new Date(today)]);
+        setCalendarView({ month: today.getMonth(), year: today.getFullYear() });
+        setModalForm({ teacherId: '', time: '10:00', endTime: '11:00', platform: 'Google Meet', link: '' });
+        setModalTeachers([]);
+        setScheduleModal({ open: true, classLevel, subjectName, subjectId: subjectId || '', isEdit: false, sessionId: null });
+        setModalTeachersLoading(true);
+        const teachers = await loadTeachersForSubject(classLevel, subjectName);
+        setModalTeachers(teachers);
+        setModalTeachersLoading(false);
+    }, [today, loadTeachersForSubject]);
 
-        if (existingSession) {
-            // EDIT mode
-            const foundSub = subs.find(s => s.subjectName === existingSession.subjectName) || subs[0];
-            setCellForm({
-                sessionId: existingSession._id,
-                subjectId: foundSub?.id || '',
-                subjectName: existingSession.subjectName,
-                teacherId: existingSession.teacherId?._id || existingSession.teacherId || '',
-                time: get24HFromDate(existingSession.startTime),
-                endTime: existingSession.endTime ? get24HFromDate(existingSession.endTime) : get24HFromDate(new Date(existingSession.startTime).getTime() + 60*60*1000),
-                platform: existingSession.platform,
-                link: existingSession.link,
-                board: existingSession.board || boardFilter,
-                selectedDays: [new Date(existingSession.startTime).getDay()],
-                scheduleType: 'once'
-            });
-            loadTeachersForSubject(classLevel, existingSession.subjectName);
-        } else {
-            const now = new Date();
-            // Add 2 mins buffer to default "now" to avoid immediate past-time error
-            const bufferedNow = new Date(now.getTime() + 2 * 60 * 1000);
-            let startH = bufferedNow.getHours();
-            let startM = bufferedNow.getMinutes();
-
-            // Smart time logic: default to last session's end + 5 mins (Grade-wide)
-            const gradeSessions = allSessions.filter(s => 
-                (s.classLevel || '').trim().toLowerCase() === (classLevel || '').trim().toLowerCase() &&
-                s.board === boardFilter &&
-                isSameDay(new Date(s.startTime), date)
-            ).sort((a, b) => {
-                const endA = new Date(a.endTime || new Date(a.startTime).getTime() + 60*60*1000);
-                const endB = new Date(b.endTime || new Date(b.startTime).getTime() + 60*60*1000);
-                return endB - endA;
-            });
-
-            if (gradeSessions.length > 0) {
-                const lastSession = gradeSessions[0];
-                const lastEnd = new Date(lastSession.endTime || new Date(lastSession.startTime).getTime() + 60*60*1000);
-                const nextStart = new Date(lastEnd.getTime() + 5 * 60 * 1000);
-                
-                // Only use nextStart if it's in the future OR if we're scheduling for a future date
-                if (!isSameDay(date, now) || nextStart > now) {
-                    startH = nextStart.getHours();
-                    startM = nextStart.getMinutes();
-                }
-            }
-            
-            const defaultTime = `${startH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
-            const endH = (startH + 1) % 24;
-            const defaultEndTime = `${endH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
-
-            // CREATE mode 
-            const initSub = subs.find(s => s.subjectName === subjectName) || subs[0];
-            const sameSubject = lastForm && lastForm.subjectId === initSub?.id;
-
-            setCellForm({
-                ...EMPTY_CELL_FORM,
-                subjectId: initSub?.id || '',
-                subjectName: initSub?.subjectName || '',
-                teacherId: sameSubject ? (lastForm.teacherId || '') : '',
-                time: defaultTime,
-                endTime: defaultEndTime,
-                platform: lastForm?.platform || 'Google Meet',
-                link: lastForm?.link || '',
-                board: boardFilter,
-                selectedDays: [date.getDay()],
-            });
-            if (initSub) loadTeachersForSubject(classLevel, initSub.subjectName);
-        }
-
-        setActiveCell({ classLevel, date, subjectName: subjectName || existingSession?.subjectName });
-    }, [getSubjectsForLevel, loadTeachersForSubject, lastForm, boardFilter, allSessions]);
+    // ── Open Edit Modal (uses unified modal) ──────────────────────────────────
+    const openEditSession = useCallback(async (session) => {
+        setModalError('');
+        
+        const sessionDate = new Date(session.startTime);
+        sessionDate.setHours(0,0,0,0);
+        setCalendarDates([sessionDate]);
+        setCalendarView({ month: sessionDate.getMonth(), year: sessionDate.getFullYear() });
+        
+        setModalForm({
+            teacherId: session.teacherId?._id || session.teacherId || '',
+            time:      get24HFromDate(session.startTime),
+            endTime:   session.endTime
+                ? get24HFromDate(session.endTime)
+                : get24HFromDate(new Date(session.startTime).getTime() + 60*60*1000),
+            platform:  session.platform,
+            link:      session.link,
+        });
+        setModalTeachers([]);
+        setScheduleModal({ open: true, classLevel: session.classLevel, subjectName: session.subjectName, subjectId: session.subjectId || '', isEdit: true, sessionId: session._id });
+        setModalTeachersLoading(true);
+        const teachers = await loadTeachersForSubject(session.classLevel, session.subjectName);
+        setModalTeachers(teachers.length > 0 ? teachers : allTeachers);
+        setModalTeachersLoading(false);
+    }, [loadTeachersForSubject, allTeachers]);
 
     // ── Delete session ────────────────────────────────────────────────────────
     const handleDeleteSession = async (sessionId) => {
         if (deleteConfirmId !== sessionId) {
-            // First click: ask for confirmation
             setDeleteConfirmId(sessionId);
-            setTimeout(() => setDeleteConfirmId(null), 3000); // auto-cancel after 3s
+            setTimeout(() => setDeleteConfirmId(null), 3000);
             return;
         }
-        // Second click: confirmed, delete
         setDeleteConfirmId(null);
         try {
             await axios.delete(`/admin/live-sessions/${sessionId}`);
@@ -390,330 +383,268 @@ const LiveMonitor = () => {
         }
     };
 
-    // ── Save (create or update) ───────────────────────────────────────────────
-    const handleCellSubmit = async () => {
-        setCellError('');
-
-        if (!cellForm.teacherId) return setCellError('Select a teacher!');
-        if (!cellForm.link && cellForm.platform !== 'YouTube Live') return setCellError('Meeting link required!');
-        if (!cellForm.time) return setCellError('Time required!');
-
-        const { classLevel, date } = activeCell;
-        const subs = getSubjectsForLevel(classLevel);
-        const sub = subs.find(s => String(s.id) === String(cellForm.subjectId)) || subs[0];
-        if (!sub) return setCellError('No subject found.');
-
-        const [h, m] = cellForm.time.split(':').map(Number);
-        const [eh, em] = (cellForm.endTime || '11:00').split(':').map(Number);
-        const board = cellForm.board || boardFilter;
-
-        const sessionStart = new Date(date);
-        sessionStart.setHours(h, m, 0, 0);
-
-        // Add 5-minute grace period to prevent race conditions when scheduling "now"
-        const graceTime = new Date();
-        graceTime.setMinutes(graceTime.getMinutes() - 5);
-
-        if (sessionStart < graceTime && !cellForm.sessionId && cellForm.scheduleType === 'once') {
-            return setCellError('Cannot schedule a session for a past time!');
-        }
-
-        const payload = {
-            platform: cellForm.platform,
-            link: cellForm.link,
-            teacherId: cellForm.teacherId,
-            classLevel,
-            subjectName: sub.subjectName,
-            board,
-            subjectId: sub.type === 'subject' && /^[0-9a-fA-F]{24}$/.test(String(sub.id)) ? sub.id : undefined,
-        };
-
-        // Duplicate check — block if same subject already scheduled on same day+time
-        if (!cellForm.sessionId) {
-            const days = cellForm.selectedDays.length > 0 ? cellForm.selectedDays : [date.getDay()];
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const hardConflicts = [];
-            const softConflicts = [];
-
-            days.forEach(dayNum => {
-                const dt = dateForDayInWeek(date, dayNum, h, m);
-                const match = allSessions.find(s =>
-                    s.classLevel === classLevel &&
-                    isSameDay(new Date(s.startTime), dt) &&
-                    new Date(s.startTime).getHours() === h &&
-                    new Date(s.startTime).getMinutes() === m
-                );
-
-                if (match) {
-                    const timeStr = fmt24To12(`${h}:${m}`);
-                    const info = `${dayNames[dayNum]} at ${timeStr} (${match.subjectName})`;
-                    if (match.subjectName !== sub.subjectName) {
-                        hardConflicts.push(info);
-                    } else {
-                        softConflicts.push(info);
-                    }
-                }
-            });
-
-            if (hardConflicts.length > 0) {
-                return setCellError(`Wait! Another class exists: ${hardConflicts.join(', ')}`);
-            }
-        }
-
-        setCellSaving(true);
+    // ── Stop recurring schedule ───────────────────────────────────────────────
+    const handleStopRecurring = async (scheduleId) => {
+        if (!window.confirm('Stop this recurring schedule? All future sessions will be deleted.')) return;
         try {
-            if (cellForm.sessionId) {
-                // UPDATE single session
-                const startTime = new Date(date);
-                startTime.setHours(h, m, 0, 0);
-                const endTime = new Date(date);
-                endTime.setHours(eh, em, 0, 0);
-                await axios.put(`/admin/live-sessions/${cellForm.sessionId}`, { ...payload, startTime: startTime.toISOString(), endTime: endTime.toISOString() });
-
-                // If user changed single session to repeat or added days, create others
-                if (cellForm.scheduleType !== 'once' || cellForm.selectedDays.length > 1) {
-                    const days = cellForm.selectedDays.length > 0 ? cellForm.selectedDays : [date.getDay()];
-                    const sessions = [];
-                    
-                    let startWeekOffset = 0;
-                    let weekCount = 1;
-                    let stopAtMonthEnd = false;
-
-                    if (cellForm.scheduleType === 'this_week') {
-                        weekCount = 1;
-                    } else if (cellForm.scheduleType === 'next_week') {
-                        startWeekOffset = 1;
-                        weekCount = 1;
-                    } else if (cellForm.scheduleType === 'this_month') {
-                        weekCount = 6;
-                        stopAtMonthEnd = true;
-                    } else if (cellForm.scheduleType === '2weeks') {
-                        weekCount = 3;
-                    } else if (cellForm.scheduleType === '1month') {
-                        weekCount = 5;
-                    }
-
-                    const baseDate = new Date(date);
-                    const originalMonth = baseDate.getMonth();
-
-                    for (let w = startWeekOffset; w < (startWeekOffset + weekCount); w++) {
-                        days.forEach(dayNum => {
-                            const anchor = new Date(baseDate);
-                            anchor.setDate(baseDate.getDate() + w * 7);
-                            const dt = dateForDayInWeek(anchor, dayNum, h, m);
-                            const endDt = dateForDayInWeek(anchor, dayNum, eh, em);
-
-                            if (stopAtMonthEnd && dt.getMonth() !== originalMonth) return;
-
-                            // SKIP the session we just updated (current day)
-                            if (isSameDay(dt, date)) return;
-
-                            if (dt > new Date()) {
-                                sessions.push({ ...payload, startTime: dt.toISOString(), endTime: endDt.toISOString() });
-                            }
-                        });
-                    }
-                    if (sessions.length > 0) {
-                        await axios.post('/admin/live-sessions', { sessions });
-                    }
-                }
-            } else if (cellForm.scheduleType === 'everyday') {
-                // INFINITE RECURRING — send template to backend cron system
-                const startTime = new Date(date);
-                startTime.setHours(h, m, 0, 0);
-                const endTime = new Date(date);
-                endTime.setHours(eh, em, 0, 0);
-                await axios.post('/admin/live-sessions', {
-                    isRecurring: true,
-                    recurringTemplate: { ...payload, startTime: startTime.toISOString(), endTime: endTime.toISOString() }
-                });
-
-            } else {
-                // CREATE — Bulk sessions for selected days repeating over N weeks
-                const days = cellForm.selectedDays.length > 0 ? cellForm.selectedDays : [date.getDay()];
-                const sessions = [];
-
-                // weekCount = how many weeks total (including current week)
-                // '1week'  → 2 weeks (this week + next week)
-                // '2weeks' → 3 weeks
-                // '1month' → 5 weeks (~1 month)
-                // 'once'   → 1 week (just selected days this week)
-                let startWeekOffset = 0;
-                let weekCount = 1;
-                let stopAtMonthEnd = false;
-
-                if (cellForm.scheduleType === 'this_week') {
-                    startWeekOffset = 0;
-                    weekCount = 1;
-                } else if (cellForm.scheduleType === 'next_week') {
-                    startWeekOffset = 1;
-                    weekCount = 1;
-                } else if (cellForm.scheduleType === 'this_month') {
-                    startWeekOffset = 0;
-                    weekCount = 6; 
-                    stopAtMonthEnd = true;
-                } else if (cellForm.scheduleType === '2weeks') {
-                    weekCount = 2;
-                } else if (cellForm.scheduleType === '1month') {
-                    weekCount = 4;
-                }
-
-                // Find the Sunday of the week containing `date`
-                const baseDate = new Date(date);
-                const originalMonth = baseDate.getMonth();
-
-                if (cellForm.scheduleType === 'weekly') {
-                    // Weekly (Permanent) logic
-                    await axios.post('/admin/live-sessions', {
-                        isRecurring: true,
-                        recurringTemplate: { ...payload, startTime: startTime.toISOString(), endTime: endTime.toISOString(), days: cellForm.selectedDays }
-                    });
-                } else {
-                    for (let w = startWeekOffset; w < (startWeekOffset + weekCount); w++) {
-                        days.forEach(dayNum => {
-                            const anchor = new Date(baseDate);
-                            anchor.setDate(baseDate.getDate() + w * 7);
-                            const dt = dateForDayInWeek(anchor, dayNum, h, m);
-                            const endDt = dateForDayInWeek(anchor, dayNum, eh, em);
-
-                            if (stopAtMonthEnd && dt.getMonth() !== originalMonth) return;
-
-                            // Only schedule future sessions
-                            if (dt > new Date()) {
-                                sessions.push({ ...payload, startTime: dt.toISOString(), endTime: endDt.toISOString() });
-                            }
-                        });
-                    }
-
-                    if (sessions.length === 0) {
-                        return setCellError('All selected days are in the past! Choose a future time.');
-                    }
-
-                    await axios.post('/admin/live-sessions', { sessions });
-                }
-            }
-            // Remember settings for next time
-            setLastForm({ ...cellForm, subjectId: sub.id });
-            setActiveCell(null);
-            await fetchData();
+            await axios.delete(`/admin/recurring-schedules/${scheduleId}`);
+            fetchData();
         } catch (err) {
-            setCellError(err.response?.data?.message || err.message);
-        } finally {
-            setCellSaving(false);
+            alert('Error: ' + (err.response?.data?.message || err.message));
         }
     };
 
+    // ── Toggle calendar date selection ────────────────────────────────────────
+    const toggleCalendarDate = useCallback((date) => {
+        setCalendarDates(prev => {
+            if (scheduleModal.isEdit) return [date];
+            return prev.some(d => isSameDay(d, date))
+                ? prev.filter(d => !isSameDay(d, date))
+                : [...prev, date];
+        });
+    }, [scheduleModal.isEdit]);
+
+    // ── Submit: Schedule bulk sessions OR Edit session ────────────────────────
+    const handleModalSubmit = async () => {
+        setModalError('');
+        if (!modalForm.teacherId)                                      return setModalError('Select a teacher!');
+        if (!modalForm.link && modalForm.platform !== 'YouTube Live')  return setModalError('Meeting link required!');
+        if (calendarDates.length === 0)                                return setModalError('Select at least one date from the calendar!');
+
+        const { classLevel, subjectName, subjectId, isEdit, sessionId } = scheduleModal;
+        const [h, m]   = modalForm.time.split(':').map(Number);
+        const [eh, em] = (modalForm.endTime || '11:00').split(':').map(Number);
+        
+        if (isEdit) {
+            const date = calendarDates[0];
+            const sessionStart = new Date(date);
+            sessionStart.setHours(h, m, 0, 0);
+            const sessionEnd = new Date(date);
+            sessionEnd.setHours(eh, em, 0, 0);
+            if (sessionEnd <= sessionStart) sessionEnd.setDate(sessionEnd.getDate() + 1);
+
+            setModalSaving(true);
+            try {
+                await axios.put(`/admin/live-sessions/${sessionId}`, {
+                    teacherId: modalForm.teacherId,
+                    startTime: sessionStart.toISOString(),
+                    endTime: sessionEnd.toISOString(),
+                    platform: modalForm.platform,
+                    link: modalForm.link,
+                    classLevel,
+                    subjectName,
+                    board: boardFilter,
+                    subjectId: /^[0-9a-fA-F]{24}$/.test(String(subjectId)) ? subjectId : undefined,
+                });
+                setScheduleModal({ open: false, classLevel: '', subjectName: '', subjectId: '', isEdit: false, sessionId: null });
+                setCalendarDates([]);
+                await fetchData();
+            } catch (err) {
+                setModalError(err.response?.data?.message || err.message);
+            } finally {
+                setModalSaving(false);
+            }
+            return;
+        }
+
+        const sessions = [];
+        const skipped  = [];
+
+        for (const date of [...calendarDates].sort((a, b) => a - b)) {
+            const sessionStart = new Date(date);
+            sessionStart.setHours(h, m, 0, 0);
+
+            // Skip past times (5-min grace period)
+            const graceTime = new Date();
+            graceTime.setMinutes(graceTime.getMinutes() - 5);
+            if (sessionStart < graceTime) {
+                skipped.push(date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' (past)');
+                continue;
+            }
+
+            const sessionEnd = new Date(date);
+            sessionEnd.setHours(eh, em, 0, 0);
+            if (sessionEnd <= sessionStart) sessionEnd.setDate(sessionEnd.getDate() + 1);
+
+            // Skip local duplicates
+            const duplicate = allSessions.find(s =>
+                s.classLevel   === classLevel &&
+                s.subjectName  === subjectName &&
+                s.board        === boardFilter &&
+                isSameDay(new Date(s.startTime), date) &&
+                new Date(s.startTime).getHours()   === h &&
+                new Date(s.startTime).getMinutes() === m
+            );
+            if (duplicate) {
+                skipped.push(date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ' (exists)');
+                continue;
+            }
+
+            sessions.push({
+                platform:   modalForm.platform,
+                link:       modalForm.link,
+                teacherId:  modalForm.teacherId,
+                classLevel,
+                subjectName,
+                board:      boardFilter,
+                subjectId:  /^[0-9a-fA-F]{24}$/.test(String(subjectId)) ? subjectId : undefined,
+                startTime:  sessionStart.toISOString(),
+                endTime:    sessionEnd.toISOString(),
+            });
+        }
+
+        if (sessions.length === 0) {
+            return setModalError(`No valid sessions.${skipped.length > 0 ? ` Skipped: ${skipped.join(', ')}` : ''}`);
+        }
+
+        setModalSaving(true);
+        try {
+            await axios.post('/admin/live-sessions', { sessions });
+            setScheduleModal({ open: false, classLevel: '', subjectName: '', subjectId: '', isEdit: false, sessionId: null });
+            setCalendarDates([]);
+            if (skipped.length > 0) {
+                alert(`✅ ${sessions.length} session(s) scheduled.\n⚠️ Skipped: ${skipped.join(', ')}`);
+            }
+            await fetchData();
+        } catch (err) {
+            setModalError(err.response?.data?.message || err.message);
+        } finally {
+            setModalSaving(false);
+        }
+    };
+
+
+    // ── Loading state ─────────────────────────────────────────────────────────
     if (loading) return (
         <div className="flex h-[400px] items-center justify-center">
             <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
         </div>
     );
 
+    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className="space-y-4 relative w-full">
+        <div className="-mt-4 md:-mt-6 space-y-4 relative w-full">
 
-            {/* ── Header ───────────────────────────────────────────────────── */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                        Live &amp; Schedule Class
-                    </h1>
-                    <div className="flex flex-col gap-2 mt-1">
+            {/* ══ STICKY PAGE HEADER ════════════════════════════════════════ */}
+            <div
+                ref={headerRef}
+                className="sticky top-20 z-40 bg-white shadow-sm rounded-b-xl border-x border-b border-slate-200 overflow-hidden"
+            >
+                {/* Single Row — Title + Week Nav + View Toggle */}
+                <div className="flex items-center justify-between pt-3 pb-2 px-6">
+                    {/* Left: Title + Week Nav */}
+                    <div className="flex items-center gap-6">
+                        <h1 className="text-lg font-bold text-slate-800">Live &amp; Schedule Class</h1>
+
+                        {/* Week navigation (timetable only) */}
                         {viewType === 'roster' && (
-                            <>
-                                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                                    <button
-                                        onClick={() => handleMonthJump(-1)}
-                                        className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${monthOffset === -1 ? 'bg-white text-[#002147] shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        ← {navInfo.monthLabels[0]}
-                                    </button>
-                                    <button
-                                        onClick={() => handleMonthJump(0)}
-                                        className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${monthOffset === 0 ? 'bg-[#002147] text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        📅 {navInfo.monthLabels[1]}
-                                    </button>
-                                    <button
-                                        onClick={() => handleMonthJump(1)}
-                                        className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${monthOffset === 1 ? 'bg-white text-[#002147] shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        {navInfo.monthLabels[2]} →
-                                    </button>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setWeekOffset(w => w - 1)}
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-all font-bold text-base"
+                                >‹</button>
 
-                                <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-700 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200 min-w-[200px] text-center">
+                                    {navInfo.weekLabel}
+                                </span>
+
+                                <button
+                                    onClick={() => setWeekOffset(w => w + 1)}
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-all font-bold text-base"
+                                >›</button>
+
+                                {/* Today button — only show when not on current week */}
+                                {weekOffset !== 0 && (
                                     <button
-                                        disabled={!navInfo.canGoPrev}
-                                        onClick={() => setWeekOffset(w => w - 1)}
-                                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 font-black hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm"
+                                        onClick={() => { setWeekOffset(0); setMonthOffset(0); }}
+                                        className="ml-1 px-3 py-1 text-xs font-black text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
                                     >
-                                        ‹
+                                        Today
                                     </button>
-                                    <span className="text-xs font-bold text-slate-600 bg-white px-3 py-1 rounded-lg border border-slate-200">{navInfo.weekLabel}</span>
-                                    <button
-                                        disabled={!navInfo.canGoNext}
-                                        onClick={() => setWeekOffset(w => w + 1)}
-                                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 font-black hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm"
-                                    >
-                                        ›
-                                    </button>
-                                </div>
-                            </>
+                                )}
+                            </div>
                         )}
                     </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    {recurringSchedules.filter(s => s.board === boardFilter).length > 0 && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold shadow-sm animate-in fade-in zoom-in duration-500">
-                            <Activity className="w-3.5 h-3.5" />
-                            <span>{recurringSchedules.filter(s => s.board === boardFilter).length} Active Series</span>
+
+                    {/* Right: Toggles & Badges */}
+                    <div className="flex items-center gap-3">
+                        {/* Active series badge */}
+                        {recurringSchedules.filter(s => s.board === boardFilter).length > 0 && (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[11px] font-bold">
+                                <Activity className="w-3 h-3" />
+                                {recurringSchedules.filter(s => s.board === boardFilter).length} Series
+                            </div>
+                        )}
+                        {/* Timetable / Monitors toggle */}
+                        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button
+                                onClick={() => setViewType('roster')}
+                                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+                                    viewType === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                <Calendar className="w-3.5 h-3.5" /> Timetable
+                            </button>
+                            <button
+                                onClick={() => setViewType('monitor')}
+                                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+                                    viewType === 'monitor' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                <Activity className="w-3.5 h-3.5" /> Monitors
+                            </button>
                         </div>
-                    )}
-                    <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-                        <button
-                            onClick={() => setViewType('roster')}
-                            className={`px-3 py-1.5 rounded-md flex items-center gap-2 text-xs font-semibold transition-colors ${viewType === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            <Calendar className="w-4 h-4" /> Timetable
-                        </button>
-                        <button
-                            onClick={() => setViewType('monitor')}
-                            className={`px-3 py-1.5 rounded-md flex items-center gap-2 text-xs font-semibold transition-colors ${viewType === 'monitor' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            <Activity className="w-4 h-4" /> Monitors
-                        </button>
                     </div>
                 </div>
+
+                {/* Days Header integrated directly into the Sticky Container */}
+                {viewType === 'roster' && (
+                    <table className="w-full border-collapse table-fixed">
+                        <colgroup>
+                            <col className="w-[10%] min-w-[100px]" />
+                            {weekDates.map((_, i) => <col key={i} className="w-[12.85%] min-w-[120px]" />)}
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                {/* Empty subject-label column header */}
+                                <th className="bg-white px-3 py-3 border-r border-b border-slate-200" />
+
+                                {/* Day column headers */}
+                                {weekDates.map((date, di) => {
+                                    const isToday = isSameDay(date, today);
+                                    const inMonth = date.getMonth() === navInfo.activeMonth;
+                                    return (
+                                        <th
+                                            key={di}
+                                            className={`p-3 text-center transition-all border-r border-b border-slate-200 last:border-r-0 ${
+                                                isToday
+                                                    ? `${BOARD_THEMES[boardFilter].primary} text-white`
+                                                    : `${inMonth ? 'bg-white' : 'bg-slate-50'} text-slate-600`
+                                            }`}
+                                        >
+                                            <span className={`text-xs font-bold whitespace-nowrap ${isToday ? 'text-white' : 'text-slate-800'} ${!inMonth ? 'opacity-40' : ''}`}>
+                                                {fmtDay(date)}, {fmtDate(date)}
+                                            </span>
+                                        </th>
+                                    );
+                                })}
+                            </tr>
+                        </thead>
+                    </table>
+                )}
             </div>
 
-            {/* ── Timetable grid ───────────────────────────────────────────── */}
+            {/* ── Timetable View ────────────────────────────────────────────── */}
             {viewType === 'roster' && (
                 <div className="w-full">
-                    <div className="overflow-x-auto thin-scrollbar pb-10">
-                        <table className="w-full border-separate border-spacing-y-4 px-4 overflow-visible">
-                            <thead>
-                                <tr className="bg-white border-b shadow-sm sticky top-0 z-40">
-                                    <th className="px-3 py-3 text-center bg-white w-[5%] border-r border-slate-100 whitespace-nowrap">
-                                        <div className="flex flex-col gap-0.5">
-                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Timetable</span>
-                                            <span className="text-[10px] font-medium text-indigo-600 uppercase">Schedule</span>
-                                        </div>
-                                    </th>
-                                    {weekDates.map((date, di) => {
-                                        const isToday = isSameDay(date, today);
-                                        const isInActiveMonth = date.getMonth() === navInfo.activeMonth;
-
-                                        return (
-                                            <th key={di} className={`p-3 text-center transition-all relative border-r border-slate-50 last:border-r-0 ${isToday ? `${BOARD_THEMES[boardFilter].primary} text-white shadow-sm z-30` : `${isInActiveMonth ? 'bg-white' : 'bg-slate-50/50'} text-slate-600`} w-[13.5%] min-w-[120px]`}>
-                                                <div className={`flex items-center justify-center gap-1 ${!isInActiveMonth ? 'opacity-50' : ''}`}>
-                                                    <span className={`text-xs font-bold whitespace-nowrap ${isToday ? 'text-white' : 'text-slate-800'}`}>{fmtDay(date)}, {fmtDate(date)}</span>
-                                                </div>
-                                            </th>
-                                        );
-                                    })}
-                                </tr>
-                            </thead>
+                    <div className="pb-10 w-full">
+                        <div className="bg-white rounded-b-xl shadow-sm border-x border-b border-slate-200 mb-6">
+                        <table className="w-full border-collapse table-fixed">
+                            <colgroup>
+                                <col className="w-[10%] min-w-[100px]" />
+                                {weekDates.map((_, i) => <col key={i} className="w-[12.85%] min-w-[120px]" />)}
+                            </colgroup>
+                            {/* Thead is now merged into the sticky page header above */}
 
                             <tbody>
                                 {allClasses.length === 0 ? (
@@ -726,461 +657,224 @@ const LiveMonitor = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : (
-                                    allClasses.map((lvl, ridx) => {
+                                ) : allClasses.map((lvl, ridx) => {
                                     const isExpanded = expandedClasses.includes(lvl);
                                     const subs = getSubjectsForLevel(lvl);
 
                                     return (
                                         <React.Fragment key={ridx}>
+                                            {/* ── Class header row ── */}
                                             <tr
-                                                className={`transition-colors cursor-pointer group sticky top-0 z-30`}
+                                                className="transition-colors cursor-pointer group sticky top-0 z-30"
                                                 onClick={() => setExpandedClasses(isExpanded ? [] : [lvl])}
                                             >
-                                                <td colSpan={8} className={`p-0 rounded-lg border shadow-sm overflow-hidden transition-colors ${isExpanded ? 'border-indigo-500 bg-indigo-50/10' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+                                                <td colSpan={8} className={`p-0 transition-colors ${isExpanded ? 'border-b border-indigo-500 bg-indigo-50/10' : 'border-b border-slate-200 bg-white hover:bg-slate-50'}`}>
                                                     <div className="px-4 py-3 flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-1 h-8 rounded-full ${isExpanded ? 'bg-indigo-600' : 'bg-slate-300'}`} />
-
                                                             <div className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${isExpanded ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:text-indigo-600'}`}>
                                                                 <BookOpen className="w-4 h-4" />
                                                             </div>
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={`font-semibold transition-colors ${isExpanded ? 'text-indigo-900' : 'text-slate-800'}`}>{lvl}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
+                                                            <div>
+                                                                <span className={`font-semibold transition-colors ${isExpanded ? 'text-indigo-900' : 'text-slate-800'}`}>{lvl}</span>
+                                                                <div className="flex items-center gap-1.5 mt-0.5">
                                                                     {(() => {
-                                                                        const count = allSessions.filter(s => {
-                                                                            const isLevelMatch = (s.classLevel || '').trim().toLowerCase() === (lvl || '').trim().toLowerCase();
-                                                                            const isBoardMatch = s.board === boardFilter;
-                                                                            return isLevelMatch && isBoardMatch;
-                                                                        }).length;
+                                                                        const count = allSessions.filter(s =>
+                                                                            (s.classLevel || '').trim().toLowerCase() === (lvl || '').trim().toLowerCase() &&
+                                                                            s.board === boardFilter
+                                                                        ).length;
                                                                         return (
-                                                                            <div className="flex items-center gap-1.5">
+                                                                            <>
                                                                                 <div className={`w-1.5 h-1.5 rounded-full ${count > 0 ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                                                                                 <span className="text-xs font-medium text-slate-500">{count} {count === 1 ? 'Slot' : 'Slots'} Scheduled</span>
-                                                                            </div>
+                                                                            </>
                                                                         );
                                                                     })()}
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        <div className="flex items-center gap-6 pr-2">
+                                                        <div className="flex items-center gap-4 pr-2">
                                                             {isExpanded && (
                                                                 <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
-                                                                    {BOARDS.map(b => {
-                                                                        const isActive = boardFilter === b;
-                                                                        return (
-                                                                            <button
-                                                                                key={b}
-                                                                                onClick={e => { e.stopPropagation(); setBoardFilter(b);
-                                                                     }}
-                                                                                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1 ${isActive ? `bg-white text-indigo-600 shadow-sm` : 'text-slate-500 hover:text-slate-700'}`}
-                                                                            >
-                                                                                {b}
-                                                                            </button>
-                                                                        );
-                                                                     })}
+                                                                    {BOARDS.map(b => (
+                                                                        <button
+                                                                            key={b}
+                                                                            onClick={e => { e.stopPropagation(); setBoardFilter(b); }}
+                                                                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${boardFilter === b ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                                                        >
+                                                                            {b}
+                                                                        </button>
+                                                                    ))}
                                                                 </div>
                                                             )}
-                                                            <div className={`px-4 py-2 rounded-md border flex items-center gap-2 text-xs font-semibold transition-colors ${isExpanded ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-600 group-hover:border-indigo-300 group-hover:text-indigo-600'}`}>
-                                                                <span>{isExpanded ? 'Close Schedule' : 'View Schedule'}</span>
-                                                                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                                                            </div>
+                                                            <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
                                                         </div>
                                                     </div>
                                                 </td>
                                             </tr>
 
-                                            {isExpanded && (
-                                                <React.Fragment>
+                                            {/* ── Subject rows ── */}
+                                            {isExpanded && subs.map((sub, sIdx) => (
+                                                <tr key={sIdx} className={`animate-in fade-in slide-in-from-top-1 duration-300 ${sIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/20'} border-b border-slate-100 last:border-b-0`}>
+                                                    {/* Subject label */}
+                                                    <td className="px-2 py-4 border-r border-slate-200 bg-slate-100/50 font-bold text-xs text-slate-700 uppercase leading-tight text-center align-middle">
+                                                        {sub.subjectName}
+                                                    </td>
 
-                                                    {subs.map((sub, sIdx) => (
-                                                        <tr key={sIdx} className={`animate-in fade-in slide-in-from-top-1 duration-300 border-b ${sIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/20'} border-slate-100 last:border-b-0 group/row`}>
-                                                            <td className={`px-2 py-4 border-r border-slate-200 bg-slate-100/50 w-[5%] font-bold text-xs text-slate-700 uppercase leading-tight text-center align-middle whitespace-nowrap`}>
-                                                                {sub.subjectName}
-                                                            </td>
+                                                    {/* Day cells */}
+                                                    {weekDates.map((date, di) => {
+                                                        const isToday    = isSameDay(date, today);
+                                                        const inMonth    = date.getMonth() === navInfo.activeMonth;
+                                                        const isPastDate = date < today;
+                                                        const theme      = BOARD_THEMES[boardFilter];
 
-                                                            {weekDates.map((date, di) => {
-                                                                const isToday = isSameDay(date, today);
-                                                                const isInActiveMonth = date.getMonth() === navInfo.activeMonth;
-                                                                const isPastDate = date < today;
+                                                        const daySessions = allSessions
+                                                            .filter(s =>
+                                                                (s.classLevel   || '').trim().toLowerCase() === (lvl          || '').trim().toLowerCase() &&
+                                                                (s.subjectName  || '').trim().toLowerCase() === (sub.subjectName || '').trim().toLowerCase() &&
+                                                                s.board === boardFilter &&
+                                                                isSameDay(new Date(s.startTime), date)
+                                                            )
+                                                            .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-                                                                const activeRecurring = recurringSchedules.find(rs => 
-                                                                    rs.classLevel === lvl && 
-                                                                    (rs.subjectName || '').trim().toLowerCase() === (sub.subjectName || '').trim().toLowerCase() && 
-                                                                    rs.board === boardFilter
-                                                                );
+                                                        // Show ghost preview if this date is selected in the calendar for this subject
+                                                        const isPreviewDay =
+                                                            scheduleModal.open &&
+                                                            scheduleModal.classLevel   === lvl &&
+                                                            scheduleModal.subjectName  === sub.subjectName &&
+                                                            calendarDates.some(d => isSameDay(d, date)) &&
+                                                            !daySessions.some(s =>
+                                                                new Date(s.startTime).getHours()   === Number(modalForm.time?.split(':')[0]) &&
+                                                                new Date(s.startTime).getMinutes() === Number(modalForm.time?.split(':')[1])
+                                                            );
 
-                                                                 const daySessions = allSessions
-                                                                    .filter(s => {
-                                                                        const sessionClass = (s.classLevel || '').trim().toLowerCase();
-                                                                        const targetClass = (lvl || '').trim().toLowerCase();
-                                                                        const sessionSub = (s.subjectName || '').trim().toLowerCase();
-                                                                        const targetSub = (sub.subjectName || '').trim().toLowerCase();
-                                                                        const teacherName = (s.teacherId?.name || '').toLowerCase();
+                                                        return (
+                                                            <td key={di} className={`p-2 align-top transition-colors border-r border-slate-50 last:border-r-0 ${isToday ? `bg-${theme.main}-50/30 border-x border-${theme.main}-100` : !inMonth ? 'bg-slate-50/30' : ''}`}>
+                                                                <div className="flex flex-col h-full min-h-[60px]">
 
-                                                                        if (sessionClass !== targetClass) return false;
-                                                                        
-                                                                        // Smart Match: Exact match OR (Generic session AND teacher name has subject)
-                                                                        const isExactMatch = sessionSub === targetSub;
-                                                                        const isSmartMatch = sessionSub === sessionClass && teacherName.includes(targetSub);
-                                                                        
-                                                                        if (!isExactMatch && !isSmartMatch) return false;
-                                                                        
-                                                                        if (s.board !== boardFilter) return false;
-                                                                        if (!isSameDay(new Date(s.startTime), date)) return false;
-                                                                        return true;
-                                                                    })
-                                                                    .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+                                                                    {/* ── Session cards ── */}
+                                                                    <div className="flex flex-col gap-2 flex-grow">
+                                                                        {daySessions.map((s, sidx) => {
+                                                                            const now        = new Date();
+                                                                            const sessionEnd = new Date(s.endTime || new Date(s.startTime).getTime() + 60*60*1000);
+                                                                            const isLive     = s.status === 'live'    && sessionEnd > now;
+                                                                            const isEnded    = s.status === 'ended'   || (s.status === 'live'     && sessionEnd <= now);
+                                                                            const isMissed   = s.status === 'missed'  || (s.status === 'upcoming' && sessionEnd < now);
 
-                                                                const isNoSessionPast = daySessions.length === 0 && isPastDate; const isFormOpen =
-                                                                    activeCell?.classLevel === lvl &&
-                                                                    activeCell?.subjectName === sub.subjectName &&
-                                                                    activeCell?.date &&
-                                                                    isSameDay(activeCell.date, date);
+                                                                            const startStr = fmt24To12(get24HFromDate(s.startTime));
+                                                                            const endStr   = fmt24To12(get24HFromDate(s.endTime || new Date(s.startTime).getTime() + 60*60*1000));
+                                                                            const sp = startStr.split(' ')[1];
+                                                                            const ep = endStr.split(' ')[1];
+                                                                            const timeLabel = sp === ep
+                                                                                ? `${startStr.replace(` ${sp}`, '')}–${endStr}`
+                                                                                : `${startStr}–${endStr}`;
 
-                                                                const isPreviewDay =
-                                                                    !isFormOpen &&
-                                                                    activeCell?.classLevel === lvl &&
-                                                                    activeCell?.subjectName === sub.subjectName &&
-                                                                    (cellForm.selectedDays || []).includes(date.getDay()) &&
-                                                                    cellForm.board === boardFilter &&
-                                                                    !daySessions.some(s =>
-                                                                        new Date(s.startTime).getHours() === Number(cellForm.time?.split(':')[0]) &&
-                                                                        new Date(s.startTime).getMinutes() === Number(cellForm.time?.split(':')[1])
-                                                                    );
+                                                                            return (
+                                                                                <div
+                                                                                    key={sidx}
+                                                                                    className={`p-2 border rounded-md shadow-sm flex flex-col justify-between transition-colors relative group/card hover:border-indigo-300 hover:shadow-md ${
+                                                                                        deleteConfirmId === s._id  ? 'border-rose-400 bg-rose-50 z-20' :
+                                                                                        isLive   ? 'bg-rose-50 border-rose-300 animate-pulse' :
+                                                                                        isEnded  ? 'bg-emerald-50 border-emerald-200' :
+                                                                                        isMissed ? 'bg-orange-50 border-orange-200 opacity-90' :
+                                                                                        `bg-white ${theme.border}`
+                                                                                    }`}
+                                                                                >
+                                                                                    {/* Color stripe */}
+                                                                                    <div className={`absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm ${isLive ? 'bg-rose-500' : isEnded ? 'bg-emerald-500' : isMissed ? 'bg-orange-400' : theme.primary}`} />
 
-                                                                return (
-                                                                    <td key={di} className={`p-2 align-top transition-colors border-r border-slate-50 last:border-r-0 ${isToday ? `bg-${BOARD_THEMES[boardFilter].main}-50/30 border-x border-${BOARD_THEMES[boardFilter].main}-100` : !isInActiveMonth ? 'bg-slate-50/30' : ''}`}>
-                                                                        <div className="flex flex-col h-full min-h-[60px]">
-                                                                            <div className="flex flex-col gap-2 flex-grow">
-                                                                                {daySessions.map((s, sidx) => {
-                                                                                    const now = new Date();
-                                                                                    const sessionEnd = new Date(s.endTime || new Date(s.startTime).getTime() + 60*60*1000);
-                                                                                    const isLive    = s.status === 'live' && sessionEnd > now;
-                                                                                    const isEnded   = s.status === 'ended' || (s.status === 'live' && sessionEnd <= now);
-                                                                                    const isMissed  = s.status === 'missed' || (s.status === 'upcoming' && sessionEnd < now);
-                                                                                    const theme = BOARD_THEMES[boardFilter];
-                                                                                    return (
-                                                                                        <div
-                                                                                            key={sidx}
-                                                                                            className={`p-2 border rounded-md shadow-sm flex flex-col justify-between transition-colors relative group/card hover:border-indigo-300 hover:shadow-md ${deleteConfirmId === s._id ? 'border-rose-400 bg-rose-50 z-20' : isLive ? 'bg-rose-50 border-rose-300 shadow-rose-100 animate-pulse' : isEnded ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : isMissed ? 'bg-rose-50 border-rose-200 text-rose-600 opacity-90' : `bg-white ${theme.border}`}`}
-                                                                                        >
-                                                                                            <div className={`absolute left-0 top-1 bottom-1 w-[3px] rounded-r-sm ${isLive ? 'bg-rose-500' : isEnded ? 'bg-emerald-500' : isMissed ? 'bg-rose-500' : theme.primary}`} />
-
-                                                                                            <div className="flex items-center justify-between pl-1.5">
-                                                                                                <div className="flex flex-col">
-                                                                                                    <span className="text-[9px] font-medium text-slate-400">{new Date(s.startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
-                                                                                                    <span className={`text-[10px] font-bold whitespace-nowrap ${isLive ? 'text-rose-600' : isEnded ? 'text-emerald-700' : isMissed ? 'text-rose-500 line-through' : 'text-slate-600'}`}>
-                                                                                                        {(() => {
-                                                                                                            const s1 = fmt24To12(get24HFromDate(s.startTime));
-                                                                                                            const e1 = fmt24To12(get24HFromDate(s.endTime || new Date(s.startTime).getTime() + 60*60*1000));
-                                                                                                            const startPeriod = s1.split(' ')[1]; // AM or PM
-                                                                                                            const endPeriod   = e1.split(' ')[1]; // AM or PM
-                                                                                                            // Same period: show period only at end: "6:30–7:15 PM"
-                                                                                                            // Different period: show both: "11:50 AM–12:00 PM"
-                                                                                                            if (startPeriod === endPeriod) {
-                                                                                                                const sShort = s1.replace(` ${startPeriod}`, '');
-                                                                                                                return `${sShort}–${e1}`;
-                                                                                                            }
-                                                                                                            return `${s1}–${e1}`;
-                                                                                                        })()}
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                                <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                                                                                                    {(() => {
-                                                                                                        if (isLive || isEnded || isMissed) return <span title={isLive ? "Live class" : isEnded ? "Ended class" : "Missed class"} className="p-1 text-slate-300"><Lock className="w-3 h-3" /></span>;
-
-                                                                                                        if (deleteConfirmId === s._id) {
-                                                                                                            return (
-                                                                                                                <button onClick={() => handleDeleteSession(s._id)} className="p-1 text-white bg-rose-600 rounded flex gap-1 items-center">
-                                                                                                                    <Trash2 className="w-3 h-3" />
-                                                                                                                </button>
-                                                                                                            );
-                                                                                                        }
-
-                                                                                                        
-                                                                                                        return (
-                                                                                                            <>
-                                                                                                                <button onClick={() => openCellScheduler(lvl, date, s)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Edit">
-                                                                                                                    <Edit2 className="w-3 h-3" />
-                                                                                                                </button>
-                                                                                                                <button onClick={() => setDeleteConfirmId(s._id)} className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Delete">
-                                                                                                                    <Trash2 className="w-3 h-3" />
-                                                                                                                </button>
-                                                                                                            </>
-                                                                                                        );
-                                                                                                    })()}
-                                                                                                </div>
-                                                                                            </div>
-
-                                                                                            <div className="pl-1.5 mt-1">
-
-                                                                                                {/* Teacher name — always visible */}
-                                                                                                <p className={`text-xs font-semibold truncate ${isLive ? 'text-rose-700' : isMissed ? 'text-orange-700' : isEnded ? 'text-emerald-700' : 'text-slate-800'}`}>
-                                                                                                    {s.teacherId?.name || 'TBA'}
-                                                                                                </p>
-                                                                                                {/* Join Now — only when live */}
-                                                                                                {isLive && (
-                                                                                                    <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noreferrer" className="mt-1 flex items-center justify-center w-full py-1 bg-rose-600 text-white rounded text-[10px] font-bold hover:bg-rose-700 transition-colors whitespace-nowrap">
-                                                                                                        Join Now
-                                                                                                    </a>
-                                                                                                )}
-                                                                                                <div className="mt-1 flex items-center justify-between">
-                                                                                                    <span className={`text-[10px] font-medium ${isMissed ? 'text-orange-500' : 'text-slate-500'}`}>{s.platform}</span>
-                                                                                                    {isMissed && <span className="text-[9px] font-bold text-orange-600 uppercase bg-orange-100 px-1 rounded">Missed</span>}
-                                                                                                    {isEnded && <span className="text-[9px] font-bold text-emerald-600 uppercase bg-emerald-100 px-1 rounded">Ended</span>}
-                                                                                                </div>
-                                                                                            </div>
+                                                                                    <div className="flex items-center justify-between pl-1.5">
+                                                                                        <div className="flex flex-col">
+                                                                                            <span className={`text-[10px] font-bold whitespace-nowrap ${isLive ? 'text-rose-600' : isEnded ? 'text-emerald-700' : isMissed ? 'text-orange-500 line-through' : 'text-slate-600'}`}>
+                                                                                                {timeLabel}
+                                                                                            </span>
                                                                                         </div>
-                                                                                    );
-                                                                     })}
-                                                                            </div>
-
-                                                                            {isPreviewDay && (
-                                                                                <div className="mt-2 p-2.5 border-2 border-dashed border-indigo-300 bg-indigo-50/40 rounded-2xl space-y-1 animate-pulse overflow-hidden">
-                                                                                    <div className="flex items-center justify-between">
-                                                                                        <span className="text-[10px] font-black text-indigo-500">{fmt24To12(cellForm.time)}</span>
-                                                                                        <ShieldCheck className="w-3 h-3 text-indigo-400" />
-                                                                                    </div>
-                                                                                    <p className="text-[10px] font-black text-indigo-900/50 uppercase leading-tight truncate">
-                                                                                        {allTeachers.find(t => t._id === cellForm.teacherId)?.name || 'Preview...'}
-                                                                                    </p>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {isFormOpen ? (
-                                                                                <div className={`mt-2 border rounded-lg bg-white p-3 space-y-3 shadow-lg z-50 relative`}>
-                                                                                    <div className="flex items-center justify-between">
-                                                                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Schedule Session</span>
+                                                                                        {/* Action buttons */}
+                                                                                        <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                                                                                            {(isLive || isEnded || isMissed)
+                                                                                                ? <span className="p-1 text-slate-300"><Lock className="w-3 h-3" /></span>
+                                                                                                : deleteConfirmId === s._id
+                                                                                                ? <button onClick={() => handleDeleteSession(s._id)} className="p-1 text-white bg-rose-600 rounded"><Trash2 className="w-3 h-3" /></button>
+                                                                                                : <>
+                                                                                                    <button onClick={() => openEditSession(s)}        className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Edit">  <Edit2  className="w-3 h-3" /></button>
+                                                                                                    <button onClick={() => setDeleteConfirmId(s._id)} className="p-1 text-slate-400 hover:text-rose-600  hover:bg-rose-50  rounded" title="Delete"><Trash2 className="w-3 h-3" /></button>
+                                                                                                </>
+                                                                                            }
+                                                                                        </div>
                                                                                     </div>
 
-                                                                                    <select
-                                                                                        value={cellForm.teacherId}
-                                                                                        onChange={e => setCellForm(f => ({ ...f, teacherId: e.target.value }))}
-                                                                                        className={`w-full text-sm font-medium bg-white border rounded-md px-2 py-1.5 outline-none focus:border-indigo-500 ${!cellForm.teacherId ? 'border-amber-200' : 'border-slate-200'}`}
-                                                                                    >
-                                                                                        <option value="">{cellLoadingTeachers ? 'Loading Teachers...' : 'Select Teacher'}</option>
-                                                                                        {cellTeachers.length > 0 ? (
-                                                                                            cellTeachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)
-                                                                                        ) : (
-                                                                                            !cellLoadingTeachers && <option disabled>⚠️ No teachers assigned to this subject</option>
+                                                                                    <div className="pl-1.5 mt-1">
+                                                                                        <p className={`text-xs font-semibold truncate ${isLive ? 'text-rose-700' : isMissed ? 'text-orange-700' : isEnded ? 'text-emerald-700' : 'text-slate-800'}`}>
+                                                                                            {s.teacherId?.name || 'TBA'}
+                                                                                        </p>
+                                                                                        {isLive && (
+                                                                                            <a href={s.link?.startsWith('http') ? s.link : `https://${s.link}`} target="_blank" rel="noreferrer"
+                                                                                               className="mt-1 flex items-center justify-center w-full py-1 bg-rose-600 text-white rounded text-[10px] font-bold hover:bg-rose-700 transition-colors">
+                                                                                                Join Now
+                                                                                            </a>
                                                                                         )}
-                                                                                    </select>
-
-                                                                                    <div className="bg-slate-50 p-2 rounded-md border border-slate-200">
-                                                                                        <div className="flex gap-1.5 items-center mb-2">
-                                                                                            <span className="text-[10px] font-bold text-slate-500 uppercase w-8">Start</span>
-                                                                                            {(() => {
-                                                                                                const [h24, m24] = (cellForm.time || '10:00').split(':').map(Number);
-                                                                                                const h12 = h24 % 12 || 12;
-                                                                                                const period = h24 >= 12 ? 'PM' : 'AM';
-                                                                                                const update = (nh, nm, np) => {
-                                                                                                    let h = parseInt(nh);
-                                                                                                    if (np === 'PM' && h < 12) h += 12;
-                                                                                                    if (np === 'AM' && h === 12) h = 0;
-                                                                                                    setCellForm(f => ({ ...f, time: `${h.toString().padStart(2, '0')}:${nm.toString().padStart(2, '0')}` }));
-                                                                                                };
-                                                                                                return (
-                                                                                                    <>
-                                                                                                        <select value={h12} onChange={e => update(e.target.value, m24, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
-                                                                                                            {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}</option>)}
-                                                                                                        </select>
-                                                                                                        <span className="font-bold text-slate-400">:</span>
-                                                                                                        <select value={m24.toString().padStart(2, '0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
-                                                                                                            {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(m => <option key={m} value={m}>{m}</option>)}
-                                                                                                        </select>
-                                                                                                        <select value={period} onChange={e => update(h12, m24, e.target.value)} className={`flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded`}>
-                                                                                                            <option value="AM">AM</option>
-                                                                                                            <option value="PM">PM</option>
-                                                                                                        </select>
-                                                                                                    </>
-                                                                                                );
-                                                                                            })()}
+                                                                                        <div className="mt-1 flex items-center justify-between">
+                                                                                            <span className="text-[10px] font-medium text-slate-500">{s.platform}</span>
+                                                                                            {isMissed && <span className="text-[9px] font-bold text-orange-600 bg-orange-100 px-1 rounded uppercase">Missed</span>}
+                                                                                            {isEnded  && <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1 rounded uppercase">Ended</span>}
                                                                                         </div>
-                                                                                        <div className="flex gap-1.5 items-center">
-                                                                                            <span className="text-[10px] font-bold text-slate-500 uppercase w-8">End</span>
-                                                                                            {(() => {
-                                                                                                const [h24, m24] = (cellForm.endTime || '11:00').split(':').map(Number);
-                                                                                                const h12 = h24 % 12 || 12;
-                                                                                                const period = h24 >= 12 ? 'PM' : 'AM';
-                                                                                                const update = (nh, nm, np) => {
-                                                                                                    let h = parseInt(nh);
-                                                                                                    if (np === 'PM' && h < 12) h += 12;
-                                                                                                    if (np === 'AM' && h === 12) h = 0;
-                                                                                                    setCellForm(f => ({ ...f, endTime: `${h.toString().padStart(2, '0')}:${nm.toString().padStart(2, '0')}` }));
-                                                                                                };
-                                                                                                return (
-                                                                                                    <>
-                                                                                                        <select value={h12} onChange={e => update(e.target.value, m24, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
-                                                                                                            {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => <option key={h} value={h}>{h}</option>)}
-                                                                                                        </select>
-                                                                                                        <span className="font-bold text-slate-400">:</span>
-                                                                                                        <select value={m24.toString().padStart(2, '0')} onChange={e => update(h12, e.target.value, period)} className="flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded">
-                                                                                                            {Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')).map(m => <option key={m} value={m}>{m}</option>)}
-                                                                                                        </select>
-                                                                                                        <select value={period} onChange={e => update(h12, m24, e.target.value)} className={`flex-1 text-sm font-medium bg-white border border-slate-200 p-1 rounded`}>
-                                                                                                            <option value="AM">AM</option>
-                                                                                                            <option value="PM">PM</option>
-                                                                                                        </select>
-                                                                                                    </>
-                                                                                                );
-                                                                                            })()}
-                                                                                        </div>
-                                                                                    </div>
-
-                                                                                    <select
-                                                                                        value={cellForm.platform}
-                                                                                        onChange={e => setCellForm(f => ({ ...f, platform: e.target.value }))}
-                                                                                        className="w-full text-sm font-medium bg-white border border-slate-200 rounded-md px-2 py-1.5 outline-none focus:border-indigo-500"
-                                                                                    >
-                                                                                        {PLATFORMS.map(p => <option key={p}>{p}</option>)}
-                                                                                    </select>
-                                                                                    <div className="relative">
-                                                                                        <LinkIcon className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                                                                        <input
-                                                                                            type="url"
-                                                                                            placeholder="Quick Meeting Link..."
-                                                                                            value={cellForm.link}
-                                                                                            onChange={e => setCellForm(f => ({ ...f, link: e.target.value }))}
-                                                                                            className="w-full text-sm font-medium bg-white border border-slate-200 rounded-md pl-8 pr-2 py-1.5 outline-none focus:border-indigo-500 placeholder:text-slate-400"
-                                                                                        />
-                                                                                    </div>
-
-                                                                                    {(true) && (
-                                                                                        <div className="pt-2 space-y-2">
-                                                                                            {/* Day picker */}
-                                                                                            {cellForm.scheduleType !== 'everyday' && (
-                                                                                                <div className="space-y-1">
-                                                                                                    <div className="flex items-center justify-between">
-                                                                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Days</span>
-                                                                                                        <div className="flex gap-1.5">
-                                                                                                            <button type="button" onClick={() => setCellForm(f => ({ ...f, selectedDays: [0,1,2,3,4,5,6] }))} className="text-[9px] font-black text-indigo-500 hover:text-indigo-700">All</button>
-                                                                                                            <span className="text-slate-300">|</span>
-                                                                                                            <button type="button" onClick={() => setCellForm(f => ({ ...f, selectedDays: [1,2,3,4,5] }))} className="text-[9px] font-black text-indigo-500 hover:text-indigo-700">Mon–Fri</button>
-                                                                                                            <span className="text-slate-300">|</span>
-                                                                                                            <button type="button" onClick={() => setCellForm(f => ({ ...f, selectedDays: [] }))} className="text-[9px] font-black text-slate-400 hover:text-rose-500">Clear</button>
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                    <div className="flex justify-between gap-1">
-                                                                                                        {DAYS_META.map((day, idx) => {
-                                                                                                            const isSelected = (cellForm.selectedDays || []).includes(day.value);
-                                                                                                            // For current week, disable past days
-                                                                                                            const dayDate = dateForDayInWeek(activeCell?.date || new Date(), day.value, 0, 0);
-                                                                                                            const isPast = dayDate < today;
-
-                                                                                                            return (
-                                                                                                                <button
-                                                                                                                    type="button" key={idx}
-                                                                                                                    disabled={isPast && cellForm.scheduleType !== 'next_week'}
-                                                                                                                    onClick={() => setCellForm(prev => {
-                                                                                                                        const sel = prev.selectedDays || [];
-                                                                                                                        return { ...prev, selectedDays: sel.includes(day.value) ? sel.filter(d => d !== day.value) : [...sel, day.value] };
-                                                                                                                    })}
-                                                                                                                    className={`w-7 h-7 rounded-lg text-[10px] font-black flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : isPast && cellForm.scheduleType !== 'next_week' ? 'bg-slate-100 text-slate-300 border-none cursor-not-allowed' : 'bg-slate-50 text-slate-500 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300'}`}
-                                                                                                                >
-                                                                                                                    {day.label}
-                                                                                                                </button>
-                                                                                                            );
-                                                                                                        })}
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            )}
-                                                                                            {/* Repeat / Schedule Type */}
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <span className="text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Repeat</span>
-                                                                                                <select
-                                                                                                    value={cellForm.scheduleType}
-                                                                                                    onChange={e => {
-                                                                                                        const val = e.target.value;
-                                                                                                        setCellForm(f => {
-                                                                                                            let newDays = f.selectedDays;
-                                                                                                            if (val === 'once') {
-                                                                                                                newDays = [activeCell?.date?.getDay() ?? new Date().getDay()];
-                                                                                                            } else if (val === 'everyday' || (newDays.length === 0 && val !== 'once')) {
-                                                                                                                newDays = [0,1,2,3,4,5,6];
-                                                                                                            }
-                                                                                                            return { ...f, scheduleType: val, selectedDays: newDays };
-                                                                                                        });
-                                                                                                    }}
-                                                                                                    className="flex-1 text-xs font-semibold bg-white border border-slate-200 rounded-md px-2 py-1 outline-none focus:border-indigo-500"
-                                                                                                >
-                                                                                                    <option value="once">Once (This Week Only)</option>
-                                                                                                    <option value="next_week">Next Week Only</option>
-                                                                                                    <option value="everyday">Every Day (Permanent 🔁)</option>
-                                                                                                    <option value="this_month">Until End of Month</option>
-                                                                                                </select>
-                                                                                            </div>
-                                                                                            {cellForm.scheduleType === 'everyday' && (
-                                                                                                <p className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 p-1.5 rounded-md">⚡ Sessions auto-generate daily until end of next month.</p>
-                                                                                            )}
-                                                                                            {['once', 'this_week','next_week','this_month','1week','2weeks','1month'].includes(cellForm.scheduleType) && cellForm.selectedDays.length > 0 && (
-                                                                                                <p className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 p-1.5 rounded-md">
-                                                                                                    ✅ Bulk scheduling: {cellForm.selectedDays.length} days selected.
-                                                                                                </p>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    {cellError && <div className="text-xs font-semibold text-rose-600 bg-rose-50 p-2 rounded-md">{cellError}</div>}
-
-                                                                                    <div className="flex gap-2 pt-2">
-                                                                                        <button onClick={() => setActiveCell(null)} className="flex-1 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50">Cancel</button>
-                                                                                        <button
-                                                                                            onClick={handleCellSubmit}
-                                                                                            disabled={cellSaving}
-                                                                                            className={`flex-1 py-1.5 text-xs font-semibold rounded-md text-white flex items-center justify-center gap-1 transition-colors ${cellSaving ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                                                                                        >
-                                                                                            {cellSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                                                                            Save
-                                                                                        </button>
                                                                                     </div>
                                                                                 </div>
-                                                                            ) : (
-                                                                                !isPastDate ? (
-                                                                                    <button
-                                                                                        onClick={() => openCellScheduler(lvl, date, null, sub.subjectName)}
-                                                                                        className={`w-full py-2.5 mt-2 border border-dashed border-slate-300 text-slate-400 rounded-md flex items-center justify-center gap-1.5 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all opacity-80 hover:opacity-100 ${daySessions.length === 0 ? 'min-h-[44px]' : ''}`}
-                                                                                    >
-                                                                                        <Plus className="w-3.5 h-3.5" />
-                                                                                        <span className="text-[10px] uppercase font-bold tracking-wider">Add Slot</span>
-                                                                                    </button>
-                                                                                ) : (
-                                                                                    isNoSessionPast && (
-                                                                                        <div className="flex-grow flex items-center justify-center py-4 opacity-30 select-none">
-                                                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] italic">No Session</span>
-                                                                                        </div>
-                                                                                    )
-                                                                                )
-                                                                            )}
+                                                                            );
+                                                                        })}
+                                                                    </div>
+
+                                                                    {/* ── Calendar preview ghost card ── */}
+                                                                    {isPreviewDay && (
+                                                                        <div className="mt-2 p-2.5 border-2 border-dashed border-indigo-300 bg-indigo-50/40 rounded-xl space-y-1 animate-pulse">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <span className="text-[10px] font-black text-indigo-500">{fmt24To12(modalForm.time)}</span>
+                                                                                <ShieldCheck className="w-3 h-3 text-indigo-400" />
+                                                                            </div>
+                                                                            <p className="text-[10px] font-black text-indigo-900/50 uppercase leading-tight truncate">
+                                                                                {allTeachers.find(t => t._id === modalForm.teacherId)?.name || 'Preview...'}
+                                                                            </p>
                                                                         </div>
-                                                                    </td>
-                                                                );
-                                                            })}
-                                                        </tr>
-                                                    ))}
-                                                </React.Fragment>
-                                            )}
+                                                                    )}
+
+                                                                    {/* ── Add Slot button (future dates only) ── */}
+                                                                    {!isPastDate && (
+                                                                        <button
+                                                                            onClick={() => openScheduler(lvl, sub.subjectName, sub.id)}
+                                                                            className={`w-full py-2.5 mt-2 border border-dashed border-slate-300 text-slate-400 rounded-md flex items-center justify-center gap-1.5 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all opacity-80 hover:opacity-100 ${daySessions.length === 0 ? 'min-h-[44px]' : ''}`}
+                                                                        >
+                                                                            <Plus className="w-3.5 h-3.5" />
+                                                                            <span className="text-[10px] uppercase font-bold tracking-wider">Add Slot</span>
+                                                                        </button>
+                                                                    )}
+
+                                                                    {/* ── Past date with no session ── */}
+                                                                    {isPastDate && daySessions.length === 0 && (
+                                                                        <div className="flex-grow flex items-center justify-center py-4 opacity-25 select-none">
+                                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] italic">No Session</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            ))}
                                         </React.Fragment>
                                     );
-                                })
-                            )}
+                                })}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* ── Monitor view ─────────────────────────────────────────────── */}
+            {/* ── Monitor View ───────────────────────────────────────────────── */}
             {viewType === 'monitor' && (
                 <div className="space-y-4">
-                    {/* Stats Row */}
                     <LiveSessionStats sessions={allSessions} />
-
-                    {/* Session Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                         {allSessions.length === 0 && (
                             <div className="col-span-full py-16 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg">
@@ -1189,18 +883,166 @@ const LiveMonitor = () => {
                                 <p className="text-xs text-slate-500 mt-1">Use the Timetable view to add classes.</p>
                             </div>
                         )}
-                        {allSessions
+                        {[...allSessions]
                             .sort((a, b) => {
                                 const w = { live: 0, upcoming: 1, ended: 2 };
                                 return (w[a.status] ?? 1) - (w[b.status] ?? 1) || new Date(a.startTime) - new Date(b.startTime);
                             })
-                            .map((s, idx) => (
-                                <LiveSessionCard key={s._id || idx} session={s} />
-                            ))
+                            .map((s, idx) => <LiveSessionCard key={s._id || idx} session={s} />)
                         }
                     </div>
                 </div>
             )}
+
+            {/* ════════════════════════════════════════════════════════════════
+                SCHEDULE MODAL — Calendar-based bulk scheduling
+            ════════════════════════════════════════════════════════════════ */}
+            {scheduleModal.open && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                    onClick={e => { if (e.target === e.currentTarget) setScheduleModal({ open: false, classLevel: '', subjectName: '', subjectId: '' }); }}
+                >
+                    <div className="bg-white rounded-2xl shadow-2xl w-[700px] max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                            <div>
+                                <h2 className="text-lg font-black text-slate-900">{scheduleModal.isEdit ? 'Edit Session' : 'Schedule Sessions'}</h2>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    <span className="font-bold text-indigo-600">{scheduleModal.subjectName}</span>
+                                    <span className="mx-1.5 text-slate-300">·</span>
+                                    {scheduleModal.classLevel}
+                                    <span className="mx-1.5 text-slate-300">·</span>
+                                    {boardFilter}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setScheduleModal({ open: false, classLevel: '', subjectName: '', subjectId: '', isEdit: false, sessionId: null })}
+                                className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Body: Calendar + Form */}
+                        <div className="p-5 grid grid-cols-2 gap-8">
+
+                            {/* Left: Calendar */}
+                            <div>
+                                <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">{scheduleModal.isEdit ? 'Select Date' : 'Select Dates'}</p>
+                                <MiniCalendar
+                                    selectedDates={calendarDates}
+                                    onToggleDate={toggleCalendarDate}
+                                    month={calendarView.month}
+                                    year={calendarView.year}
+                                    onPrevMonth={() => setCalendarView(v => {
+                                        const m = v.month - 1;
+                                        return m < 0 ? { month: 11, year: v.year - 1 } : { month: m, year: v.year };
+                                    })}
+                                    onNextMonth={() => setCalendarView(v => {
+                                        const m = v.month + 1;
+                                        return m > 11 ? { month: 0, year: v.year + 1 } : { month: m, year: v.year };
+                                    })}
+                                />
+                                {calendarDates.length > 0 && (
+                                    <div className="mt-3 px-3 py-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                                        <span className="text-xs font-black text-indigo-600">
+                                            {calendarDates.length} date{calendarDates.length !== 1 ? 's' : ''} selected
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right: Form fields */}
+                            <div className="space-y-4">
+                                {/* Teacher */}
+                                <div>
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Teacher</p>
+                                    <select
+                                        value={modalForm.teacherId}
+                                        onChange={e => setModalForm(f => ({ ...f, teacherId: e.target.value }))}
+                                        className={`w-full text-sm font-medium bg-white border rounded-xl px-3 py-2.5 outline-none focus:border-indigo-500 transition-colors ${!modalForm.teacherId ? 'border-amber-200 bg-amber-50/30' : 'border-slate-200'}`}
+                                    >
+                                        <option value="">{modalTeachersLoading ? 'Loading...' : 'Select Teacher'}</option>
+                                        {modalTeachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                        {!modalTeachersLoading && modalTeachers.length === 0 && (
+                                            <option disabled>⚠️ No teachers assigned to this subject</option>
+                                        )}
+                                    </select>
+                                </div>
+
+                                {/* Time */}
+                                <div className="bg-slate-50 rounded-xl p-3 space-y-2.5 border border-slate-100">
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Time</p>
+                                    <TimePicker label="Start" value={modalForm.time}    onChange={v => setModalForm(f => ({ ...f, time: v }))} />
+                                    <TimePicker label="End"   value={modalForm.endTime} onChange={v => setModalForm(f => ({ ...f, endTime: v }))} />
+                                </div>
+
+                                {/* Platform */}
+                                <div>
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Platform</p>
+                                    <select
+                                        value={modalForm.platform}
+                                        onChange={e => setModalForm(f => ({ ...f, platform: e.target.value }))}
+                                        className="w-full text-sm font-medium bg-white border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-500"
+                                    >
+                                        {PLATFORMS.map(p => <option key={p}>{p}</option>)}
+                                    </select>
+                                </div>
+
+                                {/* Link */}
+                                <div>
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Meeting Link</p>
+                                    <div className="relative">
+                                        <LinkIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="url"
+                                            placeholder="https://meet.google.com/..."
+                                            value={modalForm.link}
+                                            onChange={e => setModalForm(f => ({ ...f, link: e.target.value }))}
+                                            className="w-full text-sm font-medium bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 outline-none focus:border-indigo-500 placeholder:text-slate-300"
+                                        />
+                                    </div>
+                                </div>
+
+                                {modalError && (
+                                    <div className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{modalError}</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex gap-3 px-5 pb-5">
+                            <button
+                                onClick={() => setScheduleModal({ open: false, classLevel: '', subjectName: '', subjectId: '', isEdit: false, sessionId: null })}
+                                className="flex-1 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleModalSubmit}
+                                disabled={modalSaving || calendarDates.length === 0}
+                                className={`flex-1 py-2.5 text-sm font-black rounded-xl text-white flex items-center justify-center gap-2 transition-colors ${
+                                    modalSaving || calendarDates.length === 0
+                                        ? 'bg-indigo-300 cursor-not-allowed'
+                                        : 'bg-indigo-600 hover:bg-indigo-700'
+                                }`}
+                            >
+                                {modalSaving
+                                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                                    : <Check className="w-4 h-4" />
+                                }
+                                {modalSaving
+                                    ? (scheduleModal.isEdit ? 'Saving...' : 'Scheduling...')
+                                    : (scheduleModal.isEdit ? 'Save Changes' : `Schedule ${calendarDates.length} Session${calendarDates.length !== 1 ? 's' : ''}`)
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
         </div>
     );
 };

@@ -21,14 +21,20 @@ const generateSessionsFromTemplate = async (template, startDate, endDate) => {
     while (current <= endBoundary) {
         // Exclude Sundays by default as per typical Indian classroom workflow 
         // (if user wants Sunday, we can make it configurable, but we'll exclude by default to be safe)
-        if (current.getDay() !== 0) { 
             const sessionStart = new Date(current);
             const sessionEnd = new Date(current.getTime() + template.durationMinutes * 60000);
 
-            // Verify if a session for this teacher at this exact exact time ALREADY exists
+            // Verify if a session ALREADY exists to prevent duplicates (Teacher conflict OR Class conflict)
             const existing = await LiveSession.findOne({
-                teacherId: template.teacherId,
-                startTime: sessionStart
+                $or: [
+                    { teacherId: template.teacherId, startTime: sessionStart },
+                    { 
+                        classLevel: template.classLevel, 
+                        subjectName: template.subjectName, 
+                        board: template.board || 'TS Board', 
+                        startTime: sessionStart 
+                    }
+                ]
             });
 
             if (!existing) {
@@ -47,7 +53,6 @@ const generateSessionsFromTemplate = async (template, startDate, endDate) => {
                     recurringScheduleId: template._id
                 });
             }
-        }
         // Advance to next day
         current.setDate(current.getDate() + 1);
     }

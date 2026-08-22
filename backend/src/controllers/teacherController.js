@@ -103,8 +103,14 @@ exports.getMyAssignments = async (req, res, next) => {
 // @access  Teacher
 exports.getLiveSessions = async (req, res, next) => {
   try {
-    // Admin sees ALL sessions; Teacher sees only their own
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const fortyFiveDaysAhead = new Date();
+    fortyFiveDaysAhead.setDate(fortyFiveDaysAhead.getDate() + 45);
+
     const query = req.user.role === 'admin' ? {} : { teacherId: req.user._id };
+    query.startTime = { $gte: thirtyDaysAgo, $lte: fortyFiveDaysAhead };
+    
     const sessions = await LiveSession.find(query).sort({ startTime: -1, createdAt: -1 });
     res.status(200).json(sessions);
   } catch (error) {

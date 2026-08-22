@@ -6,6 +6,7 @@ import {
   Trash2, Eye 
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import GrantAccessModal from '../../components/admin/GrantAccessModal';
 
 const ManageStudents = () => {
   const [students, setStudents] = useState([]);
@@ -25,7 +26,7 @@ const ManageStudents = () => {
   const [sortBy, setSortBy]                       = useState('newest'); // 'newest' | 'oldest' | 'name_az' | 'name_za' | 'expiry'
 
   // Form States
-  const [studentForm, setStudentForm] = useState({ name: '', email: '', password: '' });
+  const [studentForm, setStudentForm] = useState({ name: '', email: '', mobileNumber: '', password: '' });
   const [grantForm, setGrantForm] = useState({
     type: 'bundle',
     referenceId: '',
@@ -79,7 +80,7 @@ const ManageStudents = () => {
       await axios.post('/admin/students', studentForm);
       toast.success('Student account created!');
       setShowAddModal(false);
-      setStudentForm({ name: '', email: '', password: '' });
+      setStudentForm({ name: '', email: '', mobileNumber: '', password: '' });
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Creation failed');
@@ -512,6 +513,10 @@ const ManageStudents = () => {
                     <input required value={studentForm.email} onChange={(e) => setStudentForm({...studentForm, email: e.target.value})} type="email" placeholder="john@example.com" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
                  </div>
                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600 ml-1">Mobile Number (Optional)</label>
+                    <input value={studentForm.mobileNumber} onChange={(e) => setStudentForm({...studentForm, mobileNumber: e.target.value})} type="text" placeholder="1234567890" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
+                 </div>
+                 <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600 ml-1">Password</label>
                     <input required value={studentForm.password} onChange={(e) => setStudentForm({...studentForm, password: e.target.value})} type="password" placeholder="••••••••" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
                  </div>
@@ -526,110 +531,12 @@ const ManageStudents = () => {
       )}
 
       {/* GRANT ACCESS MODAL */}
-      {showGrantModal && selectedStudent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowGrantModal(false)}></div>
-           <div className="relative bg-white rounded-xl w-full max-w-lg overflow-hidden shadow-xl animate-in zoom-in-95 duration-200">
-              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                 <div className="space-y-0.5">
-                    <h2 className="text-base font-bold text-slate-800">Grant Course Access</h2>
-                    <p className="text-xs font-medium text-indigo-600">Activating for: {selectedStudent.name}</p>
-                 </div>
-                 <button onClick={() => setShowGrantModal(false)} className="text-slate-400 hover:text-slate-800 transition-colors"><X className="w-5 h-5" /></button>
-              </div>
-
-              <form onSubmit={handleGrantAccess} className="p-4 space-y-6">
-                 <div className="space-y-5">
-                    {/* Category Selector */}
-                    <div className="grid grid-cols-2 gap-3">
-                       <button 
-                         type="button" 
-                         onClick={() => setGrantForm({...grantForm, type: 'bundle', referenceId: '', name: ''})}
-                         className={`p-2.5 rounded-lg border transition-colors font-medium text-sm ${grantForm.type === 'bundle' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                       >
-                          6-10 Bundle
-                       </button>
-                       <button 
-                         type="button" 
-                         onClick={() => setGrantForm({...grantForm, type: 'subject', referenceId: '', name: ''})}
-                         className={`p-2.5 rounded-lg border transition-colors font-medium text-sm ${grantForm.type === 'subject' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                       >
-                          11-12 Subject
-                       </button>
-                    </div>
-
-                    {/* Course Selector */}
-                    <div className="space-y-1">
-                       <label className="text-xs font-medium text-slate-600 ml-1 flex items-center gap-1.5">
-                          <GraduationCap className="w-3.5 h-3.5" /> Select Course
-                       </label>
-                       <select 
-                         required
-                         onChange={(e) => {
-                           const val = e.target.value;
-                           const item = grantForm.type === 'bundle' 
-                             ? bundles.find(b => b._id === val)
-                             : subjects.find(s => s._id === val);
-                           setGrantForm({
-                             ...grantForm, 
-                             referenceId: val, 
-                             board: item?.board || '',
-                             name: item ? (grantForm.type === 'bundle' ? item.className : `Class ${item.classLevel} - ${item.name}`) : ''
-                           });
-                         }}
-                         className="w-full px-3 py-2 bg-white border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 shadow-sm"
-                       >
-                          <option value="">Choose item...</option>
-                          {grantForm.type === 'bundle' 
-                            ? bundles.map(b => <option key={b._id} value={b._id}>{b.className} {b.board ? `(${b.board})` : ''}</option>)
-                            : subjects.map(s => (
-                              <option key={s._id} value={s._id}>
-                                {s.name} - {parseInt(s.classLevel) === 11 ? 'Inter 1st Year' : parseInt(s.classLevel) === 12 ? 'Inter 2nd Year' : `Class ${s.classLevel}`} {s.board ? `(${s.board})` : ''}
-                              </option>
-                            ))
-                          }
-                       </select>
-                    </div>
-
-                    {/* Duration Slider/Input */}
-                    <div className="space-y-3">
-                       <div className="flex items-center justify-between px-1">
-                          <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-                             <Calendar className="w-3.5 h-3.5" /> Duration (Days)
-                          </label>
-                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded text-xs font-semibold">{grantForm.durationDays} Days</span>
-                       </div>
-                       <input 
-                         type="range" 
-                         min="1" 
-                         max="365" 
-                         value={grantForm.durationDays}
-                         onChange={(e) => setGrantForm({...grantForm, durationDays: e.target.value})}
-                         className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                       />
-                    </div>
-                 </div>
-
-                 <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                       <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-md flex items-center justify-center shrink-0">
-                          <ShieldCheck className="w-4 h-4" />
-                       </div>
-                       <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Calculated Expiry</p>
-                          <p className="font-semibold text-slate-800 text-sm">
-                            {new Date(Date.now() + grantForm.durationDays * 86400000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </p>
-                       </div>
-                    </div>
-                    <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                       Activate
-                    </button>
-                 </div>
-              </form>
-           </div>
-        </div>
-      )}
+      <GrantAccessModal 
+         isOpen={showGrantModal} 
+         onClose={() => setShowGrantModal(false)} 
+         student={selectedStudent} 
+         onSuccess={fetchData} 
+      />
 
       {/* STUDENT DETAILS MODAL */}
       {showDetailsModal && selectedStudent && (

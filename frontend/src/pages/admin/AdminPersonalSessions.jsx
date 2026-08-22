@@ -21,6 +21,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import AssignPersonalSessionModal from '../../components/admin/AssignPersonalSessionModal';
+import GrantAccessModal from '../../components/admin/GrantAccessModal';
 
 const AdminPersonalSessions = () => {
   const [activeTab, setActiveTab] = useState('new'); // 'new' or 'all'
@@ -32,6 +33,7 @@ const AdminPersonalSessions = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGrantModalOpen, setIsGrantModalOpen] = useState(false);
   
   // Expanded slots state for "All Sessions" table
   const [expandedSessionId, setExpandedSessionId] = useState(null);
@@ -302,23 +304,36 @@ const AdminPersonalSessions = () => {
                         )}
                       </td>
                       <td className="p-4 text-right">
-                        <button
-                          disabled={!item.session || item.session.paymentStatus !== 'paid'}
-                          onClick={() => {
-                            setSelectedStudent(item.student);
-                            setSelectedSession(item.session);
-                            setIsModalOpen(true);
-                          }}
-                          className={`px-4 py-2 font-bold text-xs rounded-lg transition-all shadow-sm ${
-                            item.session && item.session.paymentStatus === 'paid'
-                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
-                              : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                          }`}
-                        >
-                          {item.session && item.session.paymentStatus === 'paid' 
-                            ? 'Assign Teacher & Schedule' 
-                            : 'Awaiting Payment'}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {!item.session || item.session.paymentStatus !== 'paid' ? (
+                            <button
+                              onClick={() => {
+                                setSelectedStudent({ ...item.student, isOneOnOne: true });
+                                setIsGrantModalOpen(true);
+                              }}
+                              className="px-4 py-2 font-bold text-xs rounded-lg transition-all shadow-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-300"
+                            >
+                              Grant Course
+                            </button>
+                          ) : null}
+                          <button
+                            disabled={!item.session || item.session.paymentStatus !== 'paid'}
+                            onClick={() => {
+                              setSelectedStudent(item.student);
+                              setSelectedSession(item.session);
+                              setIsModalOpen(true);
+                            }}
+                            className={`px-4 py-2 font-bold text-xs rounded-lg transition-all shadow-sm ${
+                              item.session && item.session.paymentStatus === 'paid'
+                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
+                                : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                            }`}
+                          >
+                            {item.session && item.session.paymentStatus === 'paid' 
+                              ? 'Assign Teacher & Schedule' 
+                              : 'Awaiting Payment'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -507,12 +522,18 @@ const AdminPersonalSessions = () => {
         </div>
       )}
 
-      {/* Assignment Modal */}
       <AssignPersonalSessionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         student={selectedStudent}
         session={selectedSession}
+        onSuccess={loadData}
+      />
+
+      <GrantAccessModal
+        isOpen={isGrantModalOpen}
+        onClose={() => setIsGrantModalOpen(false)}
+        student={selectedStudent}
         onSuccess={loadData}
       />
     </div>

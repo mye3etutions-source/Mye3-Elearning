@@ -88,7 +88,7 @@ const AdminLayout = ({ children }) => {
         </header>
 
         {/* Main Content Area */}
-        <main className="p-4 md:p-6 flex-1 w-full max-w-full overflow-x-hidden">
+        <main className="p-4 md:p-6 flex-1 w-full max-w-full">
           <div className="max-w-full mx-auto w-full px-2">
             {children}
           </div>
