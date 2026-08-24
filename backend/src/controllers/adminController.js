@@ -478,6 +478,22 @@ exports.assignSubscription = async (req, res, next) => {
     }
 
     await student.save();
+
+    // Create Transaction Record for History
+    await Transaction.create({
+      studentId: student._id,
+      amount: 0,
+      status: 'success',
+      packageName: name,
+      referenceId: referenceId,
+      type: type === 'oneonone' ? '1-on-1' : type,
+      date: new Date()
+    });
+
+    if (req.app.get('io')) {
+      req.app.get('io').emit('admin-stats-update');
+    }
+
     res.status(200).json(student);
   } catch (error) {
     next(error);
@@ -882,7 +898,7 @@ exports.grantManualAccess = async (req, res, next) => {
       studentId: student._id,
       amount: 0, // Manual grant is usually free or handled differently
       status: 'success',
-      packageName: `Manual Grant: ${name}`,
+      packageName: name,
       referenceId: referenceId,
       type: type,
       date: new Date()

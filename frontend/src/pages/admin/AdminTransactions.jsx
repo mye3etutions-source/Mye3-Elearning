@@ -14,7 +14,9 @@ import {
   IndianRupee,
   ChevronLeft,
   ChevronRight,
-  Hash
+  Hash,
+  Globe2,
+  Banknote
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -100,6 +102,7 @@ const AdminTransactions = () => {
                        <th className="px-5 py-3">Student Info</th>
                        <th className="px-5 py-3">Course Detail</th>
                        <th className="px-5 py-3">Amount Paid</th>
+                       <th className="px-5 py-3">Payment Source</th>
                        <th className="px-5 py-3">Date</th>
                        <th className="px-5 py-3 text-center">Status</th>
                     </tr>
@@ -120,8 +123,8 @@ const AdminTransactions = () => {
                                   <User className="w-4 h-4" />
                                </div>
                                <div>
-                                  <p className="font-semibold text-slate-800 leading-tight text-sm">{t.studentId?.name || 'Manual Grant'}</p>
-                                  <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[150px]">{t.studentId?.email}</p>
+                                  <p className="font-semibold text-slate-800 leading-tight text-sm">{t.studentId?.name || 'Deleted User'}</p>
+                                  <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[150px]">{t.studentId?.email || 'N/A'}</p>
                                </div>
                             </div>
                          </td>
@@ -135,6 +138,19 @@ const AdminTransactions = () => {
                          </td>
                          <td className="px-5 py-4">
                             <span className="text-sm font-semibold text-slate-800">₹{t.amount.toLocaleString('en-IN')}</span>
+                         </td>
+                         <td className="px-5 py-4">
+                            {(t.amount === 0 || t.packageName?.includes('Manual Grant')) ? (
+                               <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200">
+                                  <Banknote className="w-3.5 h-3.5" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wide">Offline / Admin Grant</span>
+                               </div>
+                            ) : (
+                               <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-200">
+                                  <Globe2 className="w-3.5 h-3.5" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wide">Razorpay Online</span>
+                               </div>
+                            )}
                          </td>
                          <td className="px-5 py-4">
                             <div className="flex items-center gap-1.5 text-slate-500">
@@ -237,11 +253,20 @@ const AdminTransactions = () => {
                   <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-1 p-4 bg-slate-50 rounded-lg border border-slate-100">
                         <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><User className="w-3 h-3"/> Student</p>
-                        <p className="text-sm font-semibold text-slate-800">{selectedTx.studentId?.name || 'Manual Access'}</p>
+                        <p className="text-sm font-semibold text-slate-800">{selectedTx.studentId?.name || 'Deleted User'}</p>
                      </div>
                      <div className="space-y-1 p-4 bg-slate-50 rounded-lg border border-slate-100">
                         <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3 h-3"/> Date & Time</p>
                         <p className="text-sm font-semibold text-slate-800">{new Date(selectedTx.date || selectedTx.createdAt).toLocaleString('en-GB')}</p>
+                     </div>
+                     <div className="space-y-1 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                           {(selectedTx.amount === 0 || selectedTx.packageName?.includes('Manual Grant')) ? <Banknote className="w-3 h-3"/> : <Globe2 className="w-3 h-3"/>}
+                           Payment Source
+                        </p>
+                        <p className="text-sm font-semibold text-slate-800">
+                           {(selectedTx.amount === 0 || selectedTx.packageName?.includes('Manual Grant')) ? 'Offline / Admin Grant' : 'Razorpay Online'}
+                        </p>
                      </div>
                      <div className="col-span-2 space-y-1 p-4 bg-slate-50 rounded-lg border border-slate-100">
                         <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5"><Hash className="w-3 h-3"/> Transaction ID</p>

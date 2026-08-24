@@ -196,9 +196,8 @@ const ManageStudents = () => {
       <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
     </div>
   );
-
   return (
-    <div className="space-y-6 px-2 md:px-0 max-w-6xl mx-auto animate-in fade-in duration-300">
+    <div className="space-y-6 px-2 md:px-0 max-w-6xl mx-auto animate-in fade-in duration-300 pb-10">
       <Toaster position="top-right" />
       
       {/* Header section */}
@@ -285,14 +284,14 @@ const ManageStudents = () => {
       {/* Main Table */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
          <div className="overflow-x-auto">
-            <table className="w-full text-left whitespace-nowrap">
+            <table className="w-full text-left">
                <thead className="bg-slate-50/50 border-b border-slate-100">
-                  <tr className="text-sm font-semibold text-slate-600">
-                     <th className="px-5 py-3">Student Information</th>
-                     <th className="px-5 py-3">Contact</th>
-                     <th className="px-5 py-3">Current Access</th>
-                     <th className="px-5 py-3">Status</th>
-                     <th className="px-5 py-3 text-right pr-10">Administrative Actions</th>
+                  <tr className="text-sm font-semibold text-slate-600 whitespace-nowrap">
+                     <th className="px-4 py-3">Student Information</th>
+                     <th className="px-4 py-3">Contact</th>
+                     <th className="px-4 py-3">Current Access</th>
+                     <th className="px-4 py-3">Status</th>
+                     <th className="px-4 py-3 text-right">Administrative Actions</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
@@ -408,26 +407,26 @@ const ManageStudents = () => {
                                 {student.isOneOnOne && status.label === 'No Access' ? '1-ON-1' : status.label}
                              </div>
                          </td>
-                         <td className="px-5 py-6 text-right">
-                            <div className="flex items-center justify-end gap-2 px-1">
+                         <td className="px-4 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
                                <button 
                                  onClick={() => { setSelectedStudent(student); setShowDetailsModal(true); }}
                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white border border-transparent hover:border-slate-200 rounded-md transition-all shadow-hover"
                                  title="View Details"
                                >
-                                  <Eye className="w-5 h-5" />
+                                  <Eye className="w-4 h-4" />
                                </button>
                                {student.isOneOnOne ? (
                                  <button 
                                    onClick={() => window.location.href = '/admin/personal-sessions'}
-                                   className="px-4 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-md text-[11px] font-black uppercase tracking-wider hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                                   className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-md text-[10px] font-black uppercase tracking-wider hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                                  >
                                    Manage 1-on-1
                                  </button>
                                ) : (
                                  <button 
                                    onClick={() => { setSelectedStudent(student); setShowGrantModal(true); }}
-                                   className="px-4 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-md text-[11px] font-black uppercase tracking-wider hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm"
+                                   className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-md text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm"
                                  >
                                    Grant Access
                                  </button>
@@ -437,7 +436,7 @@ const ManageStudents = () => {
                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white border border-transparent hover:border-slate-200 rounded-md transition-all shadow-hover"
                                  title="Delete Student"
                                >
-                                  <Trash2 className="w-5 h-5" />
+                                  <Trash2 className="w-4 h-4" />
                                </button>
                             </div>
                          </td>
@@ -503,14 +502,14 @@ const ManageStudents = () => {
                  <h2 className="text-base font-bold text-slate-800">New Learner Portal</h2>
                  <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-800 transition-colors"><X className="w-5 h-5" /></button>
               </div>
-              <form onSubmit={handleAddStudent} className="p-4 space-y-4">
+              <form onSubmit={handleAddStudent} className="p-4 space-y-4" autoComplete="off">
                  <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600 ml-1">Full Name</label>
                     <input required value={studentForm.name} onChange={(e) => setStudentForm({...studentForm, name: e.target.value})} type="text" placeholder="John Doe" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
                  </div>
                  <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600 ml-1">Email Identity</label>
-                    <input required value={studentForm.email} onChange={(e) => setStudentForm({...studentForm, email: e.target.value})} type="email" placeholder="john@example.com" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
+                    <input required autoComplete="off" value={studentForm.email} onChange={(e) => setStudentForm({...studentForm, email: e.target.value})} type="email" placeholder="john@example.com" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
                  </div>
                  <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600 ml-1">Mobile Number (Optional)</label>
@@ -518,7 +517,7 @@ const ManageStudents = () => {
                  </div>
                  <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600 ml-1">Password</label>
-                    <input required value={studentForm.password} onChange={(e) => setStudentForm({...studentForm, password: e.target.value})} type="password" placeholder="••••••••" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
+                    <input required autoComplete="new-password" value={studentForm.password} onChange={(e) => setStudentForm({...studentForm, password: e.target.value})} type="password" placeholder="••••••••" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-md outline-none font-medium text-sm text-slate-800 transition-colors shadow-sm" />
                  </div>
                  <div className="pt-2">
                     <button type="submit" className="w-full py-2 bg-indigo-600 text-white rounded-md font-medium text-sm shadow-sm hover:bg-indigo-700 transition-colors">
